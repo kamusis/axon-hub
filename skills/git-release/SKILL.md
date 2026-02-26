@@ -142,4 +142,3 @@ Ask clarifying questions if the target versioning scheme is unclear.
 
 - I will not publish artifacts to registries (NPM/PyPI/Docker) unless you explicitly ask.
 - I will not mutate your repo history; I will only suggest commands and release text.
-
