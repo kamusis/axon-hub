@@ -39,8 +39,8 @@ axon sync
 ## 🛠 Compatible Tools
 
 Axon automatically bridges this Hub to the global configuration directories of:
-- **Editors**: Cursor, Windsurf, Antigravity, PearAI, Neovate.
-- **CLIs**: Claude Code, Codex, Gemini CLI, OpenCode.
+- **Editors**: Cursor, Windsurf, Antigravity, PearAI.
+- **CLIs**: Claude Code, Codex, Gemini CLI, OpenCode, Neovate.
 - **Agents**: OpenClaw.
 
 ---
