@@ -1,9 +1,7 @@
 ---
 name: slidev
-description: Formalize the workflow for creating, refining, and deploying Slidev presentations from Markdown. Use when the user wants to: (1) Convert regular Markdown or text into a Slidev-compatible format, (2) Deploy a new slide presentation to the public VPS server, (3) Build static HTML from .md files using the workspace build script.
+description: "Formalize the workflow for creating, refining, and deploying Slidev presentations from Markdown. Use when the user wants to: (1) Convert regular Markdown or text into a Slidev-compatible format, (2) Deploy a new slide presentation to the public VPS server, (3) Build static HTML from .md files using the workspace build script."
 ---
-
-# Slidev Skill
 
 This skill automates the process of turning standard Markdown into a beautiful Slidev presentation hosted on your public VPS.
 
