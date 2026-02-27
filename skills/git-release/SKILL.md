@@ -27,8 +27,8 @@ metadata:
 ### Optional (but recommended)
 
 - Versioning scheme
-  - SemVer (`MAJOR.MINOR.PATCH`) by default
-  - Whether you use pre-releases (`-rc.1`, `-beta.1`, etc.)
+  - SemVer (`vMAJOR.MINOR.PATCH`) with a required `v` prefix (example: `v0.2.0`)
+  - Pre-releases use SemVer prerelease suffixes: `-rc.1`, `-beta.1`, `-alpha.1` (example: `v0.2.0-rc.1`)
 - Release target
   - GitHub Release only, or also:
     - NPM / PyPI / container images
@@ -36,10 +36,9 @@ metadata:
 
 ## Questions I will ask (if unclear)
 
-- What is the current latest released version tag (example: `v1.4.2`)?
-- Do you prefix tags with `v` (example: `v1.4.2`) or not (example: `1.4.2`)?
+- What is the current latest released version tag (example: `v0.2.0`)?
 - What version bump do you want: **major**, **minor**, or **patch**?
-- Should this be a pre-release (example: `v1.5.0-rc.1`)?
+- Should this be a pre-release (example: `v0.2.0-rc.1`)?
 - Any sections you want in notes (example: Breaking Changes / Security / Migration)?
 
 ## Workflow
