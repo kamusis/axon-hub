@@ -61,6 +61,83 @@ git diff master..HEAD --stat
 git show <commit>:<file>
 ```
 
+### Step 3.5: Check README.md Coverage for User-Facing Changes
+
+If `README.md` exists, verify whether this branch introduces **user-facing changes** that should be documented, and whether `README.md` reflects them.
+
+#### What counts as “user-facing changes” (should usually be in README)
+
+Treat the changes as user-facing if any of the following are true:
+
+- New or changed user-facing **CLI** commands/subcommands
+- New or changed user-facing **CLI** flags/options/parameters
+- New or changed user-facing **UI/UX** flows, pages, navigation, permissions, or user settings
+- New or changed public **API** endpoints (REST/GraphQL/gRPC), request/response schemas, auth requirements, or error codes
+- New or changed **integration surface** (SDK usage, webhooks, events, message formats, protocols)
+- New or changed **configuration** keys, files, environment variables, or setup steps
+- Changes that affect **how users run, install, deploy, operate, or integrate** the tool
+
+Do **NOT** require README updates for changes that are purely internal and do not change user behavior (e.g. architecture refactor with no CLI/config changes).
+
+#### Suggested signals to detect user-facing changes
+
+Use the commit messages + changed files + diff contents to classify the PR:
+
+- Commit message contains keywords like: `add command`, `new command`, `flag`, `option`, `config`, `env`, `usage`, `breaking`, `deprecate`
+- Changed files include common CLI entrypoints (examples): `cmd/`, `src/cmd/`, `commands/`, `cobra`, `urfave/cli`
+- Diff adds or changes strings that look like flags/options (examples): `--foo`, `-f`, `Usage:`, `Flags:`, `Options:`
+- Diff touches config loading (examples): `config`, `viper`, `dotenv`, `yaml`, `toml`, `json`, `env`
+
+Also consider non-CLI projects (UI/API/services). Signals may include:
+
+- UI routes/pages/components changed (examples): `web/`, `ui/`, `frontend/`, `pages/`, `routes/`, `components/`
+- Public API surface changed (examples): `api/`, `openapi`, `swagger`, `proto`, `graphql`, `handlers`, `controllers`, `routes`
+- Auth/permission behavior changed (examples): `auth`, `oauth`, `jwt`, `rbac`, `acl`
+- Request/response schema changes (examples): `schema`, `dto`, `contract`, `models`, `types`
+- New or changed user-visible messages/errors that indicate behavior changes
+
+If you detect user-facing changes, but `README.md` is missing or appears unrelated, pause the workflow.
+
+#### How to check whether README reflects the changes
+
+1. Confirm the file exists:
+
+```bash
+test -f README.md && echo "README exists" || echo "README missing"
+```
+
+2. If it exists, search for mentions of newly introduced commands/flags/config keys inferred from commits/diffs.
+
+Examples (adapt the patterns to what you inferred):
+
+```bash
+# Example: search for a new command name
+rg -n "\\b<new_command>\\b" README.md
+
+# Example: search for a new flag
+rg -n "--<new_flag>\\b" README.md
+
+# Example: search for a new config key
+rg -n "\\b<new_config_key>\\b" README.md
+```
+
+3. If you cannot find any reasonable mention in README for the detected user-facing changes, ask the user whether to ignore and continue.
+
+#### User prompt (must pause and wait for answer)
+
+If the README check fails, present:
+
+- What user-facing changes you detected (commands/flags/config/setup)
+- Why you believe README should be updated
+- The evidence that README does not mention them (search results / absence)
+
+Then ask:
+
+"README.md does not appear to document the user-facing changes introduced by these commits. Do you want to ignore this and continue generating the PR, or stop and update README first?"
+
+If the user chooses to stop, pause the process.
+If the user chooses to ignore, continue but mark the PR checklist item `Documentation updated` as unchecked, and add a short note in the PR description under a `## Documentation` section.
+
 ### Step 4: Generate PR Content
 
 #### PR Title Generation Rules
