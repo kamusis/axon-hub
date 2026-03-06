@@ -1,11 +1,11 @@
 ---
-name: git-pr-creator
-description: 'Generate PR title and description by analyzing git commits and code changes. Reads differences between current branch and master/main, extracts commit messages, reviews modified files, and produces a structured PR description for user review. Does NOT automatically create the PR - returns content for manual review.'
+name: github-pr-creator
+description: 'Create a GitHub Pull Request from already-created commits. Analyzes commits and diffs, generates PR title/body for review, then (optionally) creates the PR via gh after explicit user approval.'
 ---
 
-# Git PR Creator
+# GitHub PR Creator
 
-Analyze git commits and code changes to automatically generate PR title and description.
+Analyze git commits and code changes to generate PR title/body, then create the PR on GitHub (with approval).
 
 ## What I Do
 
@@ -13,7 +13,8 @@ Analyze git commits and code changes to automatically generate PR title and desc
 2. **Extract commit context** - Parse commit messages and identify scope of changes
 3. **Review code changes** - Examine modified files to understand implementation details
 4. **Generate PR content** - Create structured PR title and description
-5. **Return for review** - Present the generated content to user for approval before creating PR
+5. **Return for review** - Present the generated content to user for approval
+6. **Create PR (optional)** - If approved, create the PR via `gh pr create`
 
 ## When to Use Me
 
@@ -23,8 +24,18 @@ Triggers on requests like:
 - "Summarize my branch as a PR"
 - "Draft PR for current branch"
 - "Generate PR title and description"
+- "Create a PR on GitHub from my commits"
 
 ## Workflow
+
+### Step 0: Preconditions (This is Post-Commit)
+
+This skill assumes:
+
+- The implementation is already committed (one or more commits on the branch)
+- You want to create a GitHub PR from those commits
+
+If there are no commits compared to the target branch, stop and report that there is nothing to PR.
 
 ### Step 1: Detect Current Branch and Target Branch
 
@@ -193,7 +204,30 @@ If the user chooses to ignore, continue but mark the PR checklist item `Document
 3. Show list of commits included
 4. Show summary of files changed
 5. Ask user to review and approve
-6. **Do NOT** automatically create the PR - wait for explicit user confirmation
+
+If approved, ask one additional question:
+
+"Do you want me to create the PR on GitHub now using gh, or only output the title/body for you to paste manually?"
+
+### Step 6: Create the PR on GitHub (Optional)
+
+If the user chooses to create the PR:
+
+1. Ensure the branch is pushed (do not force-push):
+
+```bash
+git push -u origin HEAD
+```
+
+2. Create the PR:
+
+```bash
+gh pr create --title "<title>" --body "<body>"
+```
+
+3. Report the created PR URL.
+
+If the user chooses manual mode, stop after Step 5 and provide the title/body.
 
 ## Example Workflow
 
@@ -242,7 +276,7 @@ If the user chooses to ignore, continue but mark the PR checklist item `Document
 
 ## Important Notes
 
-- **Does NOT create PR automatically** - Only generates content
+- **Never creates PR without explicit approval**
 - **Respects user's review** - User must explicitly approve before any PR action
 - **Handles multiple commits** - Aggregates messages from all commits in branch
 - **Identifies default branch** - Automatically detects `master` or `main`

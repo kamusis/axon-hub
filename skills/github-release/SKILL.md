@@ -1,5 +1,5 @@
 ---
-name: git-release
+name: github-release
 description: Create consistent releases and changelogs, including drafting GitHub release notes from merged PRs, recommending SemVer bumps (major/minor/patch), and producing copy-pasteable git tag/push and optional gh release create/edit commands. Use when preparing a tagged release, a prerelease (rc/beta/alpha), or when asked to "draft release notes", "bump version", "tag a release", "create a GitHub release", or "do the release for me".
 ---
 ## What I do
