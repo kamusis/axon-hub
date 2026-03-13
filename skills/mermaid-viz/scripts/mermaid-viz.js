@@ -5,17 +5,15 @@
  * 
  * A CLI bridge for beautiful-mermaid to render diagrams in OpenClaw.
  * Supports ASCII (default) and SVG output.
- * 
- * Usage:
- *   node scripts/mermaid-viz.js --type ascii "graph TD; A-->B"
- *   node scripts/mermaid-viz.js --type svg --theme tokyo-night --output result.svg "graph TD; A-->B"
  */
 
 const fs = require('fs');
 const path = require('path');
-const { renderMermaid, renderMermaidAscii, THEMES } = require('beautiful-mermaid');
 
 async function main() {
+  // Dynamically import ESM module
+  const { renderMermaid, renderMermaidAscii, THEMES } = await import('beautiful-mermaid');
+  
   const args = process.argv.slice(2);
   
   // Parse flags
@@ -29,12 +27,11 @@ async function main() {
   const outputFile = getFlag('--output');
   const useAscii = args.includes('--pure-ascii');
 
-  // Get mermaid code (everything that's not a flag or a flag value)
+  // Get mermaid code
   let input = '';
   const filteredArgs = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i].startsWith('--')) {
-      // Skip flag and its value if it has one
       if (['--type', '--theme', '--output'].includes(args[i])) i++;
       continue;
     }
@@ -49,7 +46,6 @@ async function main() {
 
   if (!input || input.trim() === '') {
     console.error('Error: No Mermaid diagram code provided.');
-    console.log('Usage: node mermaid-viz.js [--type svg|ascii] [--theme name] [--output file] "diagram code"');
     process.exit(1);
   }
 
@@ -66,7 +62,6 @@ async function main() {
         process.stdout.write(svg);
       }
     } else {
-      // ASCII / Unicode mode
       const ascii = renderMermaidAscii(input, { useAscii });
       console.log(ascii);
     }
