@@ -26,6 +26,7 @@ async function main() {
   const themeName = getFlag('--theme') || 'zinc-dark';
   const outputFile = getFlag('--output');
   const useAscii = args.includes('--pure-ascii');
+  const isTransparent = args.includes('--opaque') ? false : true;
 
   // Get mermaid code
   let input = '';
@@ -52,7 +53,7 @@ async function main() {
   try {
     if (type === 'svg') {
       const theme = THEMES[themeName] || THEMES['zinc-dark'];
-      const svg = await renderMermaid(input, theme);
+      const svg = await renderMermaid(input, { ...theme, transparent: isTransparent });
       
       if (outputFile) {
         const absPath = path.isAbsolute(outputFile) ? outputFile : path.join(process.cwd(), outputFile);

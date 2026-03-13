@@ -39,9 +39,7 @@ def upload_image(file_path, api_token):
             delete_url = img_data.get("delete", "N/A")
             filename = img_data.get("filename", "image")
             
-            # Print mandatory OpenClaw media tag
-            print(f"MEDIA: {direct_url}")
-            
+            # Print mandatory OpenClaw media tag            
             print(f"🖼️ **S.EE Upload Success**")
             print(f"🔗 **Direct**: {direct_url}")
             print(f"🗑️  **Delete**: {delete_url}")

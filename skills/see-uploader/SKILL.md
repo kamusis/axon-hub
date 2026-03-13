@@ -24,4 +24,4 @@ Set `SEE_API_TOKEN` in environment or `openclaw.json`.
 
 ## Output
 
-Returns Markdown, HTML, BBCode, and Direct Link.
+Returns Markdown, HTML, and Direct Link.

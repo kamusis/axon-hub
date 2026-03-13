@@ -8,3 +8,4 @@ Thumbs.db
 .system/
 node_modules/
 pnpm-lock.yaml
+artifacts/
