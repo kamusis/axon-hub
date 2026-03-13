@@ -6,3 +6,5 @@ Thumbs.db
 .idea/
 .vscode/
 .system/
+node_modules/
+pnpm-lock.yaml
