@@ -1,18 +1,25 @@
 ---
 name: mermaid-viz
-description: Render Mermaid diagrams as beautiful ASCII/Unicode art for terminal display or SVG files for sharing. Use when the user asks to visualize logic, flows, state machines, or architecture.
-version: 1.0.1
+description: Render Mermaid diagrams as beautiful ASCII/Unicode art for terminal display, or SVG/JPG/PNG files for sharing. Use when the user asks to visualize logic, flows, state machines, or architecture.
+version: 1.2.0
 user-invocable: true
+metadata:
+  openclaw:
+    emoji: "📊"
+    requires:
+      bins: ["node"]
+      npm: ["beautiful-mermaid", "sharp"]
 ---
 
 # Mermaid Visualization
 
-Visualize complex logic and system architecture directly in the chat or as SVG files using `beautiful-mermaid`.
+Visualize complex logic and system architecture directly in the chat, or as SVG/JPG/PNG files using `beautiful-mermaid` and `sharp`.
 
 ## Prerequisites
 
 - Node.js
 - `beautiful-mermaid`
+- `sharp`
 
 ## Installation
 
@@ -26,9 +33,11 @@ pnpm install
 
 ## Usage
 
-You can generate two types of output:
+You can generate four types of output:
 1. **ASCII/Unicode** (Default): Best for immediate display in the chat.
 2. **SVG**: Best for high-quality sharing or documentation.
+3. **JPG**: Best for quick viewing on platforms with limited SVG support.
+4. **PNG**: Lossless bitmapped image format with transparency support.
 
 ### Rendering ASCII/Unicode (Immediate Display)
 
@@ -37,23 +46,21 @@ To show a diagram in the chat, use:
 node scripts/mermaid-viz.js "diagram_code"
 ```
 
-### Rendering SVG (File Output)
+### Rendering SVG/JPG/PNG (File Output)
 
-To save a high-quality SVG (remember to save to the `artifacts/` directory):
+To save a high-quality file (remember to save to the `artifacts/` directory):
 ```bash
 node scripts/mermaid-viz.js --type svg --theme tokyo-night --output artifacts/output.svg "diagram_code"
+node scripts/mermaid-viz.js --type jpg --theme tokyo-night --output artifacts/output.jpg "diagram_code"
+node scripts/mermaid-viz.js --type png --theme tokyo-night --output artifacts/output.png "diagram_code"
 ```
 
-SVG background behavior:
-- Transparent by default
-- Pass `--opaque` to preserve the selected theme background color in the output SVG
+Background behavior:
+- **SVG**: Transparent by default. Pass `--opaque` to preserve the theme background.
+- **JPG**: Always uses the theme background (or a default dark color).
+- **PNG**: Transparent by default. Pass `--opaque` to flatten with the theme background.
 
-To save an opaque SVG with the theme background:
-```bash
-node scripts/mermaid-viz.js --type svg --theme tokyo-night --opaque --output artifacts/output.svg "diagram_code"
-```
-
-## Available Themes (SVG only)
+### Available Themes (SVG/JPG only)
 `zinc-light`, `zinc-dark`, `tokyo-night`, `tokyo-night-storm`, `tokyo-night-light`, `catppuccin-mocha`, `catppuccin-latte`, `nord`, `nord-light`, `dracula`, `github-light`, `github-dark`, `solarized-light`, `solarized-dark`, `one-dark`.
 
 ## Examples
@@ -66,14 +73,14 @@ node scripts/mermaid-viz.js "flowchart LR
   B -->|Fail| D[Login]"
 ```
 
-### 2. Generate a sequence diagram SVG
+### 2. Generate a sequence diagram JPG
 ```bash
-node scripts/mermaid-viz.js --type svg --output artifacts/sequence.svg "sequenceDiagram
+node scripts/mermaid-viz.js --type jpg --output artifacts/sequence.jpg "sequenceDiagram
   Alice->>Bob: Hello Bob!
   Bob-->>Alice: Hi Alice!"
 ```
 
-### 3. Generate an opaque SVG that preserves the theme background
+### 3. Generate an opaque SVG
 ```bash
 node scripts/mermaid-viz.js --type svg --theme tokyo-night --opaque --output artifacts/sequence-opaque.svg "sequenceDiagram
   Alice->>Bob: Hello Bob!
