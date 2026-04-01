@@ -27,6 +27,8 @@
   - `city|team|level|skill|amount|age|task-table|task-treemap`
 - `mes util`
   - `parse-support-url`
+  - `search-user`
+  - `search-company`
 
 ## Full parameter reference (agent-facing)
 
@@ -350,7 +352,6 @@
   - `dashboard delivery contracts list`：`--executor-id --expiring-only --last-service-date --never-delivered-only --date-range-start --date-range-end --include-expired --json`
   - `dashboard delivery contract-items`：`--company-id|--contract-id|--contract-num --item-type --date-range-start --date-range-end --min-progress-ratio --max-progress-ratio --actual-hours-zero-only --json`
   - `dashboard work`：`--executor-id --from/--to or --range --json`
-  - `dashboard work customers list`：`--executor-id --from/--to or --range --contracts --max-contracts --json`
   - `dashboard score list`：`--month --team-id --executor-id --page --page-size --sort --truncate --no-truncate --limit --json`
   - `dashboard weeklyReport list`：`--search --created-by --creator --type --period-from --period-to --page --page-size --json`
   - `dashboard weeklyReport view <id>`：`--json`
@@ -364,6 +365,10 @@
 
 - `util parse-support-url <url>`
   - 仅使用全局输出参数（`-o json` 推荐）
+- `util search-user <keyword>`
+  - 通过用户名/关键字搜索用户，返回 userID、userName、account，支持 `-o json` 输出
+- `util search-company <keyword>`
+  - 通过公司名称关键字搜索公司，返回 companyID、companyName，支持 `-o json` 输出
 
 ### Parameter completion rules for agent
 

@@ -61,11 +61,18 @@
 - “看交付统计汇总（工程师 123）”  
   `mes dashboard delivery summary --executor-id 123`
 - “看工作情况客户工时（上月）”  
-  `mes -o json dashboard work customers list --executor-id 123 --range lastMonth`
+  `mes -o json dashboard work --executor-id 123 --range lastMonth`
 - “看周报列表（某人+某天）”  
   `mes -o json dashboard weeklyReport 20260306 张三`
 
-### 7) URL 解析
+### 7) 用户搜索
+
+- "查询用户张三的 ID"  
+  `mes util search-user 张三 -o json`
+- "搜索用户名包含 '张' 的用户"  
+  `mes util search-user 张`
+
+### 8)URL 解析
 
 - “这个 support 链接对应什么类型和 id”  
   `mes -o json util parse-support-url "https://support.enmotech.com/plan/16570"`

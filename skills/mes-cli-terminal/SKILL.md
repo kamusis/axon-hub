@@ -73,7 +73,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 - `article list|view|review-count`
 - `contract list|view`
 - `dashboard ...` 所有查询
-- `util parse-support-url`
+- `util parse-support-url|search-user|search-company`
 
 **写操作（先预览/确认）**
 
