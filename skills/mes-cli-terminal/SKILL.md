@@ -31,6 +31,27 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 6. 严禁臆造、填充或基于常见占位符（如张三、李四等）猜测缺失或因截断而无法直接读取的数据。提炼结果必须与真实回传字段严格对应。
 7. 完成最终报告之后，必须删除用于重定向的临时文件，以减少信息泄露风险。
 8. **分析服务请求详情时**：必须通过 `mes -o json service request view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
+9. ⚠️ **编码处理（仅限跨环境调用场景）**：当 agent 通过 `wsl -d <distro> -- bash -l -c "mes ..."` 从 **Windows 侧远程调用 WSL 中的 mes CLI** 时，输出为 UTF-8 JSON。此时**绝对不能**通过管道或重定向将 mes 输出直接写入 Windows 文件系统（如 `wsl ... > windows_path.json`）——WSL → Windows 的 interop 管道层会按系统默认代码页（中文 Windows 为 GBK/CP936）做编码转换，导致所有中文字段乱码。
+   
+   **以下场景无需关注本规则**（可直接正常使用）：
+   - Agent 直接运行在 Linux/macOS环境中，`mes` 命令在同一 shell 内执行
+   - Agent 运行在 WSL Linux 内部，与 mes CLI 处于同一文件系统
+
+   **仅在 Windows → WSL 跨环境调用时，必须分两步执行**：
+   - **Step 1** — 将 mes 输出写入 WSL 内部路径：`wsl -d Ubuntu-24.04 -- bash -l -c "MES_NONINTERACTIVE=1 mes -o json <command> > /tmp/data.json"`
+   - **Step 2** — 在 WSL 内用 Python3 解析 JSON 并输出关键字段到 stdout：
+     ```bash
+     wsl -d Ubuntu-24.04 -- bash -l -c 'python3 << "PYEOF"
+     import json
+     with open("/tmp/data.json", "r", encoding="utf-8") as f:
+         d = json.load(f)
+     detail = d["detail"]  # 或 d["list"] 等
+     print(f"ID: {detail['id']}")
+     print(f"标题: {detail['title']}")
+     # ... 提取需要的字段
+     PYEOF'
+     ```
+   此方式完全在 WSL 内完成读取与解码，避免跨文件系统的字节流转换问题。
 
 ## Command-generation workflow
 
@@ -49,9 +70,11 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
    - 先给“将执行命令”
    - 有 `--dry-run` 的先 dry-run
    - 用户确认后再正式执行（同一命令去掉 `--dry-run`）
-   - 查询类：当列表或详情可能产生长文本输出时，默认采用重定向临时文件方式并配合文件读取命令，以保证数据的完整性。
+   - 查询类：当列表或详情可能产生长文本输出时，默认采用重定向临时文件方式并配合文件读取命令，以保证数据的完整性。如果当前是 **Windows → WSL 跨环境调用**（见 Hard rule #8），则**必须**遵循两步法（WSL 内 `/tmp/` + Python3 解析），以保证中文数据不被破坏且完整可读。
+   - ⚠️ 禁止在跨环境调用场景下使用 `wsl ... > windows_file.json` 直接重定向包含中文的 JSON 输出到 Windows 文件系统。
 5. **结果回传**
    - JSON 输出下提炼关键字段（id、status、count、time、message）,永远尝试包含happen-time，created-time等时间相关关键字段
+   - ⚠️ 若当前是 **Windows → WSL 跨环境调用**（见 Hard rule #8），中文内容必须通过 WSL 内 Python3 解析获取，严禁直接读取 Windows 侧的 JSON 文件提取中文字段。同环境调用（Linux/macOS 原生或 WSL 内部）不受此限制。
    - 出错时直接给可执行修复命令
 
 ## Non-interactive policy
