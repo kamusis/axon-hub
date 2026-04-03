@@ -186,17 +186,23 @@
   - `--is-starred`
   - `--page`, `--page-size`
   - `--id`
-  - `--level`
-  - `--min-level`
+  - `--level`（**仅接受 P0..P5 格式**，不接受数字；服务端过滤）
+  - `--min-level`（接受 P0..P5 或数字 0..5；**客户端过滤，仅作用于当前页**，跨页无效）
   - `--status`（建议中文；兼容数字：已提交|处理中|已关闭|已归档|待反馈|已恢复 = 0|1|2|3|4|5）
   - `--company-id`
-  - `--person-id`
+  - `--person-id`（匹配**申报人或负责人**任一）
   - `--menu-root-id`
-  - `--start-time`, `--end-time`
+  - `--start-time`, `--end-time`（**必须使用完整 datetime 格式 `"YYYY-MM-DD HH:mm:ss"`**；过滤字段为 `createdTime`；仅传日期会被解析为 `00:00:00` 导致当天无结果，须用 `--start-time "YYYY-MM-DD 00:00:00" --end-time "YYYY-MM-DD 23:59:59"`）
   - `--title`
   - `--tags`
   - `--json`
-  - **列表 JSON 语义**：`executorEmployeeName` = 当前负责人**真实姓名**；`executorName` 多为账号/昵称。按负责人聚合、筛选、对外展示时**优先** `executorEmployeeName`，缺省再回退 `executorName`。
+  - **列表 JSON 语义（姓名字段）**：
+    - 创建人真实姓名：用 `employeeName`（**不要用** `createdByName`，后者可能是账号/昵称如 joankg、seagull）
+    - 负责人真实姓名：用 `executorEmployeeName`（**不要用** `executorName`，后者可能是账号/昵称如 joankg、泡泡龙）
+    - 展示或聚合时，姓名一律取上述两个 employee 字段，无特殊情况不回退到账号字段。
+  - **默认范围**：返回当前账号可见的**全团队**请求，不限于自己创建或负责。如需过滤可用 `--person-id`。
+  - **等级字段**：响应体中的 `type` 字段即为服务请求等级，整数编码需手动映射：`4=P0, 2=P1, 1=P2, 0=P3, 3=P4, 5=P5`。非 JSON 模式 CLI 会自动渲染为 `P1(2)` 格式；`-o json` 下返回原始整数，提炼结果时需按上述映射转换后展示给用户。
+  - **工时报告字段**：`hasFaultReport`（布尔）表示该请求是否已有工时报告，对应表格"报告"列。
 - `service request view <id|url>`
   - `--json`
 - `service request report <id|url>`
@@ -216,7 +222,7 @@
 - `service request recover <id|url>`
   - `--happen-time`
   - `--recover-time`
-  - `--recover-type`
+  - `--recover-type`（`0=已根除原因` `1=已了解问题根因`（默认） `2=不了解问题根因`；**3=未恢复，不可提交，会报错**）
   - `--dry-run`
   - `--json`
 - `service request edit <id|url>`
@@ -372,7 +378,7 @@
 
 ### Parameter completion rules for agent
 
-- `service request list` 的 JSON：统计「负责人」用 `executorEmployeeName`（真实姓名），不要用 `executorName` 代替；后者可为登录名。
+- `service request list` 的 JSON：创建人真实姓名用 `employeeName`，负责人真实姓名用 `executorEmployeeName`；`createdByName` 和 `executorName` 均可能是账号/昵称，展示时不要使用。
 - 用户给 URL（plan/request）时，优先 `--from-url`，避免手工错填 `type/rid`。
 - `statistics add` 若无交互必须带齐：`--start --end --hours --remark` + 关联参数。
 - `service history create` 易漏：`--handle-over-time --happen-time --created-time --team-id --executor-id`。

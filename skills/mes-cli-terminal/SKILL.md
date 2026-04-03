@@ -30,6 +30,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 5. 不要求用户在聊天里粘贴 token；认证走 `mes auth login ...`。
 6. 严禁臆造、填充或基于常见占位符（如张三、李四等）猜测缺失或因截断而无法直接读取的数据。提炼结果必须与真实回传字段严格对应。
 7. 完成最终报告之后，必须删除用于重定向的临时文件，以减少信息泄露风险。
+8. **分析服务请求详情时**：必须通过 `mes -o json service request view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
 
 ## Command-generation workflow
 
