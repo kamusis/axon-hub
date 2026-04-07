@@ -24,14 +24,16 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 ## Hard rules
 
 1. 只使用 `mes ...` 命令完成 MES 业务动作，不改用其他自造脚本。
-2. 查询类强制使用 `mes -o json ...`。对于预期超过 20 行的多行结果，必须将输出重定向至临时文件并确保完整阅读全文后再提炼，严禁仅参看可能被截断的终端回显（truncated output/delta）。
-3. 自动化/CI/Agent 无 TTY 场景，优先 `MES_NONINTERACTIVE=1`。
-4. 写操作必须先展示将执行的命令；支持 `--dry-run` 时先 dry-run。
-5. 不要求用户在聊天里粘贴 token；认证走 `mes auth login ...`。
-6. 严禁臆造、填充或基于常见占位符（如张三、李四等）猜测缺失或因截断而无法直接读取的数据。提炼结果必须与真实回传字段严格对应。
-7. 完成最终报告之后，必须删除用于重定向的临时文件，以减少信息泄露风险。
-8. **分析服务请求详情时**：必须通过 `mes -o json service request view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
-9. ⚠️ **编码处理（仅限跨环境调用场景）**：当 agent 通过 `wsl -d <distro> -- bash -l -c "mes ..."` 从 **Windows 侧远程调用 WSL 中的 mes CLI** 时，输出为 UTF-8 JSON。此时**绝对不能**通过管道或重定向将 mes 输出直接写入 Windows 文件系统（如 `wsl ... > windows_path.json`）——WSL → Windows 的 interop 管道层会按系统默认代码页（中文 Windows 为 GBK/CP936）做编码转换，导致所有中文字段乱码。
+2. 每一次业务动作，通常只涉及到一条mes命令，避免以下场景：当用户请求查询某个合同信息时，先使用关键字查询客户名称->获得客户ID->再使用客户ID查询相关合同信息。应该使用：关键字直接查询合同信息。
+   - **例外**：当任务本身需要先获取列表再逐项拉取正文时（如"查上周所有人周报并总结"需先 `weeklyReport list` 得到 ID 列表，再对每个 ID 执行 `weeklyReport view`），允许多条命令串联，但每条命令必须仍是单个 `mes` 调用，不得引入额外脚本或中间转换步骤。
+3. 查询类强制使用 `mes -o json ...`。对于预期超过 20 行的多行结果，必须将输出重定向至临时文件并确保完整阅读全文后再提炼，严禁仅参看可能被截断的终端回显（truncated output/delta）。
+4. 所有命令均为非交互模式，必须显式传入所有必填参数。
+5. 写操作必须先展示将执行的命令；支持 `--dry-run` 时先 dry-run。
+6. 不要求用户在聊天里粘贴 token；认证走 `mes auth login ...`。
+7. 严禁臆造、填充或基于常见占位符（如张三、李四等）猜测缺失或因截断而无法直接读取的数据。提炼结果必须与真实回传字段严格对应。
+8. 完成最终报告之后，必须删除用于重定向的临时文件，以减少信息泄露风险。
+9. **分析服务请求详情时**：必须通过 `mes -o json service request view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
+10. ⚠️ **编码处理（仅限跨环境调用场景）**：当 agent 通过 `wsl -d <distro> -- bash -l -c "mes ..."` 从 **Windows 侧远程调用 WSL 中的 mes CLI** 时，输出为 UTF-8 JSON。此时**绝对不能**通过管道或重定向将 mes 输出直接写入 Windows 文件系统（如 `wsl ... > windows_path.json`）——WSL → Windows 的 interop 管道层会按系统默认代码页（中文 Windows 为 GBK/CP936）做编码转换，导致所有中文字段乱码。
    
    **以下场景无需关注本规则**（可直接正常使用）：
    - Agent 直接运行在 Linux/macOS环境中，`mes` 命令在同一 shell 内执行
@@ -79,12 +81,20 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 
 ## Non-interactive policy
 
-- 推荐前缀：`MES_NONINTERACTIVE=1`
-- 对 `mes statistics add`：在非交互模式必须显式提供  
+- 所有命令均为非交互模式，无交互提示；必须显式传入所有必填参数。
+- 对 `mes statistics add`：必须显式提供  
   `--start --end --hours --remark` + 关联信息（`--from-url` 或 `--type + --rid`；必要时 `--acc-id`）
 - 若用户给了 support 链接，优先：
   - `mes -o json util parse-support-url "<url>"`
   - 然后把结果映射到 `statistics add`
+- 缺少 ID 时使用对应 util 命令查找：
+  - 公司 ID：`mes util search-company <keyword>`
+  - 用户/执行人 ID：`mes util search-user <keyword>`
+  - 团队 ID：`mes util list-teams`
+  - 团队成员 ID：`mes util list-members --team-id <id>`
+  - 资产 ID：`mes util list-assets --company-id <id>`
+  - 合同子项 ID（acc-id）：`mes dashboard delivery contract-items --company-id <id> -o json`
+  - Profile 列表：`mes auth profile list`
 
 ## Safety classification
 
@@ -97,7 +107,8 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 - `article list|view|review-count`
 - `contract list|view`
 - `dashboard ...` 所有查询
-- `util parse-support-url|search-user|search-company`
+- `util parse-support-url|search-user|search-company|list-teams|list-members|list-assets`
+- `auth profile list`
 
 **写操作（先预览/确认）**
 

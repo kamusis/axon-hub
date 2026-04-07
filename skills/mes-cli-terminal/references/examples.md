@@ -33,6 +33,8 @@
 
 - “列出我的未关闭工单”  
   `mes -o json service request list --status 1 --person-id <uid>`
+- “搜索标题包含 'Oracle' 的服务请求”  
+  `mes -o json service request list --title "Oracle"`
 - “看工单 123 详情”  
   `mes -o json service request view 123`
 - “给工单 123 回复：已处理”  
@@ -47,7 +49,7 @@
 - “结束计划 16570”  
   `mes plan end 16570`
 - “新建计划（单处理人）”  
-  `mes plan create --title "..." --check-type 1 --company-id 91 --start-date "2026-03-24 09:00:00" --end-date "2026-03-24 18:00:00" --executor-id 11111 --task-time "8"`
+  `mes plan create --title “...” --check-type 1 --company-id 91 --acc-id “20260301345” --start-date “2026-03-24 09:00:00” --end-date “2026-03-24 18:00:00” --executor-id 11111 --executor-name “张三” --task-time “8”`
 
 ### 5) 文章与合同
 
@@ -56,6 +58,10 @@
 - “按关键词查合同”  
   `mes -o json contract list --search "Oracle"`
 
+- "按合同编号查询合同子项"  
+  `mes -o json contract list-items --contract-num "00032597"`
+- "查某合同下实际工时为0的子项"  
+  `mes contract list-items --contract-id 12345 --actual-hours-zero-only`
 ### 6) 管理看板
 
 - “看交付统计汇总（工程师 123）”  

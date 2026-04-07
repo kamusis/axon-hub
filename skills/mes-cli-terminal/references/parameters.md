@@ -119,7 +119,7 @@
   - `--json`
 - `statistics list`
   - `--from`, `--to`, `--range`
-  - `--title`, `--remark`
+  - `--title`, `--remark` (均支持关键词模糊搜索)
   - `--company-id`, `--team-id`
   - `--acc-id`
   - `--executor-id`
@@ -181,28 +181,52 @@
   - `--executor-id`（关键）
   - `--external-plan-id`
   - `--json`
+
+### `mes service request` 字典
+
+#### status 状态字典
+
+`--status` 参数用于筛选服务请求的状态，支持数字/中文名称：
+
+| 代码 | 状态描述 |
+| ---- | -------- |
+| -1   | 初始化 |
+| 0    | 已提交 |
+| 1    | 处理中 |
+| 2    | 已关闭 |
+| 3    | 已归档 |
+| 4    | 待反馈 |
+| 5    | 业务已恢复 |
+
+#### type 等级字典
+
+`--level`/`--min-level` 参数用于筛选服务请求的等级，支持数字/P0-P5：
+
+| 代码 | 等级 | 描述 |
+| ---- | ---- | ---- |
+| 4 | P0 | 我方误操作致业务不可用 |
+| 2 | P1 | 核心业务完全不可用（关键业务受影响）|
+| 1 | P2 | 非核心业务完全不可用（非关键业务受到影响）|
+| 0 | P3 | 部分业务模块不可用（一般故障不影响业务）|
+| 3 | P4 | 咨询，业务暂未受影响（技术咨询）|
+| 5 | P5 | 问题原因分析 |
+
 - `service request list`
   - `--unclosed`
   - `--is-starred`
   - `--page`, `--page-size`
   - `--id`
-  - `--level`（**仅接受 P0..P5 格式**，不接受数字；服务端过滤）
-  - `--min-level`（接受 P0..P5 或数字 0..5；**客户端过滤，仅作用于当前页**，跨页无效）
+  - `--level`
+  - `--min-level`
   - `--status`（建议中文；兼容数字：已提交|处理中|已关闭|已归档|待反馈|已恢复 = 0|1|2|3|4|5）
   - `--company-id`
-  - `--person-id`（匹配**申报人或负责人**任一）
+  - `--person-id`
   - `--menu-root-id`
-  - `--start-time`, `--end-time`（**必须使用完整 datetime 格式 `"YYYY-MM-DD HH:mm:ss"`**；过滤字段为 `createdTime`；仅传日期会被解析为 `00:00:00` 导致当天无结果，须用 `--start-time "YYYY-MM-DD 00:00:00" --end-time "YYYY-MM-DD 23:59:59"`）
-  - `--title`
+  - `--start-time`, `--end-time`
+  - `--title` (按标题关键词模糊搜索，支持部分匹配)
   - `--tags`
   - `--json`
-  - **列表 JSON 语义（姓名字段）**：
-    - 创建人真实姓名：用 `employeeName`（**不要用** `createdByName`，后者可能是账号/昵称如 joankg、seagull）
-    - 负责人真实姓名：用 `executorEmployeeName`（**不要用** `executorName`，后者可能是账号/昵称如 joankg、泡泡龙）
-    - 展示或聚合时，姓名一律取上述两个 employee 字段，无特殊情况不回退到账号字段。
-  - **默认范围**：返回当前账号可见的**全团队**请求，不限于自己创建或负责。如需过滤可用 `--person-id`。
-  - **等级字段**：响应体中的 `type` 字段即为服务请求等级，整数编码需手动映射：`4=P0, 2=P1, 1=P2, 0=P3, 3=P4, 5=P5`。非 JSON 模式 CLI 会自动渲染为 `P1(2)` 格式；`-o json` 下返回原始整数，提炼结果时需按上述映射转换后展示给用户。
-  - **工时报告字段**：`hasFaultReport`（布尔）表示该请求是否已有工时报告，对应表格"报告"列。
+  - **列表 JSON 语义**：`executorEmployeeName` = 当前负责人**真实姓名**；`executorName` 多为账号/昵称。按负责人聚合、筛选、对外展示时**优先** `executorEmployeeName`，缺省再回退 `executorName`。
 - `service request view <id|url>`
   - `--json`
 - `service request report <id|url>`
@@ -222,7 +246,7 @@
 - `service request recover <id|url>`
   - `--happen-time`
   - `--recover-time`
-  - `--recover-type`（`0=已根除原因` `1=已了解问题根因`（默认） `2=不了解问题根因`；**3=未恢复，不可提交，会报错**）
+  - `--recover-type`
   - `--dry-run`
   - `--json`
 - `service request edit <id|url>`
@@ -235,10 +259,58 @@
 
 ### `mes plan`
 
+#### check-type 字典
+
+`--check-type` 参数用于指定计划任务的类型，支持数字 0-6：
+
+| 数字 | 中文类型 | 常见叫法/说明                    |
+| ---- | -------- | -------------------------------- |
+| 0    | 巡检     | 巡检、例行检查、定期检查         |
+| 1    | 培训     | 培训、授课、技术分享             |
+| 2    | 现场人天 | 现场人天、人天服务、按天计费     |
+| 3    | 驻场     | 驻场、驻场服务、长期驻场         |
+| 4    | 售前POC  | 售前POC、POC、售前验证、技术验证 |
+| 5    | 维保     | 维保、维保服务、维护保障         |
+| 6    | 内部事项 | 内部事项、内部事务、公司内部     |
+
+**自然语言映射规则：**
+
+当用户提到以下词汇时，映射到对应数字：
+
+- "巡检"、"例行检查" → 0
+- "培训"、"授课" → 1
+- "现场人天"、"人天" → 2
+- "驻场" → 3
+- "售前POC"、"POC"、"售前验证" → 4
+- "维保" → 5
+- "内部事项"、"内部事务" → 6
+
+#### status 状态字典
+
+`--status` 参数用于筛选计划任务的状态，支持数字 0-3：
+
+| 数字 | 状态描述 | 说明 |
+| ---- | -------- | ----|
+| 0    | 未开始   | 计划尚未开始执行 |
+| 1    | 进行中   | 计划正在执行中 |
+| 2    | 结束     | 计划已经结束完成 |
+| 3    | 已逾期未结束 | 计划已超过结束日期但仍未结束 |
+
+**自然语言映射规则：**
+
+当用户提到以下词汇时，映射到对应数字：
+
+- "未开始" → 0
+- "进行中"、"执行中" → 1
+- "结束"、"已结束" → 2
+- "逾期"、"已逾期"、"超期" → 3
+
+#### 子命令参数
+
 - `plan list`
   - `--new-api`
   - `--page`, `--page-size`
-  - `--title`
+  - `--title` (按标题关键词模糊搜索，支持部分匹配)
   - `--company-name`
   - `--company-id`
   - `--team-id`
@@ -266,7 +338,7 @@
   - `--ignore-weekend`
   - `--external-id`
   - `--executor-json`（与下一组二选一）
-  - `--executor-id`, `--task-time`, `--remarks`
+  - `--executor-id`, `--executor-name`, `--task-time`, `--remarks`
   - `--json`
 - `plan edit <id>`
   - `--patch-file` / `--patch-json`
@@ -337,12 +409,22 @@
   - `--search`
   - `--owner-id`
   - `--type`
-  - `--period-type`
+  - `--period-type`（默认 `0`，仅查询服务中/有效期内的合同；传空值可查询全部合同）
   - `--manager-id`
   - `--team-id`
   - `--start-time`, `--end-time`
   - `--json`
 - `contract view <id>`
+  - `--json`
+- `contract list-items`
+  - `--company-id` (optional)
+  - `--contract-id` (optional)
+  - `--contract-num` (optional)
+  - `--item-type` - Filter by itemType, e.g. 一般维保
+  - `--date-range-start`, `--date-range-end` - both item start and end must be in range
+  - `--min-progress-ratio`, `--max-progress-ratio` - Filter by actualHours/planHour
+  - `--actual-hours-zero-only` - Only items with actualHours == 0
+  - `--page`, `--page-size`, `--all` - Pagination
   - `--json`
 
 ### `mes dashboard`
@@ -356,7 +438,6 @@
 - 重点子命令参数：
   - `dashboard delivery` / `delivery summary`：`--executor-id`
   - `dashboard delivery contracts list`：`--executor-id --expiring-only --last-service-date --never-delivered-only --date-range-start --date-range-end --include-expired --json`
-  - `dashboard delivery contract-items`：`--company-id|--contract-id|--contract-num --item-type --date-range-start --date-range-end --min-progress-ratio --max-progress-ratio --actual-hours-zero-only --json`
   - `dashboard work`：`--executor-id --from/--to or --range --json`
   - `dashboard score list`：`--month --team-id --executor-id --page --page-size --sort --truncate --no-truncate --limit --json`
   - `dashboard weeklyReport list`：`--search --created-by --creator --type --period-from --period-to --page --page-size --json`
@@ -378,7 +459,7 @@
 
 ### Parameter completion rules for agent
 
-- `service request list` 的 JSON：创建人真实姓名用 `employeeName`，负责人真实姓名用 `executorEmployeeName`；`createdByName` 和 `executorName` 均可能是账号/昵称，展示时不要使用。
+- `service request list` 的 JSON：统计「负责人」用 `executorEmployeeName`（真实姓名），不要用 `executorName` 代替；后者可为登录名。
 - 用户给 URL（plan/request）时，优先 `--from-url`，避免手工错填 `type/rid`。
 - `statistics add` 若无交互必须带齐：`--start --end --hours --remark` + 关联参数。
 - `service history create` 易漏：`--handle-over-time --happen-time --created-time --team-id --executor-id`。
