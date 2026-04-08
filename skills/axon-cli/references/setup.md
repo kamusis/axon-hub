@@ -206,6 +206,17 @@ If the user chose Mode A (local only) in Step 4, help them attach a remote now:
 axon remote set git@github.com:yourname/axon-hub.git
 ```
 
+Then ask the user: **do you own this remote repo, or are you pointing to someone
+else's public hub?**
+
+| Case | Action |
+|------|--------|
+| Own repo (can push) | No change needed — `sync_mode` is already `read-write` by default |
+| Public/shared hub (e.g. `https://github.com/kamusis/axon-hub.git`) | Set `sync_mode: read-only` in `~/.axon/axon.yaml` |
+
+Setting `read-only` ensures `axon sync` only pulls and never attempts to push
+to a repo the user doesn't control.
+
 Verify the remote is recognized:
 
 ```bash

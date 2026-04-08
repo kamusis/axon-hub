@@ -55,14 +55,24 @@ axon remote set git@github.com:yourname/axon-hub.git
 
 After setting, run `axon status --fetch` to verify the new remote is detected.
 
-**If the hub was previously in `read-only` mode** (e.g., initialized with
-`axon init --upstream`), also update `~/.axon/axon.yaml`:
+**After changing the remote, also update `sync_mode` in `~/.axon/axon.yaml`
+to match your access level:**
+
+| Situation | Set `sync_mode` to |
+|-----------|-------------------|
+| Remote is a repo **you own** (can push) | `read-write` |
+| Remote is a **public/shared hub** you don't own (e.g. `kamusis/axon-hub`) | `read-only` |
 
 ```yaml
-sync_mode: read-write
+sync_mode: read-write   # or read-only
 ```
 
-Without this change, `axon sync` will still only pull and refuse to push.
+- **`read-write`**: `axon sync` will commit, pull, and push. Use when you own the remote.
+- **`read-only`**: `axon sync` will only `git pull --ff-only`. Use when pointing to
+  someone else's hub to pull their latest skills without pushing your changes.
+
+Without updating this field, `axon sync` may try to push to a repo you don't
+have write access to (or fail to push to your own).
 
 ---
 
