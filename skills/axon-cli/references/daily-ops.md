@@ -100,7 +100,7 @@ config in `~/.axon/.env`):
 # ~/.axon/.env
 AXON_EMBEDDINGS_PROVIDER=openai
 AXON_EMBEDDINGS_MODEL=text-embedding-3-small
-AXON_EMBEDDINGS_API_KEY=sk-...
+AXON_EMBEDDINGS_API_KEY=YOUR_API_KEY_HERE
 ```
 
 ```bash
@@ -278,7 +278,7 @@ Requires LLM config in `~/.axon/.env`:
 ```bash
 AXON_AUDIT_PROVIDER=openai
 AXON_AUDIT_MODEL=gpt-4o-mini
-AXON_AUDIT_API_KEY=sk-...
+AXON_AUDIT_API_KEY=YOUR_API_KEY_HERE
 # Optional: for Ollama or custom endpoints
 AXON_AUDIT_BASE_URL=
 ```
