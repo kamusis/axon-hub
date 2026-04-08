@@ -55,6 +55,15 @@ axon remote set git@github.com:yourname/axon-hub.git
 
 After setting, run `axon status --fetch` to verify the new remote is detected.
 
+**If the hub was previously in `read-only` mode** (e.g., initialized with
+`axon init --upstream`), also update `~/.axon/axon.yaml`:
+
+```yaml
+sync_mode: read-write
+```
+
+Without this change, `axon sync` will still only pull and refuse to push.
+
 ---
 
 ## 2. Discovery & Search
@@ -169,8 +178,42 @@ the revert commit.
 
 ### Vendor sync (mirror external skills)
 
-Import skills from an external GitHub repository into the hub. First, add a
-`vendors:` entry to `~/.axon/axon.yaml`:
+Import skills from an external GitHub repository into the hub.
+
+**When the user asks to add a vendor URL, first check if they provided a GitHub
+tree URL — all fields can be auto-derived from it:**
+
+```
+https://github.com/{owner}/{repo}/tree/{ref}/{subdir}
+                   └─ repo ────────────┘  └ref┘ └subdir┘
+```
+
+Example: `https://github.com/kamusis/anthropics-skills/tree/main/skills/mcp-builder`
+- `name`   → `mcp-builder` (last path segment of subdir)
+- `repo`   → `https://github.com/kamusis/anthropics-skills.git`
+- `subdir` → `skills/mcp-builder`
+- `dest`   → `skills/mcp-builder` (same as subdir)
+- `ref`    → `main`
+
+If the URL does not follow the tree format (e.g., bare repo URL with no subdir),
+collect the missing fields from the user:
+
+| Field | Description | Default if omitted |
+|-------|-------------|-------------------|
+| `name` | Unique identifier for this vendor entry | Derive from repo name |
+| `repo` | Full Git URL of the external repository | (required — ask if missing) |
+| `subdir` | Subdirectory inside the external repo to import | Ask the user |
+| `dest` | Destination path relative to hub root (`~/.axon/repo/`) | Same as `subdir` |
+| `ref` | Branch, tag, or SHA to pin to | `main` |
+
+**Procedure:**
+
+1. Parse the URL if it is a GitHub tree URL; otherwise collect missing fields.
+2. Read `~/.axon/axon.yaml` to see if a `vendors:` section already exists.
+3. Append the new entry under `vendors:` (create the section if absent).
+4. Save the file, then run `axon vendor sync`.
+
+**Example entry to append to `~/.axon/axon.yaml`:**
 
 ```yaml
 vendors:
@@ -190,6 +233,37 @@ axon vendor sync
 This uses sparse-checkout and mirrors plain files (no `.git` metadata). Local
 changes in the hub destination are overwritten. If the upstream SHA hasn't
 changed since the last sync, the mirror step is skipped.
+
+**To remove a vendor entry:**
+
+1. Read `~/.axon/axon.yaml` and locate the entry by `name`.
+2. Delete the entire `- name: ...` block for that entry.
+3. Save the file. The mirrored files in the hub are **not** automatically
+   deleted — remove them manually from `~/.axon/repo/<dest>/` if needed,
+   then run `axon sync` to commit the deletion.
+
+### Add a custom target (non-built-in AI tool)
+
+If the user wants to link an AI tool that is not in the default `targets` list,
+add a new entry to `~/.axon/axon.yaml` under `targets:`:
+
+```yaml
+targets:
+  - name: <unique-name>          # used with axon link <name>
+    source: skills                # hub subfolder to symlink from (skills/workflows/commands/rules)
+    destination: ~/.myapp/skills  # absolute path the AI tool reads from
+    type: directory
+```
+
+**Procedure:**
+
+1. Ask the user for `name`, `destination` path, and which hub `source` category
+   (`skills`, `workflows`, `commands`, or `rules`).
+2. Append the entry to the `targets:` list in `~/.axon/axon.yaml`.
+3. Run `axon link <name>` to create the symlink immediately.
+4. Verify with `axon status`.
+
+---
 
 ### Security audit
 

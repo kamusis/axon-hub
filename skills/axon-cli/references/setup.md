@@ -52,30 +52,56 @@ Verify the install:
 axon version
 ```
 
-**Windows (PowerShell — run as Administrator):**
+**Windows (PowerShell — no Administrator required):**
 
 ```powershell
 $version = (Invoke-RestMethod https://api.github.com/repos/kamusis/axon-cli/releases/latest).tag_name -replace '^v',''
 $url = "https://github.com/kamusis/axon-cli/releases/download/v${version}/axon_${version}_windows_amd64.zip"
 $tmp = "$env:TEMP\axon.zip"
 $extract = "$env:TEMP\axon-tmp"
+$bin = "$env:USERPROFILE\.axon\bin"
 Invoke-WebRequest -Uri $url -OutFile $tmp
 Expand-Archive -Path $tmp -DestinationPath $extract -Force
-Move-Item -Force "$extract\axon.exe" "C:\Windows\System32\axon.exe"
+New-Item -ItemType Directory -Force -Path $bin | Out-Null
+Move-Item -Force "$extract\axon.exe" "$bin\axon.exe"
 Remove-Item $tmp, $extract -Recurse -Force
+# Add ~/.axon/bin to user PATH (persistent)
+$current = [Environment]::GetEnvironmentVariable("PATH", "User")
+if ($current -notlike "*$bin*") {
+    [Environment]::SetEnvironmentVariable("PATH", "$current;$bin", "User")
+    Write-Host "Added $bin to PATH. Restart your terminal to use axon."
+}
 axon version
 ```
-
-`C:\Windows\System32\` requires Administrator. If you prefer a user-level install
-(no admin needed), use `$env:USERPROFILE\bin\axon.exe` instead, then add
-`$env:USERPROFILE\bin` to your `$env:PATH`.
 
 **Symlink note:** `axon link` creates symlinks, which require Administrator or
 Developer Mode on Windows. WSL is fully supported without this restriction.
 
 ---
 
-## Step 2: Environment check
+## Step 2: Ensure git is installed
+
+Check first — if git is already present, skip to Step 3.
+
+```bash
+git --version
+```
+
+If the command fails (git not found), install it based on the platform:
+
+| Platform | Command |
+|----------|---------|
+| macOS (Homebrew) | `brew install git` |
+| macOS (no Homebrew) | `xcode-select --install` |
+| Ubuntu / Debian | `sudo apt-get update && sudo apt-get install -y git` |
+| Fedora / RHEL | `sudo dnf install -y git` |
+| Arch / Manjaro | `sudo pacman -S --noconfirm git` |
+| Windows (winget) | `winget install --id Git.Git -e --source winget` |
+| Windows (Chocolatey) | `choco install git -y` |
+
+After installing, verify: `git --version`
+
+## Step 3: Environment check
 
 ```bash
 axon doctor
@@ -86,7 +112,7 @@ Resolve any reported issues before continuing.
 
 ---
 
-## Step 3: Initialize the Hub (`axon init`)
+## Step 4: Initialize the Hub (`axon init`)
 
 Choose one of three modes based on the user's situation:
 
@@ -106,7 +132,7 @@ axon init https://github.com/yourname/axon-hub.git
 **What happens during init:**
 - A local Git repo is created at `~/.axon/repo/` (or cloned from the URL).
 - `~/.axon/axon.yaml` is generated with pre-configured targets for all
-  supported AI tools.
+  pre-configured AI tools.
 - Existing skills from your current tool directories are **safely imported**:
   - Same content → one copy kept, duplicate skipped.
   - Same name but different content → both preserved with a `.conflict-<tool>`
@@ -114,7 +140,7 @@ axon init https://github.com/yourname/axon-hub.git
 
 ---
 
-## Step 4: Inspect the current machine's AI tool state
+## Step 5: Inspect the current machine's AI tool state
 
 ```bash
 axon status
@@ -144,7 +170,7 @@ Which tools would you like to link?
 
 ---
 
-## Step 5: Link the selected AI tools
+## Step 6: Link the selected AI tools
 
 For each tool the user confirms, run:
 
@@ -172,9 +198,9 @@ know where the backup is:
 
 ---
 
-## Step 6: Set a remote (Mode A only)
+## Step 7: Set a remote (Mode A only)
 
-If the user chose Mode A (local only) in Step 3, help them attach a remote now:
+If the user chose Mode A (local only) in Step 4, help them attach a remote now:
 
 ```bash
 axon remote set git@github.com:yourname/axon-hub.git
@@ -188,7 +214,7 @@ axon status --fetch
 
 ---
 
-## Step 7: First sync
+## Step 8: First sync
 
 ```bash
 axon sync
@@ -210,7 +236,7 @@ After sync, the hub is up to date and all linked AI tools read from it.
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `git: command not found` | git not installed | Install git (see README Prerequisites) |
+| `git: command not found` | git not installed | Follow Step 2 above to install git |
 | `permission denied` creating symlink | Insufficient permissions (Windows) | Run as Administrator or use WSL |
-| `.conflict-<tool>.md` files in hub | Name collision during import | Review and merge manually, then `axon sync` |
+| `.conflict-<tool>.md` files in hub | Same skill name, different content across tools during import | Files land in `~/.axon/repo/skills/` (or `workflows/`, `commands/`). Review and merge manually, then `axon sync` |
 | `push` rejected on first sync | Remote already has commits | Run `axon sync` again; it will rebase and retry |
