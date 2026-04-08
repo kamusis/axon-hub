@@ -15,6 +15,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 
 - MES登录、切换账号、查看登录状态
 - 报工、查工时、审批工时、工时日历/汇总
+- 报工质量、报工评分、质量评分
 - 服务请求（工单）创建、回帖、恢复、编辑、报工
 - 计划任务查询/创建/编辑/结束/删除
 - MES文章或合同查询与维护
@@ -40,7 +41,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
    - Agent 运行在 WSL Linux 内部，与 mes CLI 处于同一文件系统
 
    **仅在 Windows → WSL 跨环境调用时，必须分两步执行**：
-   - **Step 1** — 将 mes 输出写入 WSL 内部路径：`wsl -d Ubuntu-24.04 -- bash -l -c "MES_NONINTERACTIVE=1 mes -o json <command> > /tmp/data.json"`
+   - **Step 1** — 将 mes 输出写入 WSL 内部路径：`wsl -d Ubuntu-24.04 -- bash -l -c "mes -o json <command> > /tmp/data.json"`
    - **Step 2** — 在 WSL 内用 Python3 解析 JSON 并输出关键字段到 stdout：
      ```bash
      wsl -d Ubuntu-24.04 -- bash -l -c 'python3 << "PYEOF"

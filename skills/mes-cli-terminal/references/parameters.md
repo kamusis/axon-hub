@@ -439,7 +439,11 @@
   - `dashboard delivery` / `delivery summary`：`--executor-id`
   - `dashboard delivery contracts list`：`--executor-id --expiring-only --last-service-date --never-delivered-only --date-range-start --date-range-end --include-expired --json`
   - `dashboard work`：`--executor-id --from/--to or --range --json`
-  - `dashboard score list`：`--month --team-id --executor-id --page --page-size --sort --truncate --no-truncate --limit --json`
+  - `dashboard score` / `score list`：**报工质量评分入口**（非审批统计）。用于查询工程师/团队在某月的报工质量评分列表（包含得分、评级等）。与 `statistics review-stats`（审批通过/拒绝统计）完全不同：
+    - **报工质量/评分** → `mes dashboard score list`
+    - **审批工时统计** → `mes statistics review-stats`
+    - 参数：`--month --team-id --executor-id --page --page-size --sort --truncate --no-truncate --limit --json`
+  - `dashboard score prompt`：查看评分规则/提示词
   - `dashboard weeklyReport list`：`--search --created-by --creator --type --period-from --period-to --page --page-size --json`
   - `dashboard weeklyReport view <id>`：`--json`
   - `dashboard weeklyReport create`：`--type --period-from --period-to --md|--md-file|--html --json`

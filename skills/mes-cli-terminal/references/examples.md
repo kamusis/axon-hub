@@ -23,7 +23,7 @@
 ### 2) 报工（高频）
 
 - “在这个计划链接上报今天 8 小时”  
-  `MES_NONINTERACTIVE=1 mes statistics add --from-url "<plan-url>" --start "2026-03-24 09:00:00" --end "2026-03-24 18:00:00" --hours 8 --remark "..." --dry-run`
+  `mes statistics add --from-url "<plan-url>" --start "2026-03-24 09:00:00" --end "2026-03-24 18:00:00" --hours 8 --remark "..." --dry-run`
 - “查我本月工时”  
   `mes -o json statistics list --range thisMonth --executor-id <uid>`
 - “审批 101,102 通过”  
@@ -64,12 +64,19 @@
   `mes contract list-items --contract-id 12345 --actual-hours-zero-only`
 ### 6) 管理看板
 
-- “看交付统计汇总（工程师 123）”  
+- "看交付统计汇总（工程师 123）"  
   `mes dashboard delivery summary --executor-id 123`
-- “看工作情况客户工时（上月）”  
+- "看工作情况客户工时（上月）"  
   `mes -o json dashboard work --executor-id 123 --range lastMonth`
-- “看周报列表（某人+某天）”  
+- "看周报列表（某人+某天）"  
   `mes -o json dashboard weeklyReport 20260306 张三`
+- "查报工质量" / "查看报工评分" / "本月报工质量怎么样" / "团队报工质量评分"  
+  `mes -o json dashboard score list --month 2026-04`  
+  可加 `--executor-id <uid>` 或 `--team-id <tid>` 筛选
+- "查看评分规则"  
+  `mes dashboard score prompt`
+
+> ⚠️ **区分**：`dashboard score` = 报工质量评分（结果评级）；`statistics review-stats` = 审批工时统计（通过/拒绝统计）。"报工质量"永远走 `dashboard score`，不走 `statistics review-stats`。
 
 ### 7) 用户搜索
 
@@ -99,7 +106,7 @@
 3. 计划链接优先用 `--from-url`，必要时补 `--acc-id`。
 
 **Command**
-`MES_NONINTERACTIVE=1 mes statistics add --from-url "https://support.enmotech.com/plan/16570" --start "2026-03-24 08:00:00" --end "2026-03-24 18:00:00" --hours 9 --remark "今日完成巡检与问题处置闭环，输出可复用操作建议并同步风险，显著提升服务稳定性与响应效率。" --dry-run`
+`mes statistics add --from-url "https://support.enmotech.com/plan/16570" --start "2026-03-24 08:00:00" --end "2026-03-24 18:00:00" --hours 9 --remark "今日完成巡检与问题处置闭环，输出可复用操作建议并同步风险，显著提升服务稳定性与响应效率。" --dry-run`
 
 提交时去掉 `--dry-run`。
 
