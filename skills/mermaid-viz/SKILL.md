@@ -7,8 +7,11 @@ metadata:
   openclaw:
     emoji: "📊"
     requires:
-      bins: ["node"]
+      bins: ["node", "bash"]
       npm: ["beautiful-mermaid", "sharp"]
+    exec:
+      # mermaid-viz wrapper script handles path resolution internally
+      wrapper: "./mermaid-viz"
 ---
 
 # Mermaid Visualization
@@ -31,6 +34,10 @@ Only install in this skill directory after confirming that `beautiful-mermaid` i
 pnpm install
 ```
 
+**CRITICAL Prerequisites for File Output:**
+1. **Create output directory first** — Before rendering to a file, ensure the output directory exists (e.g., `/tmp/` always exists, or create `artifacts/` if needed).
+2. **Use simple single commands** — OpenClaw exec security policy rejects commands with `&&`, `||`, pipes `|`, or redirects `2>&1`. Use only direct `node <script> <args>` format.
+
 ## Usage
 
 You can generate four types of output:
@@ -43,17 +50,32 @@ You can generate four types of output:
 
 To show a diagram in the chat, use:
 ```bash
+./mermaid-viz "diagram_code"
+```
+
+Or call the Node script directly (must be run from skill directory):
+```bash
 node scripts/mermaid-viz.js "diagram_code"
 ```
 
 ### Rendering SVG/JPG/PNG (File Output)
 
-To save a high-quality file (remember to save to the `artifacts/` directory):
+**CRITICAL**: 
+- **Output directory must exist** — Create it first if using `artifacts/`, or use `/tmp/` which always exists.
+- **No shell operators** — Do NOT use `&&`, `||`, `|`, or `2>&1`. Use the `./mermaid-viz` wrapper script (recommended) or simple `node scripts/mermaid-viz.js ...` only.
+
+To save a high-quality file (examples use `/tmp/` which requires no setup):
 ```bash
-node scripts/mermaid-viz.js --type svg --theme tokyo-night --output artifacts/output.svg "diagram_code"
-node scripts/mermaid-viz.js --type jpg --theme tokyo-night --output artifacts/output.jpg "diagram_code"
-node scripts/mermaid-viz.js --type png --theme tokyo-night --output artifacts/output.png "diagram_code"
+./mermaid-viz --type svg --theme tokyo-night --output /tmp/output.svg "diagram_code"
+./mermaid-viz --type jpg --theme tokyo-night --output /tmp/output.jpg "diagram_code"
+./mermaid-viz --type png --theme tokyo-night --output /tmp/output.png "diagram_code"
 ```
+
+If you must use `artifacts/` directory, create it in a **separate exec call** first:
+```bash
+mkdir -p artifacts
+```
+Then run the render command.
 
 Background behavior:
 - **SVG**: Transparent by default. Pass `--opaque` to preserve the theme background.
@@ -67,7 +89,7 @@ Background behavior:
 
 ### 1. Show a flowchart in chat
 ```bash
-node scripts/mermaid-viz.js "flowchart LR
+./mermaid-viz "flowchart LR
   A[User] --> B{Auth}
   B -->|Success| C[Dashboard]
   B -->|Fail| D[Login]"
@@ -75,14 +97,14 @@ node scripts/mermaid-viz.js "flowchart LR
 
 ### 2. Generate a sequence diagram JPG
 ```bash
-node scripts/mermaid-viz.js --type jpg --output artifacts/sequence.jpg "sequenceDiagram
+./mermaid-viz --type jpg --output /tmp/sequence.jpg "sequenceDiagram
   Alice->>Bob: Hello Bob!
   Bob-->>Alice: Hi Alice!"
 ```
 
 ### 3. Generate an opaque SVG
 ```bash
-node scripts/mermaid-viz.js --type svg --theme tokyo-night --opaque --output artifacts/sequence-opaque.svg "sequenceDiagram
+./mermaid-viz --type svg --theme tokyo-night --opaque --output /tmp/sequence-opaque.svg "sequenceDiagram
   Alice->>Bob: Hello Bob!
   Bob-->>Alice: Hi Alice!"
 ```
@@ -95,6 +117,7 @@ node scripts/mermaid-viz.js --type svg --theme tokyo-night --opaque --output art
 - `erDiagram`
 
 ## Rules
+- **Security policy compliance**: All exec commands must be simple single commands. No `&&`, `||`, pipes `|`, redirects `2>&1`, or subshells `$(...)`. Create directories in separate calls before file operations. **Use the `./mermaid-viz` wrapper script** to avoid path resolution issues — it handles locating the script internally.
 - **Type check first**: Inspect the first Mermaid header line before rendering. If the diagram type is not one of the supported types above, stop immediately and tell the user that this skill cannot render it with `beautiful-mermaid`.
 - **Formatting**: Always ensure the first line of the diagram code contains the type (e.g., `flowchart TD`).
 - **Early failure**: If the type check fails, do not attempt rendering, file generation, or any follow-up workflow.

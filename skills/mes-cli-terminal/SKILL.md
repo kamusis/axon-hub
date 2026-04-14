@@ -1,6 +1,6 @@
 ---
 name: mes-cli-terminal
-description: Convert Chinese or natural-language MES requests into precise mes-cli commands in this repository. Use when users ask to login, report hours, manage service requests/plans/articles/contracts, query dashboard/weekly reports, or parse support URLs.
+description: Convert Chinese or natural-language MES requests into precise mes-cli commands in this repository. Use when users ask to install, login, report working hours, manage service requests/plans/articles/contracts, query dashboard/weekly reports, or parse support URLs.
 ---
 
 # MES CLI Terminal Skill
@@ -13,13 +13,15 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 
 当用户提到以下任一意图时立即启用本技能：
 
+- 安装并配置 mes-cli 运行环境
 - MES登录、切换账号、查看登录状态
 - 报工、查工时、审批工时、工时日历/汇总
 - 报工质量、报工评分、质量评分
 - 服务请求（工单）创建、回帖、恢复、编辑、报工
-- 计划任务查询/创建/编辑/结束/删除
+- 实施计划查询/创建/编辑/结束/删除
 - MES文章或合同查询与维护
 - MES管理看板（dashboard）查询、周报增删改查
+- MES OSS 图片上传（目前仅支持图片，不支持附件或压缩包等其他文件）
 - 给了 support 链接，需要提取 `type/rid`
 
 ## Hard rules
@@ -35,26 +37,28 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 8. 完成最终报告之后，必须删除用于重定向的临时文件，以减少信息泄露风险。
 9. **分析服务请求详情时**：必须通过 `mes -o json service request view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
 10. ⚠️ **编码处理（仅限跨环境调用场景）**：当 agent 通过 `wsl -d <distro> -- bash -l -c "mes ..."` 从 **Windows 侧远程调用 WSL 中的 mes CLI** 时，输出为 UTF-8 JSON。此时**绝对不能**通过管道或重定向将 mes 输出直接写入 Windows 文件系统（如 `wsl ... > windows_path.json`）——WSL → Windows 的 interop 管道层会按系统默认代码页（中文 Windows 为 GBK/CP936）做编码转换，导致所有中文字段乱码。
-   
-   **以下场景无需关注本规则**（可直接正常使用）：
-   - Agent 直接运行在 Linux/macOS环境中，`mes` 命令在同一 shell 内执行
-   - Agent 运行在 WSL Linux 内部，与 mes CLI 处于同一文件系统
 
-   **仅在 Windows → WSL 跨环境调用时，必须分两步执行**：
-   - **Step 1** — 将 mes 输出写入 WSL 内部路径：`wsl -d Ubuntu-24.04 -- bash -l -c "mes -o json <command> > /tmp/data.json"`
-   - **Step 2** — 在 WSL 内用 Python3 解析 JSON 并输出关键字段到 stdout：
-     ```bash
-     wsl -d Ubuntu-24.04 -- bash -l -c 'python3 << "PYEOF"
-     import json
-     with open("/tmp/data.json", "r", encoding="utf-8") as f:
-         d = json.load(f)
-     detail = d["detail"]  # 或 d["list"] 等
-     print(f"ID: {detail['id']}")
-     print(f"标题: {detail['title']}")
-     # ... 提取需要的字段
-     PYEOF'
-     ```
-   此方式完全在 WSL 内完成读取与解码，避免跨文件系统的字节流转换问题。
+    **以下场景无需关注本规则**（可直接正常使用）：
+
+- Agent 直接运行在 Linux/macOS环境中，`mes` 命令在同一 shell 内执行
+- Agent 运行在 WSL Linux 内部，与 mes CLI 处于同一文件系统
+
+**仅在 Windows → WSL 跨环境调用时，必须分两步执行**：
+
+- **Step 1** — 将 mes 输出写入 WSL 内部路径：`wsl -d Ubuntu-24.04 -- bash -l -c "mes -o json <command> > /tmp/data.json"`
+- **Step 2** — 在 WSL 内用 Python3 解析 JSON 并输出关键字段到 stdout：
+  ```bash
+  wsl -d Ubuntu-24.04 -- bash -l -c 'python3 << "PYEOF"
+  import json
+  with open("/tmp/data.json", "r", encoding="utf-8") as f:
+      d = json.load(f)
+  detail = d["detail"]  # 或 d["list"] 等
+  print(f"ID: {detail['id']}")
+  print(f"标题: {detail['title']}")
+  # ... 提取需要的字段
+  PYEOF'
+  ```
+  此方式完全在 WSL 内完成读取与解码，避免跨文件系统的字节流转换问题。
 
 ## Command-generation workflow
 
@@ -64,6 +68,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
    - 时间槽：`from/to` 或 `range`，以及 `start/end`
    - 对象槽：`id/rid/acc-id/company-id/executor-id/team-id`
    - 文本槽：`title/remark/search/content`
+   - 文件槽：`file-path` (仅限 `oss upload image`)
    - 输出槽：是否需要 JSON（通常是）
 3. **缺参策略**
    - 查询命令：尽量给默认（如 `range thisMonth`、`page 1`）
@@ -118,6 +123,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 - `plan create|save|edit|end|delete`
 - `article save|delete|assign-reviewer|set-level|set-type`
 - `dashboard weeklyReport create|update|delete`
+- `oss upload image`
 
 ## Reference Documents
 
@@ -127,6 +133,8 @@ The detailed parameter breakdown and interaction examples are large and depend o
   Read [references/parameters.md](references/parameters.md) when you need to know the specific flags, options, and parameter extraction rules for any given `mes` subcommand. This file includes the full command map and parameter completion rules.
 - **Translation templates and examples:**  
   Read [references/examples.md](references/examples.md) when you need to map natural language to an actual command, understand parameter heuristics, or see realistic dialogue examples of Agent-User interactions.
+- **Automated installation guide:**  
+  Read [references/install.md](references/install.md) when you need to install or update the `mes` binary on Linux, macOS, or Windows using the public Aliyun OSS mirror.
 
 ## Missing-info checklist before write commands
 

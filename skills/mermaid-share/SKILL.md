@@ -6,8 +6,7 @@ user-invocable: true
 metadata:
   openclaw:
     emoji: "🧩"
-    requires: { "bins": ["node", "uv", "python3"], "env": ["SEE_API_TOKEN"] }
-    primaryEnv: "SEE_API_TOKEN"
+    requires: { "bins": ["node", "uv", "python3"] }
 ---
 
 # Mermaid Share

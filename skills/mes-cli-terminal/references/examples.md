@@ -42,14 +42,15 @@
 - “按工单 123 报工 2 小时”  
   `mes service request report 123 --start "2026-03-24 14:00:00" --end "2026-03-24 16:00:00" --hours 2 --dry-run`
 
-### 4) 计划任务
+- “帮我创建一个服务请求，标题是 '数据库连接失败'，公司 ID 是 4，合同子项 ID 是 2025103112176，等级 P3，正文说：今天早上 9 点开始连接不上数据库，报错如下：[错误提示]”
+  `mes service create --title "数据库连接失败" --company-id 4 --acc-id "2025103112176" --type 3 --body-md "### 问题背景\n\n今天早上 9 点开始连接不上数据库。\n\n### 报错信息\n\n\`\`\`\n[错误提示]\n\`\`\`" --dry-run`
 
-- “查我的计划”  
+### 4) 实施计划
+
+- “查我的实施计划”  
   `mes -o json plan list --executor-id <uid>`
-- “结束计划 16570”  
+- “结束实施计划 16570”  
   `mes plan end 16570`
-- “新建计划（单处理人）”  
-  `mes plan create --title “...” --check-type 1 --company-id 91 --acc-id “20260301345” --start-date “2026-03-24 09:00:00” --end-date “2026-03-24 18:00:00” --executor-id 11111 --executor-name “张三” --task-time “8”`
 
 ### 5) 文章与合同
 
@@ -62,6 +63,7 @@
   `mes -o json contract list-items --contract-num "00032597"`
 - "查某合同下实际工时为0的子项"  
   `mes contract list-items --contract-id 12345 --actual-hours-zero-only`
+
 ### 6) 管理看板
 
 - "看交付统计汇总（工程师 123）"  
@@ -90,14 +92,77 @@
 - “这个 support 链接对应什么类型和 id”  
   `mes -o json util parse-support-url "https://support.enmotech.com/plan/16570"`
 
-## Realistic dialogue examples
+### 9) 对象存储与图片上传
+
+- “上传这张本地图片到 MES”
+  `mes oss upload image /path/to/img.png`
+- “上传图片并查看大小详情”
+  `mes -o json oss upload image img.jpg`
+
+> ⚠️ 场景：当用户需要在回复工单或保存文档时嵌入本地图片，请先使用 `oss upload image` 获取 URL，再将 URL 填入正文。目前**仅支持图片**，不支持其他文件。
+
+### 10) 发现链 (Discovery Chain): 从公司名找合同子项
+
+- "找到 '云和恩墨虚拟客户' 公司的合同子项"
+  1. 查找公司 ID:
+     `mes util search-company "云和恩墨虚拟客户" -o json`
+     _(获取 `companies[].ID`: 861)_
+  2. 列出该公司下的合同:
+     `mes contract list --company-id 861 -o json`
+     _(获取合同 `id`: 2085, 合同编号 `contractNum`: 00032480)_
+  3. 列出合同下的子项:
+     `mes contract list-items --contract-id 2085 -o json`
+     _(获取子项 `itemId`: 2026040312741)_
+
+  **Mappings & Heuristics**:
+  - **Company Search**: `ID` -> `--company-id`
+  - **Contract List**: `id` -> `--contract-id`; `contractNum` -> `--contract-num` (exact match search)
+  - **Items List**: `itemId` -> `--acc-id` (used in `service create`)
+  - **ID Formats**: `contractID` (id) is usually 4-digit numeric (e.g. 2085); `itemID` (itemId) is long numeric (e.g. 2026040312741).
+
+## 真实场景示例
 
 以下示例可直接作为 agent 的对话模板，优先按“先总结 -> 再执行命令 -> 回传结果”的节奏。
 
-### Example A: 先总结今天工作，再在计划任务下报工
+### 从截图创建服务请求（同时将截图包含在服务请求中）
 
 **用户**  
-上面是我今天的工作内容，请先总结，然后使用mes cli帮我在计划任务下https://support.enmotech.com/plan/16570 完成今天的报工，时间从8点到18点，工时9小时。报工工作内容尽量详细，突出服务价值，字数不少于20字
+解读这些截图，然后上传，之后创建一个服务请求（用户公司ID：XX，合同子项ID：XX），标题根据截图内容由你来确定，服务请求正文里应该包含所有截图的URL
+
+**Agent should do**
+
+1. 先读取截图内容，提炼关键信息。
+2. 上传截图，获取到截图的URL。
+3. 用 `service create` 生成并提交服务请求（支持 dry-run）。
+
+**Command**
+
+`mes oss upload image /path/to/img.png`
+
+`mes service create --title "SQL 执行速度较慢分析" --company-id 4 --acc-id "2025103112176" --type 3 --body-md "## 问题描述\n\n数据库存储过程中的一条 SQL 执行速度较慢（约1分钟），客户要求分析是否正常。\n\n## 分析结论\n\n该 SQL 走了索引（LINE_NO字段），但返回行数和数据量仍然很大：\n\n- LINE_NO 字段 distinct value 仅 26 个，选择性差\n- 索引访问预估 944MB，全表访问预估 34.75GB\n- 走索引比全表快约 36 倍，已为最优执行计划\n- 执行 1 分钟左右属于正常现象，非索引问题\n\n## 截图\n\n![](https://oss-esprod-public.enmotech.com/image/base/uploaded-image.jpg)" --dry-run`
+
+提交时去掉 `--dry-run`。
+
+### 自动归纳服务请求内容并报工
+
+**用户**  
+请使用mes cli解读服务请求https://support.enmotech.com/service/request/5183 的内容，然后在该服务请求对应的实施计划下创建报工，处理时长4小时，从10点到17点，报工工作内容请直接总结服务请求上的回复内容、状态和进度
+
+**Agent should do**
+
+1. 先读取服务请求详情/回复，提炼状态、进度、关键动作。
+2. 用 `service request report` 生成并提交报工（支持 dry-run）。
+
+**Command**
+
+`mes service request report "https://support.enmotech.com/service/request/5183" --start "2026-03-24 10:00:00" --end "2026-03-24 17:00:00" --hours 4 --dry-run`
+
+提交时去掉 `--dry-run`。
+
+### 先总结今天工作，再在实施计划下报工
+
+**用户**  
+上面是我今天的工作内容，请先总结，然后使用mes cli帮我在实施计划下https://support.enmotech.com/plan/16570 完成今天的报工，时间从8点到18点，工时9小时。报工工作内容尽量详细，突出服务价值，字数不少于20字
 
 **Agent should do**
 
@@ -106,26 +171,86 @@
 3. 计划链接优先用 `--from-url`，必要时补 `--acc-id`。
 
 **Command**
+
 `mes statistics add --from-url "https://support.enmotech.com/plan/16570" --start "2026-03-24 08:00:00" --end "2026-03-24 18:00:00" --hours 9 --remark "今日完成巡检与问题处置闭环，输出可复用操作建议并同步风险，显著提升服务稳定性与响应效率。" --dry-run`
 
 提交时去掉 `--dry-run`。
 
-### Example B: 在服务请求下按回复内容自动归纳报工
+### 查询我受理的未关闭服务请求
 
 **用户**  
-请使用mes cli在服务请求https://support.enmotech.com/service/request/5183 上完成今天报工，处理时长4小时，从10点到17点，报工工作内容请直接总结服务请求上的回复内容、状态和进度
+现在MES上我受理的未关闭的服务请求有哪些
+
+**Command**
+
+`mes -o json service request list --status 1 --person-id <uid>`
+
+### 查询指定服务请求的问题与进度
+
+**用户**  
+ID为5184的服务请求，具体是什么问题？，现在处理进度是什么
+
+**Command**
+
+`mes -o json service request view 5184`
+
+**Agent should return**
+
+- 问题摘要（title/核心现象）
+- 当前状态（status）
+- 当前进度（progress）
+- 最近关键回复摘要（如有）
+
+### 给服务请求回复
+
+**用户**  
+请给ID为5184的服务请求，回复"xxxx"
+
+**Command (preview)**
+
+`mes service request reply 5184 --text "xxxx" --dry-run`
+
+确认后提交（去掉 `--dry-run`）：
+
+`mes service request reply 5184 --text "xxxx"`
+
+### 查询我负责的进行中实施计划
+
+**用户**  
+MES上我负责的进行中的实施计划有哪些？
+
+**Command**
+
+`mes -o json plan list --executor-id <uid> --status 1`
+
+### 查询我负责的超期实施计划
+
+**用户**  
+MES上我负责的超期中的实施计划有哪些？
 
 **Agent should do**
 
-1. 先读取工单详情/回复，提炼状态、进度、关键动作。
-2. 用 `service request report` 生成并提交报工（支持 dry-run）。
+1. 先拉取“我负责 + 进行中”计划。
+2. 以 `endDate < 今天` 进行本地筛选并输出超期列表。
 
 **Command**
-`mes service request report "https://support.enmotech.com/service/request/5183" --start "2026-03-24 10:00:00" --end "2026-03-24 17:00:00" --hours 4 --dry-run`
 
-提交时去掉 `--dry-run`。
+`mes -o json plan list --executor-id <uid> --status 1 --page 1 --page-size 200`
 
-### Example C: 查上周所有人周报并总结重点
+### 关闭实施计划
+
+**用户**  
+关闭ID为11678的实施计划
+
+**Command**
+
+`mes plan end 11678`
+
+如果用户要求先确认，可先执行查看：
+
+`mes -o json plan view 11678`
+
+### 查上周所有人周报并总结重点
 
 **用户**  
 请使用mes cli查看上周所有人的周报，然后总结升级的事项和需要我关注的事项
@@ -137,73 +262,9 @@
 3. 输出两段总结：`升级事项`、`需要关注`。
 
 **Command (list)**
+
 `mes -o json dashboard weeklyReport list --type WEEKLY --period-from "2026-03-16" --period-to "2026-03-22" --page 1 --page-size 100`
 
 **Command (view each id)**
+
 `mes -o json dashboard weeklyReport view <id>`
-
-### Example D: 查询我受理的未关闭服务请求
-
-**用户**  
-现在MES上我受理的未关闭的服务请求有哪些
-
-**Command**
-`mes -o json service request list --status 1 --person-id <uid>`
-
-### Example E: 查询指定服务请求的问题与进度
-
-**用户**  
-ID为5184的服务请求，具体是什么问题？，现在处理进度是什么
-
-**Command**
-`mes -o json service request view 5184`
-
-**Agent should return**
-
-- 问题摘要（title/核心现象）
-- 当前状态（status）
-- 当前进度（progress）
-- 最近关键回复摘要（如有）
-
-### Example F: 给服务请求回复
-
-**用户**  
-请给ID为5184的服务请求，回复"xxxx"
-
-**Command (preview)**
-`mes service request reply 5184 --text "xxxx" --dry-run`
-
-确认后提交（去掉 `--dry-run`）：
-`mes service request reply 5184 --text "xxxx"`
-
-### Example G: 查询我负责的进行中计划任务
-
-**用户**  
-MES上我负责的进行中的计划任务有哪些？
-
-**Command**
-`mes -o json plan list --executor-id <uid> --status 1`
-
-### Example H: 查询我负责的超期计划任务
-
-**用户**  
-MES上我负责的超期中的计划任务有哪些？
-
-**Agent should do**
-
-1. 先拉取“我负责 + 进行中”计划。
-2. 以 `endDate < 今天` 进行本地筛选并输出超期列表。
-
-**Command**
-`mes -o json plan list --executor-id <uid> --status 1 --page 1 --page-size 200`
-
-### Example I: 关闭计划任务
-
-**用户**  
-关闭ID为11678的计划任务
-
-**Command**
-`mes plan end 11678`
-
-如果用户要求先确认，可先执行查看：
-`mes -o json plan view 11678`

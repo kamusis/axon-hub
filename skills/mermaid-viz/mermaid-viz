@@ -1,0 +1,16 @@
+#!/bin/bash
+# Mermaid Viz Wrapper Script
+# Automatically resolves the script path relative to this wrapper's location
+
+# Get the directory where this script is located (skill root)
+# Using parameter expansion to avoid cd and command chaining
+SCRIPT_PATH="$0"
+SCRIPT_DIR="${SCRIPT_PATH%/*}"
+
+# Handle case where script is in current directory (no / in path)
+if [ "$SCRIPT_DIR" = "$SCRIPT_PATH" ]; then
+    SCRIPT_DIR="."
+fi
+
+# Call the actual node script with all arguments passed through
+exec node "$SCRIPT_DIR/scripts/mermaid-viz.js" "$@"
