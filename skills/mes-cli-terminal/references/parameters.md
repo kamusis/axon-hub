@@ -69,11 +69,10 @@
   - `--rid` **（必填，或用 --from-url）**
   - `--start` **（必填，YYYY-MM-DD HH:mm:ss，不能跨天）**
   - `--end` **（必填，YYYY-MM-DD HH:mm:ss，不能跨天）**
-  - `--hours` **（必填，最小0.5）**
+  - `--hours` **（必填，最小0.5，最大24）**
   - `--remark` **（必填，最少10字）**
   - `--from-url`（自动解析 type 和 rid）
   - `--title`
-  - `--service-type`
   - `--company-id`
   - `--executor-id`
   - `--acc-id`
@@ -84,7 +83,7 @@
   - `--user-id`
   - `--calendar-from`, `--calendar-to`
   - `--patch-file`, `--patch-json`
-  - `--task-time`
+  - `--task-time` (min 0.5, max 24)
   - `--remark`
   - `--start`, `--end`
   - `--title`
@@ -311,7 +310,6 @@
 #### 子命令参数
 
 - `plan list`
-  - `--new-api`
   - `--page`, `--page-size`
   - `--title` (按标题关键词模糊搜索，支持部分匹配)
   - `--company-name`
@@ -347,25 +345,44 @@
   - `--json`
 - `article view <id>`
   - `--json`
-- `article save`
+- `article create`
   - `--title` **（必填）**
   - `--content-md` **（必填，与 --content 二选一）**
-  - `--menu-id` **（必填）**
   - `--tags` **（必填，逗号分隔）**
-  - `--id`（更新时必填）
+  - `--menu-id`（默认 505）
+  - `--status`（默认 1=已发布）
+  - `--difficult-level`（默认 0）
   - `--content`（与 --content-md 二选一）
-  - `--content-md-file`
+  - `--content-md-file`（从文件读取 content-md，与 --content-md 二选一）
   - `--body-file`
-  - `--status`
-  - `--type`
+  - `--type`（0=知识库文章, 1=最新咨询, 2=安全警告, 3=其他, 4=版本发布, 5=最佳实践, 6=产品公告, 7=服务报告）
   - `--encrypt-level`
-  - `--difficult-level`
   - `--source`
   - `--version`
   - `--platform`
   - `--brief`
   - `--evaluate`
-  - `--fault-id`
+  - `--sr-id`（传入时自动设置 type=7, encrypt-level=INTERNAL, menu-id=505）
+  - `--json`
+- `article update`
+  - `--id` **（必填，必须 > 0）**
+  - `--title`
+  - `--content-md`
+  - `--tags`
+  - `--menu-id`
+  - `--status`
+  - `--difficult-level`
+  - `--content`
+  - `--content-md-file`
+  - `--body-file`
+  - `--type`
+  - `--encrypt-level`
+  - `--source`
+  - `--version`
+  - `--platform`
+  - `--brief`
+  - `--evaluate`
+  - `--sr-id`（传入时自动设置 type=7, encrypt-level=INTERNAL, menu-id=505）
   - `--json`
 - `article delete <id>`
   - `--json`
@@ -389,7 +406,7 @@
 
 - `contract list`
   - `--page`, `--page-size`
-  - `--search`
+  - `--search`（合同名称/合同编号，模糊匹配，不区分大小写）
   - `--owner-id`
   - `--type`
   - `--period-type`（默认 `0`，仅查询服务中/有效期内的合同；传空值可查询全部合同）
