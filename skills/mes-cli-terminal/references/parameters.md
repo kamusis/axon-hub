@@ -71,6 +71,7 @@
   - `--end` **（必填，YYYY-MM-DD HH:mm:ss，不能跨天）**
   - `--hours` **（必填，最小0.5，最大24）**
   - `--remark` **（必填，最少10字）**
+  - `--overtime-type`（`null|0=工作日加班 1=休息日加班 2=节假日加班`，默认 null 非加班）
   - `--from-url`（自动解析 type 和 rid）
   - `--title`
   - `--company-id`

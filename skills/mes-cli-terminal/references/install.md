@@ -16,7 +16,7 @@ Suitable for AI agents, servers, and WSL environments.
 ```bash
 # 1. Fetch latest version
 OSS_BASE="https://oss-emcsprod-public.oss-cn-beijing.aliyuncs.com/tools/mes"
-VERSION=$(curl -s "${OSS_BASE}/version.json" | grep '"version":' | sed -E 's/.*"([^"]+)".*/\1/')
+VERSION=$(curl -s "${OSS_BASE}/version.json" | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p')
 
 # 2. Download Linux amd64 zip
 URL="${OSS_BASE}/${VERSION}/mes-${VERSION}-linux-amd64.zip"
@@ -42,7 +42,7 @@ mes version
 ```bash
 # 1. Fetch latest version
 OSS_BASE="https://oss-emcsprod-public.oss-cn-beijing.aliyuncs.com/tools/mes"
-VERSION=$(curl -s "${OSS_BASE}/version.json" | grep '"version":' | sed -E 's/.*"([^"]+)".*/\1/')
+VERSION=$(curl -s "${OSS_BASE}/version.json" | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p')
 
 # 2. Identify architecture (amd64 or arm64)
 ARCH=$(uname -m)
