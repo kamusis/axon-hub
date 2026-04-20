@@ -94,7 +94,7 @@
   - `--company-id`
   - `--type`
   - `--service-type`
-  - `--overtime-type`（`null|0|1|2`）
+  - `--overtime-type`（`null|0=工作日加班 1=休息日加班 2=节假日加班`，默认 null 非加班）
   - `--dry-run`
   - `--json`
 - `statistics delete <id>`
@@ -231,15 +231,6 @@
   - `--json`
   - **列表 JSON 语义**：`executorEmployeeName` = 当前负责人**真实姓名**；`executorName` 多为账号/昵称。按负责人聚合、筛选、对外展示时**优先** `executorEmployeeName`，缺省再回退 `executorName`。
 - `service request view <id|url>`
-  - `--json`
-- `service request report <id|url>`
-  - `--title`
-  - `--acc-id`
-  - `--company-id`
-  - `--start`
-  - `--end`
-  - `--hours`
-  - `--dry-run`
   - `--json`
 - `service request reply <id|url>`
   - `--text`
