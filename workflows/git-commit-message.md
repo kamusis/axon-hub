@@ -106,7 +106,6 @@ Minor improvements:
 
 - Separate subject from body with blank line
 - Use bullet points for multiple changes
-- Wrap lines at 72 characters
 - Focus on what and why, not how
 - Use present tense ("fix" not "fixed")
 
