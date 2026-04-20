@@ -119,7 +119,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 **写操作（先预览/确认）**
 
 - `statistics add|update|delete|review|bonus`
-- `service create|history create|request report|request reply|request recover|request edit`
+- `service create|history create|request reply|request recover|request edit`
 - `plan create|save|edit|end|delete`
 - `article save|delete|assign-reviewer|set-level|set-type`
 - `dashboard weeklyReport create|update|delete`
@@ -151,6 +151,3 @@ The detailed parameter breakdown and interaction examples are large and depend o
 - **落实安全原则**：针对存在风险的写操作命令，务必优先提供带 `--dry-run` 选项的预览版本，明确要求用户确认无误后再实际执行。
 - **结构化结果展示**：严禁直接粘贴冗长原始 JSON 数据。提取 JSON 中的关键字段，并**优先采用 Markdown 表格格式**进行结构化呈现。
 
-## 踩坑经验
-
-- `service request list` 时间参数：--start-time/--end-time 必须使用完整格式 `YYYY-MM-DD HH:mm:ss`，**不能只传日期**。例如 `2026-04-01 00:00:00` 而非 `2026-04-01`。否则过滤不生效，返回 0 条记录。

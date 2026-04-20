@@ -9,7 +9,7 @@
 - `mes service`
   - `create`
   - `history create`
-  - `request list|view|report|reply|recover|edit`
+  - `request list|view|reply|recover|edit`
 - `mes plan`
   - `list`, `view`, `end`
 - `mes article`
