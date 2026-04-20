@@ -124,7 +124,7 @@
   - `--title`, `--remark` (均支持关键词模糊搜索)
   - `--company-id`, `--team-id`
   - `--acc-id`
-  - `--executor-id`
+  - `--executor-id`, `--executor-name` (互斥)
   - `--service-type`
   - `--review-status`, `--sign-status`
   - `--missing-acc`, `--missing-impl`
@@ -132,12 +132,12 @@
   - `--json`
 - `statistics calendar`
   - `--from`, `--to`, `--range`
-  - `--user-id`
+  - `--user-id`, `--user-name` (互斥)
   - `--company-id`
   - `--json`
 - `statistics summary`
   - `--from`, `--to`, `--range`
-  - `--user-id`
+  - `--user-id`, `--user-name` (互斥)
   - `--team-id`
   - `--work-city`
   - `--group-type`
@@ -223,7 +223,7 @@
   - `--min-level`
   - `--status`（建议中文；兼容数字：已提交|处理中|已关闭|已归档|待反馈|已恢复 = 0|1|2|3|4|5）
   - `--company-id`
-  - `--person-id`
+  - `--person-id`, `--person-name` (互斥)
   - `--menu-root-id`
   - `--start-time`, `--end-time`
   - `--title` (按标题关键词模糊搜索，支持部分匹配)
@@ -307,7 +307,7 @@
   - `--company-name`
   - `--company-id`
   - `--team-id`
-  - `--executor-id`
+  - `--executor-id`, `--executor-name` (互斥)
   - `--check-type`
   - `--status`
   - `--range`
@@ -329,7 +329,7 @@
   - `--mode manage|audit|my`
   - `--page`, `--page-size`
   - `--status`
-  - `--created-by`
+  - `--created-by`, `--created-by-name` (互斥)
   - `--menu-id`
   - `--team-id`
   - `--search`
@@ -402,7 +402,7 @@
   - `--owner-id`
   - `--type`
   - `--period-type`（默认 `0`，仅查询服务中/有效期内的合同；传空值可查询全部合同）
-  - `--manager-id`
+  - `--manager-id`, `--manager-name` (互斥)
   - `--team-id`
   - `--start-time`, `--end-time`
   - `--json`
