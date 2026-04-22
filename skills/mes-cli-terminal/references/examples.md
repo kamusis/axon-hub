@@ -34,7 +34,8 @@
 - "列出我的未关闭工单"  
   `mes -o json service request list --status 1 --person-id <uid>`
 - "搜索标题包含 'Oracle' 的服务请求"  
-  `mes -o json service request list --title "Oracle"`
+  `mes -o json service request list Oracle`  
+  （等效于 `mes -o json service request list --title "Oracle"`）
 - "看工单 123 详情"  
   `mes -o json service request view 123`
 - "给工单 123 回复：已处理"  
@@ -47,17 +48,25 @@
 
 - "查我的实施计划"  
   `mes -o json plan list --executor-id <uid>`
+- "查标题含关键词的实施计划"  
+  `mes -o json plan list 2025驻场`  
+  （等效于 `mes -o json plan list --title "2025驻场"`）
 - "结束实施计划 16570"  
   `mes plan end 16570`
+- "查实施计划 16570 详情"  
+  `mes -o json plan view 16570`
 
 ### 合同
 
 - “按关键词查合同”  
-  `mes -o json contract list --search "Oracle"`
+  `mes -o json contract list Oracle`  
+  （等效于 `mes -o json contract list --search "Oracle"`）
 - "按合同编号查询合同子项"  
   `mes -o json contract list-items --contract-num "00032597"`
 - "查某合同下实际工时为0的子项"  
   `mes contract list-items --contract-id 12345 --actual-hours-zero-only`
+- "查合同 12345 详情"  
+  `mes -o json contract view 12345`
 
 ### 知识库与文章
 
@@ -95,7 +104,10 @@
 - "看工作情况客户工时（上月）"  
   `mes -o json dashboard work --executor-id 123 --range lastMonth`
 - "看周报列表（某人+某天）"  
-  `mes -o json dashboard weeklyReport 20260306 张三`
+  `mes -o json dashboard weeklyReport --period-from 2026-03-06 --period-to 2026-03-06 --creator 张三`
+- "搜索含关键词的周报"  
+  `mes -o json dashboard weeklyReport list 磐维`  
+  （等效于 `mes -o json dashboard weeklyReport list --search "磐维"`）
 - "查报工质量" / "查看报工评分" / "本月报工质量怎么样" / "团队报工质量评分"  
   `mes -o json dashboard score list --month 2026-04`  
   可加 `--executor-id <uid>` 或 `--team-id <tid>` 筛选

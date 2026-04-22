@@ -119,7 +119,8 @@
   - `--fault-id`
   - `--amount`
   - `--json`
-- `statistics list`
+- `statistics list [title]`
+  - **位置参数**：`mes statistics list <关键词>` 等效于 `--title <关键词>`
   - `--from`, `--to`, `--range`
   - `--title`, `--remark` (均支持关键词模糊搜索)
   - `--company-id`, `--team-id`
@@ -214,7 +215,8 @@
 | 3    | P4   | 咨询，业务暂未受影响（技术咨询）           |
 | 5    | P5   | 问题原因分析                               |
 
-- `service request list`
+- `service request list [title]`
+  - **位置参数**：`mes service request list <关键词>` 等效于 `--title <关键词>`
   - `--unclosed`
   - `--is-starred`
   - `--page`, `--page-size`
@@ -301,7 +303,8 @@
 
 #### 子命令参数
 
-- `plan list`
+- `plan list [title]`
+  - **位置参数**：`mes plan list <关键词>` 等效于 `--title <关键词>`
   - `--page`, `--page-size`
   - `--title` (按标题关键词模糊搜索，支持部分匹配)
   - `--company-name`
@@ -325,7 +328,8 @@
 
 ### `mes article`
 
-- `article list`
+- `article list [search]`
+  - **位置参数**：`mes article list <关键词>` 等效于 `--search <关键词>`
   - `--mode manage|audit|my`
   - `--page`, `--page-size`
   - `--status`
@@ -396,7 +400,8 @@
 
 ### `mes contract`
 
-- `contract list`
+- `contract list [search]`
+  - **位置参数**：`mes contract list <关键词>` 等效于 `--search <关键词>`
   - `--page`, `--page-size`
   - `--search`（合同名称/合同编号，模糊匹配，不区分大小写）
   - `--owner-id`
@@ -436,7 +441,7 @@
     - **审批工时统计** → `mes statistics review-stats`
     - 参数：`--month --team-id --executor-id --page --page-size --sort --truncate --no-truncate --limit --json`
   - `dashboard score prompt`：查看评分规则/提示词
-  - `dashboard weeklyReport list`：`--search --created-by --creator --type --period-from --period-to --page --page-size --json`
+  - `dashboard weeklyReport [list] [search]`：**位置参数**映射到 `--search`（`mes dashboard weeklyReport list <关键词>`）；`--search --created-by --creator --type --period-from --period-to --page --page-size --json`
   - `dashboard weeklyReport view <id>`：`--json`
   - `dashboard weeklyReport create`：`--type --period-from --period-to --md|--md-file|--html --json`
   - `dashboard weeklyReport update <id>`：`--type --period-from --period-to --md|--md-file|--html --json`
