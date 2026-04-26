@@ -1,0 +1,3 @@
+display_name: MES报工统计报告
+short_description: 生成团队或大区的报工统计分析 HTML 可视化看板，含工时明细、满勤率、加班及不达标预警。
+default_prompt: 帮我生成东西大区四个团队本周（4月20日-4月24日）的报工统计对比报告
