@@ -36,29 +36,8 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 7. 严禁臆造、填充或基于常见占位符（如张三、李四等）猜测缺失或因截断而无法直接读取的数据。提炼结果必须与真实回传字段严格对应。
 8. 完成最终报告之后，必须删除用于重定向的临时文件，以减少信息泄露风险。
 9. **分析服务请求详情时**：必须通过 `mes -o json service request view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
-10. ⚠️ **编码处理（仅限跨环境调用场景）**：当 agent 通过 `wsl -d <distro> -- bash -l -c "mes ..."` 从 **Windows 侧远程调用 WSL 中的 mes CLI** 时，输出为 UTF-8 JSON。此时**绝对不能**通过管道或重定向将 mes 输出直接写入 Windows 文件系统（如 `wsl ... > windows_path.json`）——WSL → Windows 的 interop 管道层会按系统默认代码页（中文 Windows 为 GBK/CP936）做编码转换，导致所有中文字段乱码。
-
-    **以下场景无需关注本规则**（可直接正常使用）：
-
-- Agent 直接运行在 Linux/macOS环境中，`mes` 命令在同一 shell 内执行
-- Agent 运行在 WSL Linux 内部，与 mes CLI 处于同一文件系统
-
-**仅在 Windows → WSL 跨环境调用时，必须分两步执行**：
-
-- **Step 1** — 将 mes 输出写入 WSL 内部路径：`wsl -d Ubuntu-24.04 -- bash -l -c "mes -o json <command> > /tmp/data.json"`
-- **Step 2** — 在 WSL 内用 Python3 解析 JSON 并输出关键字段到 stdout：
-  ```bash
-  wsl -d Ubuntu-24.04 -- bash -l -c 'python3 << "PYEOF"
-  import json
-  with open("/tmp/data.json", "r", encoding="utf-8") as f:
-      d = json.load(f)
-  detail = d["detail"]  # 或 d["list"] 等
-  print(f"ID: {detail['id']}")
-  print(f"标题: {detail['title']}")
-  # ... 提取需要的字段
-  PYEOF'
-  ```
-  此方式完全在 WSL 内完成读取与解码，避免跨文件系统的字节流转换问题。
+10. ⚠️ **优先使用原生环境**：Windows 环境的 agent 应优先使用 Windows 版本的 `mes` 命令，仅在明确需要 WSL 环境时才进行跨环境调用。Linux/macOS 环境直接使用原生 `mes` 命令。
+11. **跨环境调用场景**：特指 agent 运行在 Windows 系统中但未安装 Windows 版本的 mes-cli，需要调用 WSL 中已安装的 mes-cli。此时需要注意编码处理问题，详见 [编码处理](#编码处理windows-wsl-跨环境调用)。如果 Windows 已安装 mes-cli，应直接使用原生命令。
 
 ## Command-generation workflow
 
@@ -119,7 +98,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 **写操作（先预览/确认）**
 
 - `statistics add|update|delete|review|bonus`
-- `service create|history create|request reply|request recover|request edit`
+- `service create|history create|request report|request reply|request recover|request edit`
 - `plan create|save|edit|end|delete`
 - `article save|delete|assign-reviewer|set-level|set-type`
 - `dashboard weeklyReport create|update|delete`
@@ -150,3 +129,31 @@ The detailed parameter breakdown and interaction examples are large and depend o
 - **简述执行依据**：简要说明最终选用该命令及其参数的逻辑。
 - **落实安全原则**：针对存在风险的写操作命令，务必优先提供带 `--dry-run` 选项的预览版本，明确要求用户确认无误后再实际执行。
 - **结构化结果展示**：严禁直接粘贴冗长原始 JSON 数据。提取 JSON 中的关键字段，并**优先采用 Markdown 表格格式**进行结构化呈现。
+
+---
+
+## 编码处理（Windows → WSL 跨环境调用）
+
+当 agent 运行在 Windows 系统但需要调用 WSL 中的 mes CLI 时，输出为 UTF-8 JSON。此时**绝对不能**通过管道或重定向将 mes 输出直接写入 Windows 文件系统（如 `wsl ... > windows_path.json`）——WSL → Windows 的 interop 管道层会按系统默认代码页（中文 Windows 为 GBK/CP936）做编码转换，导致所有中文字段乱码。
+
+**跨环境调用时必须分两步执行**：
+
+- **Step 1** — 将 mes 输出写入 WSL 内部路径：
+  ```bash
+  wsl -d Ubuntu-24.04 -- bash -l -c "mes -o json <command> > /tmp/data.json"
+  ```
+
+- **Step 2** — 在 WSL 内用 Python3 解析 JSON 并输出关键字段到 stdout：
+  ```bash
+  wsl -d Ubuntu-24.04 -- bash -l -c 'python3 << "PYEOF"
+  import json
+  with open("/tmp/data.json", "r", encoding="utf-8") as f:
+      d = json.load(f)
+  detail = d["detail"]  # 或 d["list"] 等
+  print(f"ID: {detail['id']}")
+  print(f"标题: {detail['title']}")
+  # ... 提取需要的字段
+  PYEOF'
+  ```
+
+此方式完全在 WSL 内完成读取与解码，避免跨文件系统的字节流转换问题。
