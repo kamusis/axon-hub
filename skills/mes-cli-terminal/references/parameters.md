@@ -9,7 +9,7 @@
 - `mes service`
   - `create`
   - `history create`
-  - `request list|view|report|reply|recover|edit`
+  - `request list|view|reply|recover|edit|download`
 - `mes plan`
   - `list`, `view`, `end`
 - `mes article`
@@ -236,8 +236,14 @@
   - `--json`
 - `service request reply <id|url>`
   - `--text`
+  - `--file`（本地文件路径，随回复上传附件）
   - `--internal`
   - `--dry-run`
+  - `--json`
+- `service request download <id|url>`
+  - `--file-id`（附件 id，从 `view` 输出中获取，如 6035）
+  - `--all`（下载全部附件，默认行为）
+  - `-O, --output-file`（保存路径；省略时自动用附件名）
   - `--json`
 - `service request recover <id|url>`
   - `--happen-time`

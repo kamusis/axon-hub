@@ -13,6 +13,12 @@
   - Status messages
   - Prompts and confirmations
 
+## Community platform language rules
+- Always use English for any content posted to international community platforms, including:
+  - GitHub: issues, pull requests, comments, reviews, commit messages, release notes
+  - Reddit: posts and replies (any subreddit)
+  - Any other English-speaking communities (Hacker News, Discord public servers, Stack Overflow, etc.)
+
 ## Code quality
 - Always include docstrings for functions and classes.
 - Add meaningful comments for complex logic.

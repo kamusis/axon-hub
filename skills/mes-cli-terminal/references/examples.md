@@ -31,17 +31,41 @@
 
 ### 服务请求
 
-- "列出我的未关闭工单"  
+- "列出我的未关闭服务请求"  
   `mes -o json service request list --status 1 --person-id <uid>`
 - "搜索标题包含 'Oracle' 的服务请求"  
   `mes -o json service request list Oracle`  
   （等效于 `mes -o json service request list --title "Oracle"`）
-- "看工单 123 详情"  
+- "看服务请求 123 详情，并列出附件列表"  
+  `mes service request view 123`
+- "用 JSON 看服务请求 123 详情（含完整附件信息）"  
   `mes -o json service request view 123`
-- "给工单 123 回复：已处理"  
+- "给服务请求 123 回复：已处理"  
   `mes service request reply 123 --text "已处理，等待验证" --dry-run`
 
-- "帮我创建一个服务请求，标题是 '数据库连接失败'，公司 ID 是 4，合同子项 ID 是 2025103112176，等级 P3，正文说：今天早上 9 点开始连接不上数据库，报错如下：[错误提示]"
+- "服务请求 123 附件太多，我先看看有哪些"  
+  `mes service request view 123`  
+  （输出会显示附件列表：`[1] 日志文件.log (pdf, 2.3MB)  id=6035`）
+- "下载服务请求 123 的指定附件（用 view 中显示的 id）"  
+  `mes service request download 123 --file-id 6035`
+- "下载服务请求 123 的全部附件（默认行为）"  
+  `mes service request download 123`
+- "客户上传了报错截图，我下载下来分析"  
+  `mes service request download 123 --file-id 6035 -O ~/Downloads/客户日志.pdf`
+- "下载到指定目录"  
+  `mes service request download 123 -O ~/Downloads/`
+
+- "我回复时附上本地排查截图"  
+  `mes service request reply 123 --text "排查截图见附件" --file /home/user/error.png --dry-run`  
+  提交时去掉 `--dry-run`。
+- "故障已处理，回复客户并附上服务报告 PDF"  
+  `mes service request reply 123 --text "故障已处理完毕，详见附件服务报告" --file ./服务报告.pdf`
+- "我需要内部回复（不让客户看到附件），附上内部分析文档"  
+  `mes service request reply 123 --text "内部分析：根因是 XXX" --file ./分析.doc --internal`
+
+> ⚠️ **已关闭的服务请求上传附件**：必须加 `--internal`，否则报"您没有资源权限"。
+
+- "帮我创建一个服务请求，标题是 '数据库连接失败'"
   `mes service create --title "数据库连接失败" --company-id 4 --acc-id "2025103112176" --type 3 --body-md "### 问题背景\n\n今天早上 9 点开始连接不上数据库。\n\n### 报错信息\n\n\`\`\`\n[错误提示]\n\`\`\`" --dry-run`
 
 ### 实施计划
@@ -135,7 +159,7 @@
 - "上传图片并查看大小详情"
   `mes -o json oss upload image img.jpg`
 
-> ⚠️ 场景：当用户需要在回复工单或保存文档时嵌入本地图片，请先使用 `oss upload image` 获取 URL，再将 URL 填入正文。目前**仅支持图片**，不支持其他文件。
+> ⚠️ 场景：当用户需要在回复服务请求或保存文档时嵌入本地图片，请先使用 `oss upload image` 获取 URL，再将 URL 填入正文。目前**仅支持图片**，不支持其他文件。
 
 ### 发现链 (Discovery Chain): 从公司名找实施计划
 

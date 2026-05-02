@@ -17,11 +17,11 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 - MES登录、切换账号、查看登录状态
 - 报工、查工时、审批工时、工时日历/汇总
 - 报工质量、报工评分、质量评分
-- 服务请求（工单）创建、回帖、恢复、编辑、报工
+- 服务请求（工单）创建、回复（含附件）、恢复、编辑、报工、下载附件
 - 实施计划查询/创建/编辑/结束/删除
 - MES文章或合同查询与维护
 - MES管理看板（dashboard）查询、周报增删改查
-- MES OSS 图片上传（目前仅支持图片，不支持附件或压缩包等其他文件）
+- MES OSS 文件上传（支持图片及任意文件类型，回复附件也通过 OSS 上传）
 - 给了 support 链接，需要提取 `type/rid`
 
 ## Hard rules
@@ -87,7 +87,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 
 - `auth status`
 - `statistics list|calendar|summary|review-stats|related-hours`
-- `service request list|view`
+- `service request list|view|download`（view 会列出附件列表含 id）
 - `plan list|view`
 - `article list|view|review-count`
 - `contract list|view`
@@ -98,7 +98,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 **写操作（先预览/确认）**
 
 - `statistics add|update|delete|review|bonus`
-- `service create|history create|request report|request reply|request recover|request edit`
+- `service create|history create|request reply|request recover|request edit`
 - `plan create|save|edit|end|delete`
 - `article save|delete|assign-reviewer|set-level|set-type`
 - `dashboard weeklyReport create|update|delete`
@@ -139,6 +139,7 @@ The detailed parameter breakdown and interaction examples are large and depend o
 **跨环境调用时必须分两步执行**：
 
 - **Step 1** — 将 mes 输出写入 WSL 内部路径：
+
   ```bash
   wsl -d Ubuntu-24.04 -- bash -l -c "mes -o json <command> > /tmp/data.json"
   ```
