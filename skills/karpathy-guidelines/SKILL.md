@@ -1,6 +1,12 @@
-# Coding guidelines
+---
+name: karpathy-guidelines
+description: Behavioral guidelines to reduce common LLM coding mistakes. Use when writing, reviewing, or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria.
+license: MIT
+---
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+# Karpathy Guidelines
+
+Behavioral guidelines to reduce common LLM coding mistakes, derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
@@ -59,37 +65,3 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
----
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
-
-# Language rules
-- When asked questions in a specific language, respond in the same language. All code-related output must remain in English.
-- If explicitly requested to translate or generate text in non-English and the file is markdown, proceed. Any text inside code must still be English; this typically applies to source files (e.g., `.py`, `.ts`) rather than markdown.
-- Always use English in source code, including:
-  - Code comments and documentation
-  - User interface messages
-  - Error messages and warnings
-  - Log messages
-  - Debug information
-  - Console output
-  - Configuration files
-  - API responses
-  - Status messages
-  - Prompts and confirmations
-
-# Community platform language rules
-- Always use English for any content posted to international community platforms, including:
-  - GitHub: issues, pull requests, comments, reviews, commit messages, release notes
-  - Reddit: posts and replies (any subreddit)
-  - Any other English-speaking communities (Hacker News, Discord public servers, Stack Overflow, etc.)
-
-# Code quality
-- Always include docstrings for functions and classes.
-- Add meaningful comments for complex logic.
-- Always use context7 when I need code generation, setup or configuration steps, or library/API documentation. This means you should automatically use the Context7 MCP tools to resolve library id and get library docs without me having to explicitly ask.
-
-# Git hygiene
-- When asked to initializing a repo (`git init`), always create a `.gitignore` at the same time.
-- Always add standard recommended items to `.gitignore` based on the project's programming language.
