@@ -98,7 +98,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 **写操作（先预览/确认）**
 
 - `statistics add|update|delete|review|bonus`
-- `service create|history create|request reply|request recover|request edit`
+- `service create|request reply|request recover|request edit`
 - `plan create|save|edit|end|delete`
 - `article save|delete|assign-reviewer|set-level|set-type`
 - `dashboard weeklyReport create|update|delete`
