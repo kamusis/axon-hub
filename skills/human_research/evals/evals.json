@@ -1,0 +1,23 @@
+{
+  "skill_name": "human_research",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "https://github.com/forrestchang 帮我调研一下张三丰。我不是只想看这个 GitHub 页面，我想知道这个人公开履历、LinkedIn、可能的公司/学校、居住城市、其他社交平台和可验证来源。",
+      "expected_output": "A public research report that treats the GitHub URL as a seed, searches broadly across web/GitHub/LinkedIn/social and bilingual sources, separates confirmed facts from uncertain leads, includes source links and confidence levels, and avoids private sensitive details.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Can you research who @some_ml_researcher is? I found this handle on X and a GitHub repo, but I want a public-profile summary: career, education, publications, location if publicly known, LinkedIn, Google Scholar, talks, and whether the accounts likely belong to the same person.",
+      "expected_output": "A cross-platform public-person investigation with entity-resolution reasoning, confidence scoring, source coverage, useful sources found, possible false positives, and a timeline.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "帮我查一下张三丰这个人是不是某 AI startup 的 founder。我只有一个 LinkedIn 链接和一个知乎用户名。请尽量全网搜索公开信息，中文英文都搜，最后告诉我哪些是确定的，哪些只是同名可能。",
+      "expected_output": "A Chinese public research report that searches bilingual sources, checks LinkedIn/Zhihu/company/web/news/GitHub if relevant, avoids same-name conflation, and explicitly marks verified facts versus possible matches.",
+      "files": []
+    }
+  ]
+}
