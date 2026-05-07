@@ -43,11 +43,49 @@ Use for ANY technical issue:
 - You're in a hurry (rushing guarantees rework)
 - Manager wants it fixed NOW (systematic is faster than thrashing)
 
-## The Four Phases
+## The Six Phases
 
 You MUST complete each phase before proceeding to the next.
 
-### Phase 1: Root Cause Investigation
+### Phase 1: Build a Feedback Loop
+
+**This is the skill.** Everything else is mechanical. If you have a fast, deterministic, runnable pass/fail signal for the bug, you will find the cause. If you don't have one, no amount of staring at code will save you.
+
+**Be aggressive. Be creative. Refuse to give up.** Spend disproportionate effort here.
+
+#### Ways to construct one — try in roughly this order
+
+1. **Failing test** at whatever seam reaches the bug — unit, integration, e2e
+2. **Curl / HTTP script** against a running dev server
+3. **CLI invocation** with fixture input, diff stdout against known-good snapshot
+4. **Headless browser script** (Playwright / Puppeteer) — drives UI, asserts on DOM/console/network
+5. **Replay a captured trace** — save a real network request/payload to disk; replay in isolation
+6. **Throwaway harness** — spin up minimal subset of the system (one service, mocked deps) that exercises the bug code path
+7. **Property / fuzz loop** — if bug is "sometimes wrong output", run 1000 random inputs and look for failure mode
+8. **Bisection harness** — if bug appeared between two known states (commit/dataset/version), automate "boot at state X, check, repeat" so you can `git bisect run`
+9. **Differential loop** — run same input through old-version vs new-version (or two configs), diff outputs
+10. **HITL bash script** — last resort. If a human must click, drive them with a structured loop so the captured output still feeds back to you
+
+#### Iterate on the loop itself
+
+Treat the loop as a product. Once you have _a_ loop, ask:
+- Can I make it faster? (Cache setup, skip unrelated init, narrow scope.)
+- Can I make the signal sharper? (Assert on the specific symptom, not "didn't crash".)
+- Can I make it more deterministic? (Pin time, seed RNG, isolate filesystem, freeze network.)
+
+A 30-second flaky loop is barely better than no loop. A 2-second deterministic loop is a debugging superpower.
+
+#### Non-deterministic (flaky) bugs
+
+The goal is not perfect reproduction but a **higher reproduction rate**. Loop the trigger 100×, parallelise, add stress, narrow timing windows, inject sleeps. A 50%-flake bug is debuggable; 1% is not — keep raising the rate until it is.
+
+#### When you genuinely cannot build a loop
+
+Stop and say so explicitly. List what you tried. Ask the user for: (a) access to whatever environment reproduces it, (b) a captured artifact (HAR file, log dump, core dump, screen recording), or (c) permission to add temporary production instrumentation. **Do not proceed to Phase 2 without a loop.**
+
+---
+
+### Phase 1b: Root Cause Investigation
 
 **BEFORE attempting ANY fix:**
 
@@ -57,19 +95,12 @@ You MUST complete each phase before proceeding to the next.
    - Read stack traces completely
    - Note line numbers, file paths, error codes
 
-2. **Reproduce Consistently**
-   - Can you trigger it reliably?
-   - What are the exact steps?
-   - Does it happen every time?
-   - If not reproducible → gather more data, don't guess
+2. **Reproduce via the Loop**
+   - Run your feedback loop. Watch the bug appear.
+   - Confirm the loop produces the failure mode the **user** described — not a different nearby failure. Wrong bug = wrong fix.
+   - Capture the exact symptom (error message, wrong output, slow timing) so later phases can verify the fix addresses it.
 
-3. **Check Recent Changes**
-   - What changed that could cause this?
-   - Git diff, recent commits
-   - New dependencies, config changes
-   - Environmental differences
-
-4. **Gather Evidence in Multi-Component Systems**
+3. **Gather Evidence in Multi-Component Systems**
 
    **WHEN system has multiple components (CI → build → signing, API → service → database):**
 
@@ -107,7 +138,7 @@ You MUST complete each phase before proceeding to the next.
 
    **This reveals:** Which layer fails (secrets → workflow ✓, workflow → build ✗)
 
-5. **Trace Data Flow**
+4. **Trace Data Flow**
 
    **WHEN error is deep in call stack:**
 
@@ -142,26 +173,35 @@ You MUST complete each phase before proceeding to the next.
    - What settings, config, environment?
    - What assumptions does it make?
 
-### Phase 3: Hypothesis and Testing
+### Phase 3: Generate and Rank Hypotheses
 
-**Scientific method:**
+**Scientific method — but generate multiple hypotheses before testing any:**
 
-1. **Form Single Hypothesis**
-   - State clearly: "I think X is the root cause because Y"
-   - Write it down
-   - Be specific, not vague
+1. **Generate 3–5 Ranked Hypotheses**
+   - Single-hypothesis generation anchors on the first plausible idea — resist this
+   - Each hypothesis must be **falsifiable**: state the prediction it makes
+   - Format: "If [X] is the cause, then [Y] will happen / [Y] will disappear"
+   - If you cannot state the prediction, the hypothesis is a vibe — discard or sharpen it
+   - Rank by probability given all evidence seen so far
 
-2. **Test Minimally**
-   - Make the SMALLEST possible change to test hypothesis
-   - One variable at a time
-   - Don't fix multiple things at once
+2. **Show the Ranked List to the User**
+   - They often have domain knowledge that instantly re-ranks ("we just deployed a change to #3")
+   - Cheap checkpoint, big time saver
+   - Proceed with your ranking if the user is AFK
 
-3. **Verify Before Continuing**
+3. **Test Hypotheses via Instrumentation**
+   - Each probe must map to a specific prediction from Step 1
+   - **Change one variable at a time**
+   - Tool preference order: (1) debugger/REPL — one breakpoint beats ten logs; (2) targeted logs at the boundaries that distinguish hypotheses; (3) never "log everything and grep"
+   - **Tag every debug log** with a unique prefix, e.g. `[DEBUG-a4f2]`. Cleanup at the end is a single grep. Tagged logs die; untagged logs survive.
+   - For performance regressions: measure first with `performance.now()` / profiler / query plan, then bisect. Logs are usually wrong for perf.
+
+4. **Verify Before Continuing**
    - Did it work? Yes → Phase 4
-   - Didn't work? Form NEW hypothesis
-   - DON'T add more fixes on top
+   - Didn't work? Return to Step 1 with new information, re-rank hypotheses
+   - DON'T add more fixes on top without going back through the ranked list
 
-4. **When You Don't Know**
+5. **When You Don't Know**
    - Say "I don't understand X"
    - Don't pretend to know
    - Ask for help
@@ -173,8 +213,8 @@ You MUST complete each phase before proceeding to the next.
 
 1. **Create Failing Test Case**
    - Simplest possible reproduction
-   - Automated test if possible
-   - One-off test script if no framework
+   - **Seam must be correct** — test exercises the real bug pattern as it occurs at the call site. A shallow seam (single-caller test when bug needs multiple callers) gives false confidence. If no correct seam exists, that itself is a finding — document it.
+   - Automated test if possible; one-off script if no framework
    - MUST have before fixing
    - Use the `superpowers:test-driven-development` skill for writing proper failing tests
 
@@ -188,29 +228,42 @@ You MUST complete each phase before proceeding to the next.
    - Test passes now?
    - No other tests broken?
    - Issue actually resolved?
+   - Re-run Phase 1 feedback loop against the original (unminimised) scenario
 
 4. **If Fix Doesn't Work**
    - STOP
    - Count: How many fixes have you tried?
    - If < 3: Return to Phase 1, re-analyze with new information
-   - **If ≥ 3: STOP and question the architecture (step 5 below)**
+   - **If ≥ 3: STOP and question the architecture (Phase 5)**
    - DON'T attempt Fix #4 without architectural discussion
 
-5. **If 3+ Fixes Failed: Question Architecture**
+### Phase 5: Question Architecture
 
-   **Pattern indicating architectural problem:**
-   - Each fix reveals new shared state/coupling/problem in different place
-   - Fixes require "massive refactoring" to implement
-   - Each fix creates new symptoms elsewhere
+**Pattern indicating architectural problem:**
+- Each fix reveals new shared state/coupling/problem in different place
+- Fixes require "massive refactoring" to implement
+- Each fix creates new symptoms elsewhere
 
-   **STOP and question fundamentals:**
-   - Is this pattern fundamentally sound?
-   - Are we "sticking with it through sheer inertia"?
-   - Should we refactor architecture vs. continue fixing symptoms?
+**STOP and question fundamentals:**
+- Is this pattern fundamentally sound?
+- Are we "sticking with it through sheer inertia"?
+- Should we refactor architecture vs. continue fixing symptoms?
 
-   **Discuss with your human partner before attempting more fixes**
+**Discuss with your human partner before attempting more fixes.**
 
-   This is NOT a failed hypothesis - this is a wrong architecture.
+This is NOT a failed hypothesis — this is a wrong architecture.
+
+### Phase 6: Cleanup + Post-Mortem
+
+Required before declaring done:
+
+- [ ] Original repro no longer reproduces (re-run the Phase 1 loop)
+- [ ] Regression test passes (or absence of seam is documented)
+- [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix — tagged logs die)
+- [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
+- [ ] **The hypothesis that turned out correct is stated in the commit / PR message** — so the next debugger learns
+
+**Then ask: what would have prevented this bug?** If the answer involves architectural change (no good test seam, tangled callers, hidden coupling), consider running `/improve-codebase-architecture` after the fix is in. Make the recommendation after the fix, not before — you have more information now than when you started.
 
 ## Red Flags - STOP and Follow Process
 
@@ -229,7 +282,7 @@ If you catch yourself thinking:
 
 **ALL of these mean: STOP. Return to Phase 1.**
 
-**If 3+ fixes failed:** Question the architecture (see Phase 4.5)
+**If 3+ fixes failed:** Question the architecture (see Phase 5)
 
 ## your human partner's Signals You're Doing It Wrong
 
@@ -258,11 +311,14 @@ If you catch yourself thinking:
 ## Quick Reference
 
 | Phase | Key Activities | Success Criteria |
-|-------|---------------|------------------|
-| **1. Root Cause** | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY |
+|-------|---------------|-----------------|
+| **1. Feedback Loop** | Build fast deterministic repro loop; iterate on it | Loop runs reliably, bug visible in seconds |
+| **1b. Root Cause** | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY |
 | **2. Pattern** | Find working examples, compare | Identify differences |
-| **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
-| **4. Implementation** | Create test, fix, verify | Bug resolved, tests pass |
+| **3. Hypotheses** | Generate 3–5 ranked, falsifiable; show to user; instrument | Confirmed or new hypothesis |
+| **4. Implementation** | Create test at correct seam, fix, verify | Bug resolved, tests pass |
+| **5. Architecture** | Question fundamentals if 3+ fixes failed | Architectural decision |
+| **6. Cleanup** | Remove debug tags, delete throwaways, write commit message | Clean, documented |
 
 ## When Process Reveals "No Root Cause"
 
@@ -284,7 +340,7 @@ These techniques are part of systematic debugging and available in this director
 - **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
 
 **Related skills:**
-- **superpowers:test-driven-development** - For creating failing test case (Phase 4, Step 1)
+- **superpowers:test-driven-development** - For creating failing test case at the correct seam (Phase 4, Step 1)
 - **superpowers:verification-before-completion** - Verify fix worked before claiming success
 
 ## Real-World Impact
