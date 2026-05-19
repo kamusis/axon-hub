@@ -1,7 +1,7 @@
 ---
 name: mermaid-viz
 description: Render Mermaid diagrams as beautiful ASCII/Unicode art for terminal display, or SVG/JPG/PNG files for sharing. Use when the user asks to visualize logic, flows, state machines, or architecture.
-version: 1.2.0
+version: 1.3.0
 user-invocable: true
 metadata:
   openclaw:
@@ -66,9 +66,9 @@ node scripts/mermaid-viz.js "diagram_code"
 
 To save a high-quality file (examples use `/tmp/` which requires no setup):
 ```bash
-./mermaid-viz --type svg --theme tokyo-night --output /tmp/output.svg "diagram_code"
-./mermaid-viz --type jpg --theme tokyo-night --output /tmp/output.jpg "diagram_code"
-./mermaid-viz --type png --theme tokyo-night --output /tmp/output.png "diagram_code"
+./mermaid-viz --type svg --output /tmp/output.svg "diagram_code"
+./mermaid-viz --type jpg --output /tmp/output.jpg "diagram_code"
+./mermaid-viz --type png --output /tmp/output.png "diagram_code"
 ```
 
 If you must use `artifacts/` directory, create it in a **separate exec call** first:
@@ -78,12 +78,12 @@ mkdir -p artifacts
 Then run the render command.
 
 Background behavior:
-- **SVG**: Transparent by default. Pass `--opaque` to preserve the theme background.
-- **JPG**: Always uses the theme background (or a default dark color).
-- **PNG**: Transparent by default. Pass `--opaque` to flatten with the theme background.
+- **SVG**: Opaque by default (uses theme background). Pass `--transparent` for a transparent background.
+- **JPG**: Always uses the theme background (or a default light color).
+- **PNG**: Opaque by default (uses theme background). Pass `--transparent` for a transparent background.
 
 ### Available Themes (SVG/JPG only)
-`zinc-light`, `zinc-dark`, `tokyo-night`, `tokyo-night-storm`, `tokyo-night-light`, `catppuccin-mocha`, `catppuccin-latte`, `nord`, `nord-light`, `dracula`, `github-light`, `github-dark`, `solarized-light`, `solarized-dark`, `one-dark`.
+Default theme is `github-light`. Available: `zinc-light`, `zinc-dark`, `tokyo-night`, `tokyo-night-storm`, `tokyo-night-light`, `catppuccin-mocha`, `catppuccin-latte`, `nord`, `nord-light`, `dracula`, `github-light`, `github-dark`, `solarized-light`, `solarized-dark`, `one-dark`.
 
 ## Examples
 
@@ -104,7 +104,7 @@ Background behavior:
 
 ### 3. Generate an opaque SVG
 ```bash
-./mermaid-viz --type svg --theme tokyo-night --opaque --output /tmp/sequence-opaque.svg "sequenceDiagram
+./mermaid-viz --type svg --theme tokyo-night --output /tmp/sequence-dark.svg "sequenceDiagram
   Alice->>Bob: Hello Bob!
   Bob-->>Alice: Hi Alice!"
 ```
@@ -121,7 +121,7 @@ Background behavior:
 - **Type check first**: Inspect the first Mermaid header line before rendering. If the diagram type is not one of the supported types above, stop immediately and tell the user that this skill cannot render it with `beautiful-mermaid`.
 - **Formatting**: Always ensure the first line of the diagram code contains the type (e.g., `flowchart TD`).
 - **Early failure**: If the type check fails, do not attempt rendering, file generation, or any follow-up workflow.
-- **Background choice**: SVG output is transparent by default. Use `--opaque` only when the user explicitly wants a solid background or when the rendered SVG should preserve the selected theme as a standalone image.
-- **Embedding preference**: Prefer transparent SVG output for blog posts, documentation pages, and mixed light/dark layouts unless the user asks to keep the theme background.
+- **Background choice**: Output is opaque by default with `github-light` theme — looks good everywhere. Use `--transparent` only when the user explicitly wants a transparent background (e.g., for embedding in mixed light/dark layouts). Use `--theme` to switch to a dark theme when requested.
+- **Embedding preference**: Prefer `--transparent` SVG for blog posts, documentation pages, and mixed light/dark layouts. Default opaque output works best for Telegram, Slack, and standalone image sharing.
 - **Newlines**: Use actual newlines in the diagram code string.
 - **Escape**: Be careful with special characters in the shell.

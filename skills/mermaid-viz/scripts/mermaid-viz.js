@@ -23,10 +23,10 @@ async function main() {
   };
 
   const type = getFlag('--type') || 'ascii';
-  const themeName = getFlag('--theme') || 'zinc-dark';
+  const themeName = getFlag('--theme') || 'github-light';
   const outputFile = getFlag('--output');
   const useAscii = args.includes('--pure-ascii');
-  const isTransparent = args.includes('--opaque') ? false : true;
+  const isTransparent = args.includes('--transparent');
 
   // Get mermaid code
   let input = '';
