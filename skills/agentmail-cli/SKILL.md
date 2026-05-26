@@ -56,6 +56,69 @@ agentmail inboxes:messages forward --inbox-id <inbox_id> --message-id <message_i
   --to "someone@example.com"
 ```
 
+### Attachments
+
+> **Known CLI bug:** `--attachment` currently sends a string instead of an array to the API, causing a 400 error.
+> Use the REST API directly for attachments (see below).
+
+**CLI workaround (subject to bug — use REST API for attachments):**
+
+```bash
+# Note: the --attachment flag has a known bug; for files, use the REST API directly
+agentmail inboxes:messages send --inbox-id <inbox_id> \
+  --to "recipient@example.com" \
+  --subject "With Attachment" \
+  --text "See attached file." \
+  --attachment "/path/to/file.pdf"   # ← buggy, use REST API below instead
+```
+
+**REST API (recommended for attachments):**
+
+```bash
+# Send with file attachment via curl
+curl -s -X POST \
+  "https://api.agentmail.to/v0/inboxes/${INBOX_ID}/messages/send" \
+  -H "Authorization: Bearer ${AGENTMAIL_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["recipient@example.com"],
+    "subject": "Subject",
+    "text": "Body text",
+    "attachments": [
+      {
+        "filename": "report.pdf",
+        "content": "'"$(base64 < /path/to/file.pdf)"'",
+        "content_type": "application/pdf"
+      }
+    ]
+  }'
+```
+
+**Python (recommended for attachments):**
+
+```python
+import urllib.request, json, base64
+
+with open("/path/to/file.pdf", "rb") as f:
+    b64 = base64.b64encode(f.read()).decode()
+
+payload = {
+    "to": ["recipient@example.com"],
+    "subject": "Subject",
+    "text": "Body text",
+    "attachments": [{"filename": "report.pdf", "content": b64, "content_type": "application/pdf"}]
+}
+
+req = urllib.request.Request(
+    f"https://api.agentmail.to/v0/inboxes/{INBOX_ID}/messages/send",
+    data=json.dumps(payload).encode(),
+    headers={"Authorization": f"Bearer {AGENTMAIL_API_KEY}", "Content-Type": "application/json"},
+    method="POST"
+)
+with urllib.request.urlopen(req) as resp:
+    print(json.loads(resp.read()))
+```
+
 ### Read Email
 
 ```bash
