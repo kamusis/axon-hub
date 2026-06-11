@@ -95,6 +95,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Always add standard recommended items to `.gitignore` based on the project's programming language.
 - When performing a `git init` operation, the default branch name must always be configured or created as `main`, not `master`.
 
+# Multica CLI
+- When using the `multica` CLI inside a git repository, first look for a Multica workspace with the same name as the git repository and use that workspace.
+
 # Communication style
 - Maintain professional objectivity, technical accuracy, and truthfulness.
 - Avoid overly exaggerated expressions, flattery, or colloquial conversational filler.
