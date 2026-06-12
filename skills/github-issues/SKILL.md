@@ -1,49 +1,51 @@
 ---
 name: github-issues
-description: 'Create, update, and manage GitHub issues using MCP tools. Use this skill when users want to create bug reports, feature requests, or task issues, update existing issues, add labels/assignees/milestones, or manage issue workflows. Triggers on requests like "create an issue", "file a bug", "request a feature", "update issue X", or any GitHub issue management task.'
+description: 'Create, update, and manage GitHub issues using gh CLI. Use this skill when users want to create bug reports, feature requests, or task issues, update existing issues, add labels/assignees/milestones, or manage issue workflows. Triggers on requests like "create an issue", "file a bug", "request a feature", "update issue X", or any GitHub issue management task.'
 ---
 
 # GitHub Issues
 
-Manage GitHub issues using the `github` MCP server.
+Manage GitHub issues using the `gh` CLI.
 
-## Available MCP Tools
+## Available gh Commands
 
-| Tool | Purpose |
-|------|---------|
-| `mcp_issue_write` (create) | Create new issues |
-| `mcp_issue_write` (update) | Update existing issues |
-| `mcp_issue_read` | Fetch issue details |
-| `mcp_search_issues` | Search issues |
-| `mcp_add_issue_comment` | Add comments |
-| `mcp_list_issues` | List repository issues |
+| Command | Purpose |
+|---------|---------|
+| `gh issue create` | Create new issues |
+| `gh issue edit` | Update existing issues |
+| `gh issue view` | Fetch issue details |
+| `gh issue list` | List repository issues |
+| `gh issue comment` | Add comments |
+| `gh issue close` | Close issues |
+| `gh issue reopen` | Reopen issues |
 
 ## Workflow
 
 1. **Determine action**: Create, update, or query?
 2. **Gather context**: Get repo info, existing labels, milestones if needed
 3. **Structure content**: Use appropriate template from [references/templates.md](references/templates.md)
-4. **Execute**: Call the appropriate MCP tool
+4. **Execute**: Run the appropriate `gh` command
 5. **Confirm**: Report the issue URL to user
 
 ## Creating Issues
 
+### gh issue create Command
+
+```bash
+gh issue create --repo owner/repo --title "Title" --body "Body content" --label "bug,enhancement" --assignee "username1,username2" --milestone "v1.0"
+```
+
 ### Required Parameters
 
-```
-owner: repository owner (org or user)
-repo: repository name  
-title: clear, actionable title
-body: structured markdown content
-```
+- `--repo owner/repo` - Repository (owner/name format)
+- `--title` - Clear, actionable title
+- `--body` - Structured markdown content
 
 ### Optional Parameters
 
-```
-labels: ["bug", "enhancement", "documentation", ...]
-assignees: ["username1", "username2"]
-milestone: milestone number (integer)
-```
+- `--label` - Comma-separated labels (e.g., "bug,high-priority")
+- `--assignee` - Comma-separated assignees (e.g., "user1,user2")
+- `--milestone` - Milestone title
 
 ### Title Guidelines
 
@@ -67,14 +69,66 @@ Always use the templates in [references/templates.md](references/templates.md). 
 
 ## Updating Issues
 
-Use `mcp_issue_write` (update) with:
+### gh issue edit Command
 
-```
-owner, repo, issue_number (required)
-title, body, state, labels, assignees, milestone (optional - only changed fields)
+```bash
+gh issue edit <issue_number> --repo owner/repo --title "New title" --body "New body" --add-label "bug" --remove-label "enhancement" --add-assignee "user1" --remove-assignee "user2"
 ```
 
-State values: `open`, `closed`
+### Update Parameters
+
+- `--title` - New title
+- `--body` - New body
+- `--add-label` - Add label(s)
+- `--remove-label` - Remove label(s)
+- `--add-assignee` - Add assignee(s)
+- `--remove-assignee` - Remove assignee(s)
+- `--milestone` - Set milestone
+
+### State Changes
+
+```bash
+# Close an issue
+gh issue close <issue_number> --repo owner/repo
+
+# Reopen an issue
+gh issue reopen <issue_number> --repo owner/repo
+```
+
+## Viewing Issues
+
+### gh issue view Command
+
+```bash
+# View issue details
+gh issue view <issue_number> --repo owner/repo
+
+# View with specific fields
+gh issue view <issue_number> --repo owner/repo --json title,body,state,labels,assignees
+```
+
+## Listing Issues
+
+### gh issue list Command
+
+```bash
+# List all open issues
+gh issue list --repo owner/repo
+
+# List with filters
+gh issue list --repo owner/repo --state open --label "bug" --assignee "username"
+
+# Limit results
+gh issue list --repo owner/repo --limit 10
+```
+
+## Adding Comments
+
+### gh issue comment Command
+
+```bash
+gh issue comment <issue_number> --repo owner/repo --body "Comment text here"
+```
 
 ## Examples
 
@@ -82,30 +136,82 @@ State values: `open`, `closed`
 
 **User**: "Create a bug issue - the login page crashes when using SSO"
 
-**Action**: Call `mcp_issue_write` (create) with:
-```json
-{
-  "owner": "github",
-  "repo": "awesome-copilot",
-  "title": "[Bug] Login page crashes when using SSO",
-  "body": "## Description\nThe login page crashes when users attempt to authenticate using SSO.\n\n## Steps to Reproduce\n1. Navigate to login page\n2. Click 'Sign in with SSO'\n3. Page crashes\n\n## Expected Behavior\nSSO authentication should complete and redirect to dashboard.\n\n## Actual Behavior\nPage becomes unresponsive and displays error.\n\n## Environment\n- Browser: [To be filled]\n- OS: [To be filled]\n\n## Additional Context\nReported by user.",
-  "labels": ["bug"]
-}
+**Action**:
+```bash
+gh issue create --repo github/awesome-copilot \
+  --title "[Bug] Login page crashes when using SSO" \
+  --body "## Description
+The login page crashes when users attempt to authenticate using SSO.
+
+## Steps to Reproduce
+1. Navigate to login page
+2. Click 'Sign in with SSO'
+3. Page crashes
+
+## Expected Behavior
+SSO authentication should complete and redirect to dashboard.
+
+## Actual Behavior
+Page becomes unresponsive and displays error.
+
+## Environment
+- Browser: [To be filled]
+- OS: [To be filled]
+
+## Additional Context
+Reported by user." \
+  --label "bug"
 ```
 
 ### Example 2: Feature Request
 
 **User**: "Create a feature request for dark mode with high priority"
 
-**Action**: Call `mcp_issue_write` (create) with:
-```json
-{
-  "owner": "github",
-  "repo": "awesome-copilot",
-  "title": "[Feature] Add dark mode support",
-  "body": "## Summary\nAdd dark mode theme option for improved user experience and accessibility.\n\n## Motivation\n- Reduces eye strain in low-light environments\n- Increasingly expected by users\n- Improves accessibility\n\n## Proposed Solution\nImplement theme toggle with system preference detection.\n\n## Acceptance Criteria\n- [ ] Toggle switch in settings\n- [ ] Persists user preference\n- [ ] Respects system preference by default\n- [ ] All UI components support both themes\n\n## Alternatives Considered\nNone specified.\n\n## Additional Context\nHigh priority request.",
-  "labels": ["enhancement", "high-priority"]
-}
+**Action**:
+```bash
+gh issue create --repo github/awesome-copilot \
+  --title "[Feature] Add dark mode support" \
+  --body "## Summary
+Add dark mode theme option for improved user experience and accessibility.
+
+## Motivation
+- Reduces eye strain in low-light environments
+- Increasingly expected by users
+- Improves accessibility
+
+## Proposed Solution
+Implement theme toggle with system preference detection.
+
+## Acceptance Criteria
+- [ ] Toggle switch in settings
+- [ ] Persists user preference
+- [ ] Respects system preference by default
+- [ ] All UI components support both themes
+
+## Alternatives Considered
+None specified.
+
+## Additional Context
+High priority request." \
+  --label "enhancement,high-priority"
+```
+
+### Example 3: Update Issue
+
+**User**: "Add bug label to issue #42"
+
+**Action**:
+```bash
+gh issue edit 42 --repo owner/repo --add-label "bug"
+```
+
+### Example 4: Close Issue
+
+**User**: "Close issue #42"
+
+**Action**:
+```bash
+gh issue close 42 --repo owner/repo
 ```
 
 ## Common Labels
@@ -130,3 +236,4 @@ Use these standard labels when applicable:
 - Ask for missing critical information rather than guessing
 - Link related issues when known: `Related to #123`
 - For updates, fetch current issue first to preserve unchanged fields
+- Use `gh issue view` to check existing issue state before modifying

@@ -153,6 +153,33 @@ If the user chooses to ignore, continue but mark the PR checklist item `Document
 
 #### PR Title Generation Rules
 
+Use **Conventional Commits** format:
+
+1. **Type prefix** (required): `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`, `build`, `style`
+2. **Scope** (optional): `(scope)` - component or area affected
+3. **Subject**: Clear, concise description of main change (imperative mood, lowercase)
+4. **Length**: Keep under 72 characters
+5. **Format**: `type(scope): description` or `type: description`
+
+**Types:**
+- `feat` - New feature
+- `fix` - Bug fix
+- `refactor` - Code change that neither fixes a bug nor adds a feature
+- `docs` - Documentation only
+- `test` - Adding or updating tests
+- `chore` - Maintenance tasks
+- `perf` - Performance improvement
+- `ci` - CI/CD changes
+- `build` - Build system changes
+- `style` - Code style (formatting, missing semicolons, etc.)
+
+**Examples:**
+- `feat: add PostgreSQL 15 collector YAML support`
+- `fix(sql): correct execution plan query for pg_stat_statements`
+- `refactor: simplify sampler initialization logic`
+- `feat(api): add user authentication endpoint`
+Use **Conventional Commits** format:
+
 1. **Type prefix** (optional): `[Feature]`, `[Fix]`, `[Refactor]`, `[Docs]`, `[Test]`
 2. **Subject**: Clear, concise description of main change
 3. **Length**: Keep under 72 characters
@@ -245,7 +272,7 @@ If the user chooses manual mode, stop after Step 5 and provide the title/body.
    - `swissql-backend/jdbc_drivers/postgres/collector-15.yaml` (modified)
 4. Generate:
    ```
-   PR Title: [Feature] Add PostgreSQL 15 TOP and Swiss collectors
+   PR Title: feat: add PostgreSQL 15 TOP and Swiss collectors
    
    PR Description:
    ## Description
