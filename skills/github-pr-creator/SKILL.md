@@ -178,17 +178,6 @@ Use **Conventional Commits** format:
 - `fix(sql): correct execution plan query for pg_stat_statements`
 - `refactor: simplify sampler initialization logic`
 - `feat(api): add user authentication endpoint`
-Use **Conventional Commits** format:
-
-1. **Type prefix** (optional): `[Feature]`, `[Fix]`, `[Refactor]`, `[Docs]`, `[Test]`
-2. **Subject**: Clear, concise description of main change
-3. **Length**: Keep under 72 characters
-4. **Format**: `[Type] Short description` or just `Short description`
-
-**Examples:**
-- `[Feature] Add PostgreSQL 15 collector YAML support`
-- `[Fix] Correct execution plan query for pg_stat_statements`
-- `Refactor sampler initialization logic`
 
 #### PR Description Structure
 

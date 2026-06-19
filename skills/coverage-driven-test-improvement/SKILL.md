@@ -164,7 +164,42 @@ Work in small vertical slices:
 
 Do not add a large batch of speculative tests before verifying the first one. Coverage-driven work can easily drift into brittle implementation locking if done in bulk.
 
-### 7. Verify
+### 7. Apply The Mandatory Test Quality Gate
+
+Review every new or changed test before accepting it. A test is not behavior-focused merely because it calls a public method. Its assertions must distinguish the claimed behavior from unrelated success or failure paths.
+
+For each test, answer:
+
+- What exact regression would make this test fail?
+- Does the assertion observe the behavior named by the test?
+- Could an unrelated error, timeout, unavailable dependency, or generic failure make the test pass?
+- Does the test depend on machine state that is not part of the documented test environment?
+- Would a harmless internal refactor break the test even if public behavior stayed the same?
+
+Reject or rewrite tests with weak discriminating power. Common warning signs include:
+
+- Asserting only `error != nil`, `ok == false`, non-null output, a generic status, or "does not throw" when the test claims a more specific behavior.
+- Calling a real local database, network service, daemon, cloud endpoint, filesystem location, environment variable, or executable from a unit test without an explicit integration-test contract.
+- Accepting multiple incompatible outcomes, such as success or failure, merely to execute a path.
+- Skipping the test when the expected behavior is not observed.
+- Reimplementing production logic in the test and asserting that the copy agrees with itself.
+- Accessing private methods, fields, or internal state through reflection solely to increase line or branch coverage.
+- Asserting mock interactions without also asserting the caller-visible result when the visible result is the behavior that matters.
+
+These assertion shapes are not always wrong. They are valid when the broad outcome itself is the complete public contract. For example, "missing optional resource does not throw" can be meaningful. The test name, setup, and assertion must describe the same contract.
+
+Keep unit tests hermetic and deterministic. Use temporary resources, controlled fakes, protocol-level test servers, or existing project fixtures for external boundaries. Run tests against real infrastructure only when the repository defines them as integration or end-to-end tests and documents the prerequisites.
+
+If a valuable behavior cannot be observed through the current design, choose one of these options:
+
+1. Test it through a broader public integration boundary.
+2. Add the smallest production seam only when it improves the design and is not a test-only hook.
+3. Record the gap as intentional and explain why a brittle test would be worse.
+4. Create a separate design or testability issue when the missing seam requires non-trivial production work.
+
+Coverage targets never justify low-signal tests. If reaching a target requires tests that fail this quality gate, preserve the lower percentage and report the remaining risk honestly.
+
+### 8. Verify
 
 Run the repository's focused test command for the touched area, then the relevant broader suite, then coverage.
 
@@ -177,7 +212,7 @@ Examples of command categories:
 
 Use the actual commands from the repository documentation, build files, or prior coverage report. Do not substitute unrelated commands.
 
-### 8. Report The Result
+### 9. Report The Result
 
 Use this structure:
 

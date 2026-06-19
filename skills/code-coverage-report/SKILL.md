@@ -36,8 +36,11 @@ Look for:
 - Existing test commands in README, CI workflows, Makefiles, scripts, or task runners.
 - Existing coverage config or artifacts.
 - Monorepo boundaries and independently tested packages.
+- Full-stack boundaries such as web apps, backend services, shared libraries, CLIs, workers, and generated documentation apps.
 
 Do not assume "frontend" or "backend" from language alone. A repository can have Java services, Go CLIs, TypeScript frontends, Python workers, Rust libraries, or mixed components.
+
+For monorepos and full-stack repositories, report coverage component by component. A single root command can be useful as a smoke test, but it often hides missing coverage tooling in one package, unrelated generated files in another, or different metric meanings across ecosystems.
 
 ### 2. Detect Coverage Tooling
 
@@ -75,6 +78,8 @@ If a tool is missing, skip that component's run and list it under blockers.
 
 Run coverage component by component. Use the narrowest command that produces a trustworthy report for that component.
 
+Prefer a documented aggregate command only when it preserves component-level output or produces separate reports that can be traced back to each package or service. If one component has coverage tooling and another only has plain tests, run the covered component and list the uncovered component under blockers or missing tooling.
+
 Capture:
 
 - Exact command.
@@ -98,6 +103,8 @@ Do not stop at a single total percentage. Extract the metrics the tool provides:
 - Uncovered lines or branches.
 
 When a tool reports several metrics, explain what each means. Branch coverage is often more revealing than line coverage for error handling and policy logic.
+
+Do not merge unrelated ecosystems into one percentage. If a frontend reports statement and branch coverage while a backend reports function coverage, keep them in separate rows and explain the metric boundary.
 
 ### 6. Separate Signal From Noise
 
