@@ -17,12 +17,21 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 - MES登录、切换账号、查看登录状态
 - 报工、查工时、审批工时、工时日历/汇总
 - 报工质量、报工评分、质量评分
-- 服务请求（工单）创建、回复（含附件）、恢复、编辑、报工、下载附件
+- 服务请求（工单）创建、回复（含附件）、恢复、编辑、报工、下载附件（命令：`mes sr ...`）
 - 实施计划查询/创建/编辑/结束/删除
 - MES文章或合同查询与维护
 - MES管理看板（dashboard）查询、周报增删改查
 - MES OSS 文件上传（支持图片及任意文件类型，回复附件也通过 OSS 上传）
 - 给了 support 链接，需要提取 `type/rid`
+
+## Skill 版本
+
+本 skill 文档托管在独立仓库，频繁更新：
+
+- 仓库地址：<https://github.com/enmotech/mes-cli-skills>
+- 本地路径：`skills/mes-cli-terminal/`
+
+AI agent 在执行命令前，**应主动提示用户检查 skill 是否有新版本**（"skill 经常更新，建议先 `git pull` 一下"），或在文档与实际命令不符时主动告警。
 
 ## Hard rules
 
@@ -35,14 +44,14 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 6. 不要求用户在聊天里粘贴 token；认证走 `mes auth login ...`。
 7. 严禁臆造、填充或基于常见占位符（如张三、李四等）猜测缺失或因截断而无法直接读取的数据。提炼结果必须与真实回传字段严格对应。
 8. 完成最终报告之后，必须删除用于重定向的临时文件，以减少信息泄露风险。
-9. **分析服务请求详情时**：必须通过 `mes -o json service request view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
+9. **分析服务请求详情时**：必须通过 `mes -o json sr view <id>` 将完整 JSON 输出重定向至临时文件并完整读取，不得仅凭截断的终端回显作分析。若 JSON 中存在截图 URL（`attachments`、`images`、`screenshots` 等字段），必须逐一下载并用 Read 工具读取图像内容进行分析，不得跳过任何一张截图。所有截图均分析完毕后，再综合输出结论。
 10. ⚠️ **优先使用原生环境**：Windows 环境的 agent 应优先使用 Windows 版本的 `mes` 命令，仅在明确需要 WSL 环境时才进行跨环境调用。Linux/macOS 环境直接使用原生 `mes` 命令。
 11. **跨环境调用场景**：特指 agent 运行在 Windows 系统中但未安装 Windows 版本的 mes-cli，需要调用 WSL 中已安装的 mes-cli。此时需要注意编码处理问题，详见 [编码处理](#编码处理windows-wsl-跨环境调用)。如果 Windows 已安装 mes-cli，应直接使用原生命令。
 
 ## Command-generation workflow
 
 1. **识别意图域**
-   - `auth | statistics | service | plan | article | contract | dashboard | util`
+   - `auth | statistics | sr | plan | article | contract | dashboard | util`
 2. **抽取参数槽位**
    - 时间槽：`from/to` 或 `range`，以及 `start/end`
    - 对象槽：`id/rid/acc-id/company-id/executor-id/team-id`
@@ -87,7 +96,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 
 - `auth status`
 - `statistics list|calendar|summary|review-stats|related-hours`
-- `service request list|view|download`（view 会列出附件列表含 id）
+- `sr list|view|download`（view 会列出附件列表含 id）
 - `plan list|view`
 - `article list|view|review-count`
 - `contract list|view`
@@ -98,7 +107,7 @@ description: Convert Chinese or natural-language MES requests into precise mes-c
 **写操作（先预览/确认）**
 
 - `statistics add|update|delete|review|bonus`
-- `service create|request reply|request recover|request edit`
+- `sr create|reply|recover|edit`
 - `plan create|save|edit|end|delete`
 - `article save|delete|assign-reviewer|set-level|set-type`
 - `dashboard weeklyReport create|update|delete`

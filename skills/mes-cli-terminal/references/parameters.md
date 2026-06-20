@@ -6,9 +6,9 @@
   - `login`, `status`, `logout`, `switch`, `profile delete`
 - `mes statistics`
   - `add`, `update`, `delete`, `review`, `review-stats`, `related-hours`, `bonus`, `list`, `calendar`, `summary`
-- `mes service`
+- `mes sr`
   - `create`
-  - `request list|view|reply|recover|edit|download`
+  - `list|view|reply|recover|edit|download`
 - `mes plan`
   - `list`, `view`, `end`
 - `mes article`
@@ -143,13 +143,13 @@
   - `--group-type`
   - `--json`
 
-### `mes service`
+### `mes sr`
 
-- `service create`
+- `sr create`
   - `--title` **（必填）**
   - `--company-id` **（必填）**
   - `--acc-id` **（必填，内部用户）**
-  - `--type` **（必填，P0-P5，默认3）**
+  - `--type` **（必填，P0-P5，默认P4=4）**
   - `--body-md` / `--body-html` **（必填，推荐优先使用 --body-md）**
   - `--body-html-file`
   - `--attach-url`（可重复）
@@ -165,7 +165,7 @@
   - `--external-plan-id`
   - `--json`
 
-### `mes service request` 字典
+### `mes sr` 字典
 
 #### status 状态字典
 
@@ -183,25 +183,25 @@
 
 #### type 等级字典
 
-`--level`/`--min-level` 参数用于筛选服务请求的等级，支持数字/P0-P5：
+`--type` / `--level` / `--min-level` 参数对应服务请求的 P0-P5 等级，code 与等级一一对应：
 
 | 代码 | 等级 | 描述                                       |
 | ---- | ---- | ------------------------------------------ |
-| 4    | P0   | 我方误操作致业务不可用                     |
-| 2    | P1   | 核心业务完全不可用（关键业务受影响）       |
-| 1    | P2   | 非核心业务完全不可用（非关键业务受到影响） |
-| 0    | P3   | 部分业务模块不可用（一般故障不影响业务）   |
-| 3    | P4   | 咨询，业务暂未受影响（技术咨询）           |
+| 0    | P0   | 我方误操作致业务不可用                     |
+| 1    | P1   | 核心业务完全不可用（关键业务受影响）       |
+| 2    | P2   | 非核心业务完全不可用（非关键业务受到影响） |
+| 3    | P3   | 部分业务模块不可用（一般故障不影响业务）   |
+| 4    | P4   | 咨询，业务暂未受影响（技术咨询）           |
 | 5    | P5   | 问题原因分析                               |
 
-- `service request list [title]`
-  - **位置参数**：`mes service request list <关键词>` 等效于 `--title <关键词>`
+- `sr list [title]`
+  - **位置参数**：`mes sr list <关键词>` 等效于 `--title <关键词>`
   - `--unclosed`
   - `--is-starred`
   - `--page`, `--page-size`
   - `--id`
-  - `--level`
-  - `--min-level`
+  - `--level` (P0-P5)
+  - `--min-level` (P0-P5，客户端在当前页 payload 上做 level >= min-level 过滤)
   - `--status`（建议中文；兼容数字：已提交|处理中|已关闭|已归档|待反馈|已恢复 = 0|1|2|3|4|5）
   - `--company-id`
   - `--person-id`, `--person-name` (互斥)
@@ -211,26 +211,28 @@
   - `--tags`
   - `--json`
   - **列表 JSON 语义**：`executorEmployeeName` = 当前负责人**真实姓名**；`executorName` 多为账号/昵称。按负责人聚合、筛选、对外展示时**优先** `executorEmployeeName`，缺省再回退 `executorName`。
-- `service request view <id|url>`
+- `sr view <id|url>`
   - `--json`
-- `service request reply <id|url>`
-  - `--text`
+- `sr reply <id|url>`
+  - `--text`（纯文本回复，内容会被自动包裹在 `<p>` 标签中发送到后端的 `content` 字段）
+  - `--markdown`（Markdown 格式回复，内容原样发送到后端的 `contentMd` 字段，支持标题、列表、代码块等 Markdown 语法）
   - `--file`（本地文件路径，随回复上传附件）
   - `--internal`
   - `--dry-run`
   - `--json`
-- `service request download <id|url>`
+  - **注意**：`--text` 和 `--markdown` 互斥，不能同时使用
+- `sr download <id|url>`
   - `--file-id`（附件 id，从 `view` 输出中获取，如 6035）
   - `--all`（下载全部附件，默认行为）
   - `-O, --output-file`（保存路径；省略时自动用附件名）
   - `--json`
-- `service request recover <id|url>`
+- `sr recover <id|url>`
   - `--happen-time`
   - `--recover-time`
   - `--recover-type`
   - `--dry-run`
   - `--json`
-- `service request edit <id|url>`
+- `sr edit <id|url>`
   - `--append`
   - `--append-title`
   - `--append-body`
@@ -452,8 +454,8 @@
 
 ### Parameter completion rules for agent
 
-- 创建服务请求（service create）时，优先选择 `--body-md` 传入 Markdown 格式的正文，而非 `--body-html`。使用 Markdown 可以更好地处理代码块、列表和格式化内容。
-- `service request list` 的 JSON：统计「负责人」用 `executorEmployeeName`（真实姓名），不要用 `executorName` 代替；后者可为登录名。
+- 创建服务请求（`sr create`）时，优先选择 `--body-md` 传入 Markdown 格式的正文，而非 `--body-html`。使用 Markdown 可以更好地处理代码块、列表和格式化内容。
+- `sr list` 的 JSON：统计「负责人」用 `executorEmployeeName`（真实姓名），不要用 `executorName` 代替；后者可为登录名。
 - 用户给 URL（plan/request）时，优先 `--from-url`，避免手工错填 `type/rid`。
 - `statistics add` 若无交互必须带齐：`--start --end --hours --remark` + 关联参数。
 - 周报 create/update 正文三选一：`--md` / `--md-file` / `--html`（避免同时给）。
