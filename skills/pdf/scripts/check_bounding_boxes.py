@@ -1,70 +1,198 @@
-from dataclasses import dataclass
+"""Validate geometric constraints of form field bounding regions.
+
+Detects overlapping bounding boxes and entry regions too small for their
+specified font size.
+
+Usage:
+    python check_bounding_boxes.py <fields.json>
+"""
+
+import argparse
 import json
 import sys
+from pathlib import Path
+from typing import Any, Dict, List, TextIO, Tuple
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+EXIT_SUCCESS: int = 0
+EXIT_FAILURE: int = 1
+
+MAX_REPORTED_ISSUES: int = 20
+
+BoundingBox = Tuple[float, float, float, float]
+
+# ---------------------------------------------------------------------------
+# Data structures
+# ---------------------------------------------------------------------------
 
 
-# Script to check that the `fields.json` file that Claude creates when analyzing PDFs
-# does not have overlapping bounding boxes. See forms.md.
+class FieldRegion:
+    """Encapsulates a rectangle associated with a specific form field."""
+
+    __slots__ = ("bounds", "kind", "parent_field")
+
+    def __init__(
+        self,
+        bounds: List[float],
+        kind: str,
+        parent_field: Dict[str, Any],
+    ) -> None:
+        self.bounds = bounds
+        self.kind = kind
+        self.parent_field = parent_field
 
 
-@dataclass
-class RectAndField:
-    rect: list[float]
-    rect_type: str
-    field: dict
+# ---------------------------------------------------------------------------
+# Geometry helpers
+# ---------------------------------------------------------------------------
 
 
-# Returns a list of messages that are printed to stdout for Claude to read.
-def get_bounding_box_messages(fields_json_stream) -> list[str]:
-    messages = []
-    fields = json.load(fields_json_stream)
-    messages.append(f"Read {len(fields['form_fields'])} fields")
+def _do_overlap(box_a: List[float], box_b: List[float]) -> bool:
+    """Determine whether two axis-aligned rectangles share any area."""
+    separated_x: bool = box_a[0] >= box_b[2] or box_b[0] >= box_a[2]
+    separated_y: bool = box_a[1] >= box_b[3] or box_b[1] >= box_a[3]
+    return not separated_x and not separated_y
 
-    def rects_intersect(r1, r2):
-        disjoint_horizontal = r1[0] >= r2[2] or r1[2] <= r2[0]
-        disjoint_vertical = r1[1] >= r2[3] or r1[3] <= r2[1]
-        return not (disjoint_horizontal or disjoint_vertical)
 
-    rects_and_fields = []
-    for f in fields["form_fields"]:
-        rects_and_fields.append(RectAndField(f["label_bounding_box"], "label", f))
-        rects_and_fields.append(RectAndField(f["entry_bounding_box"], "entry", f))
+def _height_too_small(region: FieldRegion) -> bool:
+    """Check if an entry region is vertically insufficient for its text."""
+    if "entry_text" not in region.parent_field:
+        return False
+    font_size: float = region.parent_field["entry_text"].get("font_size", 14)
+    height: float = region.bounds[3] - region.bounds[1]
+    return height < font_size
 
-    has_error = False
-    for i, ri in enumerate(rects_and_fields):
-        # This is O(N^2); we can optimize if it becomes a problem.
-        for j in range(i + 1, len(rects_and_fields)):
-            rj = rects_and_fields[j]
-            if ri.field["page_number"] == rj.field["page_number"] and rects_intersect(ri.rect, rj.rect):
-                has_error = True
-                if ri.field is rj.field:
-                    messages.append(f"FAILURE: intersection between label and entry bounding boxes for `{ri.field['description']}` ({ri.rect}, {rj.rect})")
-                else:
-                    messages.append(f"FAILURE: intersection between {ri.rect_type} bounding box for `{ri.field['description']}` ({ri.rect}) and {rj.rect_type} bounding box for `{rj.field['description']}` ({rj.rect})")
-                if len(messages) >= 20:
-                    messages.append("Aborting further checks; fix bounding boxes and try again")
-                    return messages
-        if ri.rect_type == "entry":
-            if "entry_text" in ri.field:
-                font_size = ri.field["entry_text"].get("font_size", 14)
-                entry_height = ri.rect[3] - ri.rect[1]
-                if entry_height < font_size:
-                    has_error = True
-                    messages.append(f"FAILURE: entry bounding box height ({entry_height}) for `{ri.field['description']}` is too short for the text content (font size: {font_size}). Increase the box height or decrease the font size.")
-                    if len(messages) >= 20:
-                        messages.append("Aborting further checks; fix bounding boxes and try again")
-                        return messages
 
-    if not has_error:
-        messages.append("SUCCESS: All bounding boxes are valid")
-    return messages
+# ---------------------------------------------------------------------------
+# Core validation
+# ---------------------------------------------------------------------------
+
+
+def validate_field_geometry(input_stream: TextIO) -> List[str]:
+    """Analyze all field bounding boxes from the given JSON stream.
+
+    Returns a list of diagnostic strings.
+    """
+    doc: Dict[str, Any] = json.load(input_stream)
+    form_entries: List[Dict[str, Any]] = doc["form_fields"]
+    diagnostics: List[str] = ["Read %d fields" % len(form_entries)]
+
+    # Build flat list of all regions
+    all_regions: List[FieldRegion] = []
+    for entry in form_entries:
+        all_regions.append(
+            FieldRegion(entry["label_bounding_box"], "label", entry)
+        )
+        all_regions.append(
+            FieldRegion(entry["entry_bounding_box"], "entry", entry)
+        )
+
+    found_problem: bool = False
+    idx: int = 0
+
+    while idx < len(all_regions):
+        ri = all_regions[idx]
+
+        # Check pairwise overlaps with subsequent regions
+        for jdx in range(idx + 1, len(all_regions)):
+            rj = all_regions[jdx]
+            if ri.parent_field["page_number"] != rj.parent_field["page_number"]:
+                continue
+            if not _do_overlap(ri.bounds, rj.bounds):
+                continue
+
+            found_problem = True
+            if ri.parent_field is rj.parent_field:
+                msg = (
+                    "FAILURE: intersection between label and entry "
+                    "bounding boxes for `{}` ({}, {})".format(
+                        ri.parent_field["description"], ri.bounds, rj.bounds
+                    )
+                )
+            else:
+                msg = (
+                    "FAILURE: intersection between {} bounding box for "
+                    "`{}` ({}) and {} bounding box for `{}` ({})".format(
+                        ri.kind,
+                        ri.parent_field["description"],
+                        ri.bounds,
+                        rj.kind,
+                        rj.parent_field["description"],
+                        rj.bounds,
+                    )
+                )
+            diagnostics.append(msg)
+            if len(diagnostics) >= MAX_REPORTED_ISSUES:
+                diagnostics.append(
+                    "Aborting further checks; fix bounding boxes and try again"
+                )
+                return diagnostics
+
+        # Height validation for entry regions
+        if ri.kind == "entry" and _height_too_small(ri):
+            found_problem = True
+            height: float = ri.bounds[3] - ri.bounds[1]
+            font_size = ri.parent_field["entry_text"].get("font_size", 14)
+            diagnostics.append(
+                "FAILURE: entry bounding box height ({}) for `{}` is too short "
+                "for the text content (font size: {}). Increase the box height "
+                "or decrease the font size.".format(
+                    height, ri.parent_field["description"], font_size
+                )
+            )
+            if len(diagnostics) >= MAX_REPORTED_ISSUES:
+                diagnostics.append(
+                    "Aborting further checks; fix bounding boxes and try again"
+                )
+                return diagnostics
+
+        idx += 1
+
+    if not found_problem:
+        diagnostics.append("SUCCESS: All bounding boxes are valid")
+    return diagnostics
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Validate bounding box geometry in a fields.json specification. "
+            "Detects overlaps and insufficient entry heights."
+        )
+    )
+    parser.add_argument(
+        "fields_json",
+        type=Path,
+        help="Path to the fields.json file to validate.",
+    )
+    return parser
+
+
+def main() -> None:
+    """Entry point: parse arguments and run geometry validation."""
+    parser = build_parser()
+    args = parser.parse_args()
+
+    fields_json: Path = args.fields_json
+    if not fields_json.exists():
+        print("ERROR: File not found: {}".format(fields_json), file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
+
+    with open(fields_json, "r", encoding="utf-8") as handle:
+        results = validate_field_geometry(handle)
+
+    for line in results:
+        print(line)
+
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: check_bounding_boxes.py [fields.json]")
-        sys.exit(1)
-    # Input file should be in the `fields.json` format described in forms.md.
-    with open(sys.argv[1]) as f:
-        messages = get_bounding_box_messages(f)
-    for msg in messages:
-        print(msg)
+    main()

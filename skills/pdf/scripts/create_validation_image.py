@@ -1,41 +1,125 @@
+"""Overlay colored rectangles on a page image to visualize field bounding boxes.
+
+Usage:
+    python create_validation_image.py <page_number> <fields.json> <input_image> <output_image>
+"""
+
+import argparse
 import json
 import sys
+from pathlib import Path
+from typing import Any, Dict, List
 
-from PIL import Image, ImageDraw
+from PIL import Image as PILImage
+from PIL import ImageDraw as PILDraw
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+EXIT_SUCCESS: int = 0
+EXIT_FAILURE: int = 1
+
+ENTRY_OUTLINE_COLOR: str = "red"
+LABEL_OUTLINE_COLOR: str = "blue"
+OUTLINE_WIDTH: int = 2
+
+# ---------------------------------------------------------------------------
+# Core logic
+# ---------------------------------------------------------------------------
 
 
-# Creates "validation" images with rectangles for the bounding box information that
-# Claude creates when determining where to add text annotations in PDFs. See forms.md.
+def generate_overlay(
+    target_page: int,
+    fields_path: Path,
+    src_image: Path,
+    dst_image: Path,
+) -> None:
+    """Draw entry (red) and label (blue) rectangles onto the source image
+    for all fields matching *target_page*, then save to *dst_image*.
+    """
+    with open(fields_path, "r", encoding="utf-8") as fh:
+        spec: Dict[str, Any] = json.load(fh)
+
+    canvas = PILImage.open(str(src_image))
+    pen = PILDraw.Draw(canvas)
+    box_count: int = 0
+
+    matching: List[Dict[str, Any]] = [
+        f for f in spec["form_fields"] if f["page_number"] == target_page
+    ]
+    for fld in matching:
+        pen.rectangle(
+            fld["entry_bounding_box"],
+            outline=ENTRY_OUTLINE_COLOR,
+            width=OUTLINE_WIDTH,
+        )
+        pen.rectangle(
+            fld["label_bounding_box"],
+            outline=LABEL_OUTLINE_COLOR,
+            width=OUTLINE_WIDTH,
+        )
+        box_count += 2
+
+    canvas.save(str(dst_image))
+    print(
+        "Created validation image at {} with {} bounding boxes".format(
+            dst_image, box_count
+        )
+    )
 
 
-def create_validation_image(page_number, fields_json_path, input_path, output_path):
-    # Input file should be in the `fields.json` format described in forms.md.
-    with open(fields_json_path, 'r') as f:
-        data = json.load(f)
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
 
-        img = Image.open(input_path)
-        draw = ImageDraw.Draw(img)
-        num_boxes = 0
-        
-        for field in data["form_fields"]:
-            if field["page_number"] == page_number:
-                entry_box = field['entry_bounding_box']
-                label_box = field['label_bounding_box']
-                # Draw red rectangle over entry bounding box and blue rectangle over the label.
-                draw.rectangle(entry_box, outline='red', width=2)
-                draw.rectangle(label_box, outline='blue', width=2)
-                num_boxes += 2
-        
-        img.save(output_path)
-        print(f"Created validation image at {output_path} with {num_boxes} bounding boxes")
+
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Visualize field bounding boxes by overlaying colored rectangles on a page image."
+    )
+    parser.add_argument(
+        "page_number",
+        type=int,
+        help="1-indexed page number to visualize.",
+    )
+    parser.add_argument(
+        "fields_json",
+        type=Path,
+        help="Path to the fields.json specification file.",
+    )
+    parser.add_argument(
+        "input_image",
+        type=Path,
+        help="Path to the source page image.",
+    )
+    parser.add_argument(
+        "output_image",
+        type=Path,
+        help="Destination path for the annotated image.",
+    )
+    return parser
+
+
+def main() -> None:
+    """Entry point: parse arguments and generate validation overlay."""
+    parser = build_parser()
+    args = parser.parse_args()
+
+    fields_json: Path = args.fields_json
+    input_image: Path = args.input_image
+
+    if not fields_json.exists():
+        print("ERROR: File not found: {}".format(fields_json), file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
+
+    if not input_image.exists():
+        print("ERROR: File not found: {}".format(input_image), file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
+
+    generate_overlay(args.page_number, fields_json, input_image, args.output_image)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
-        print("Usage: create_validation_image.py [page number] [fields.json file] [input image path] [output image path]")
-        sys.exit(1)
-    page_number = int(sys.argv[1])
-    fields_json_path = sys.argv[2]
-    input_image_path = sys.argv[3]
-    output_image_path = sys.argv[4]
-    create_validation_image(page_number, fields_json_path, input_image_path, output_image_path)
+    main()

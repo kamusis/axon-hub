@@ -1,108 +1,193 @@
+"""Place text onto a PDF using FreeText annotations, guided by a JSON
+coordinate specification.
+
+Supports both image-pixel and native PDF coordinate inputs with automatic
+conversion.
+
+Usage:
+    python fill_pdf_form_with_annotations.py <input.pdf> <fields.json> <output.pdf>
+"""
+
+import argparse
 import json
 import sys
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
-from pypdf import PdfReader, PdfWriter
-from pypdf.annotations import FreeText
+import pypdf
+from pypdf.annotations import FreeText as TextAnnotation
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-# Fills a PDF by adding text annotations defined in `fields.json`. See forms.md.
+EXIT_SUCCESS: int = 0
+EXIT_FAILURE: int = 1
 
+DEFAULT_FONT: str = "Arial"
+DEFAULT_SIZE: int = 14
+DEFAULT_COLOR: str = "000000"
 
-def transform_coordinates(bbox, image_width, image_height, pdf_width, pdf_height):
-    """Transform bounding box from image coordinates to PDF coordinates"""
-    # Image coordinates: origin at top-left, y increases downward
-    # PDF coordinates: origin at bottom-left, y increases upward
-    x_scale = pdf_width / image_width
-    y_scale = pdf_height / image_height
-    
-    left = bbox[0] * x_scale
-    right = bbox[2] * x_scale
-    
-    # Flip Y coordinates for PDF
-    top = pdf_height - (bbox[1] * y_scale)
-    bottom = pdf_height - (bbox[3] * y_scale)
-    
-    return left, bottom, right, top
+# ---------------------------------------------------------------------------
+# Coordinate transformation
+# ---------------------------------------------------------------------------
 
 
-def fill_pdf_form(input_pdf_path, fields_json_path, output_pdf_path):
-    """Fill the PDF form with data from fields.json"""
-    
-    # `fields.json` format described in forms.md.
-    with open(fields_json_path, "r") as f:
-        fields_data = json.load(f)
-    
-    # Open the PDF
-    reader = PdfReader(input_pdf_path)
-    writer = PdfWriter()
-    
-    # Copy all pages to writer
-    writer.append(reader)
-    
-    # Get PDF dimensions for each page
-    pdf_dimensions = {}
-    for i, page in enumerate(reader.pages):
-        mediabox = page.mediabox
-        pdf_dimensions[i + 1] = [mediabox.width, mediabox.height]
-    
-    # Process each form field
-    annotations = []
-    for field in fields_data["form_fields"]:
-        page_num = field["page_number"]
-        
-        # Get page dimensions and transform coordinates.
-        page_info = next(p for p in fields_data["pages"] if p["page_number"] == page_num)
-        image_width = page_info["image_width"]
-        image_height = page_info["image_height"]
-        pdf_width, pdf_height = pdf_dimensions[page_num]
-        
-        transformed_entry_box = transform_coordinates(
-            field["entry_bounding_box"],
-            image_width, image_height,
-            pdf_width, pdf_height
+def _pixel_to_pdf_rect(
+    box: List[float],
+    img_w: float,
+    img_h: float,
+    doc_w: float,
+    doc_h: float,
+) -> Tuple[float, float, float, float]:
+    """Map image-space pixel coordinates to PDF annotation coordinates."""
+    sx: float = doc_w / img_w
+    sy: float = doc_h / img_h
+    pdf_left: float = box[0] * sx
+    pdf_right: float = box[2] * sx
+    pdf_top: float = doc_h - (box[1] * sy)
+    pdf_bottom: float = doc_h - (box[3] * sy)
+    return pdf_left, pdf_bottom, pdf_right, pdf_top
+
+
+def _native_to_pypdf_rect(
+    box: List[float],
+    doc_h: float,
+) -> Tuple[float, float, float, float]:
+    """Convert PDF-native coordinates (y=0 at top) to pypdf annotation rect."""
+    left: float = box[0]
+    right: float = box[2]
+    pypdf_top: float = doc_h - box[1]
+    pypdf_bottom: float = doc_h - box[3]
+    return left, pypdf_bottom, right, pypdf_top
+
+
+# ---------------------------------------------------------------------------
+# Core logic
+# ---------------------------------------------------------------------------
+
+
+def annotate_pdf(src_path: Path, spec_path: Path, out_path: Path) -> None:
+    """Read the coordinate spec, add FreeText annotations to each field,
+    and write the result to *out_path*.
+    """
+    with open(spec_path, "r", encoding="utf-8") as fh:
+        spec: Dict[str, Any] = json.load(fh)
+
+    source = pypdf.PdfReader(str(src_path))
+    output = pypdf.PdfWriter()
+    output.append(source)
+
+    # Cache actual page dimensions from the source PDF
+    actual_dims: Dict[int, Tuple[float, float]] = {}
+    for idx, pg in enumerate(source.pages):
+        mb = pg.mediabox
+        actual_dims[idx + 1] = (float(mb.width), float(mb.height))
+
+    annotation_count: int = 0
+
+    for fld in spec["form_fields"]:
+        pg_num: int = fld["page_number"]
+        pg_meta: Dict[str, Any] = next(
+            p for p in spec["pages"] if p["page_number"] == pg_num
         )
-        
-        # Skip empty fields
-        if "entry_text" not in field or "text" not in field["entry_text"]:
-            continue
-        entry_text = field["entry_text"]
-        text = entry_text["text"]
-        if not text:
-            continue
-        
-        font_name = entry_text.get("font", "Arial")
-        font_size = str(entry_text.get("font_size", 14)) + "pt"
-        font_color = entry_text.get("font_color", "000000")
+        real_w, real_h = actual_dims[pg_num]
 
-        # Font size/color seems to not work reliably across viewers:
-        # https://github.com/py-pdf/pypdf/issues/2084
-        annotation = FreeText(
-            text=text,
-            rect=transformed_entry_box,
-            font=font_name,
-            font_size=font_size,
-            font_color=font_color,
+        # Determine coordinate system and transform
+        use_pdf_coords: bool = "pdf_width" in pg_meta
+        if use_pdf_coords:
+            rect = _native_to_pypdf_rect(fld["entry_bounding_box"], real_h)
+        else:
+            rect = _pixel_to_pdf_rect(
+                fld["entry_bounding_box"],
+                pg_meta["image_width"],
+                pg_meta["image_height"],
+                real_w,
+                real_h,
+            )
+
+        # Skip fields without text content
+        txt_spec = fld.get("entry_text")
+        if txt_spec is None or "text" not in txt_spec:
+            continue
+        content: str = txt_spec["text"]
+        if not content:
+            continue
+
+        # Build annotation with styling
+        face: str = txt_spec.get("font", DEFAULT_FONT)
+        size_str: str = "%spt" % txt_spec.get("font_size", DEFAULT_SIZE)
+        color: str = txt_spec.get("font_color", DEFAULT_COLOR)
+
+        ann = TextAnnotation(
+            text=content,
+            rect=rect,
+            font=face,
+            font_size=size_str,
+            font_color=color,
             border_color=None,
             background_color=None,
         )
-        annotations.append(annotation)
-        # page_number is 0-based for pypdf
-        writer.add_annotation(page_number=page_num - 1, annotation=annotation)
-        
-    # Save the filled PDF
-    with open(output_pdf_path, "wb") as output:
-        writer.write(output)
-    
-    print(f"Successfully filled PDF form and saved to {output_pdf_path}")
-    print(f"Added {len(annotations)} text annotations")
+        output.add_annotation(page_number=pg_num - 1, annotation=ann)
+        annotation_count += 1
+
+    with open(out_path, "wb") as dest:
+        output.write(dest)
+
+    print("Successfully filled PDF form and saved to %s" % out_path)
+    print("Added %d text annotations" % annotation_count)
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Fill a PDF form by placing FreeText annotations at coordinates "
+            "specified in a JSON file."
+        )
+    )
+    parser.add_argument(
+        "input_pdf",
+        type=Path,
+        help="Path to the source PDF document.",
+    )
+    parser.add_argument(
+        "fields_json",
+        type=Path,
+        help="JSON specification with field coordinates and text.",
+    )
+    parser.add_argument(
+        "output_pdf",
+        type=Path,
+        help="Destination path for the annotated PDF.",
+    )
+    return parser
+
+
+def main() -> None:
+    """Entry point: parse arguments and annotate PDF."""
+    parser = build_parser()
+    args = parser.parse_args()
+
+    input_pdf: Path = args.input_pdf
+    fields_json: Path = args.fields_json
+    output_pdf: Path = args.output_pdf
+
+    if not input_pdf.exists():
+        print("ERROR: File not found: {}".format(input_pdf), file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
+
+    if not fields_json.exists():
+        print("ERROR: File not found: {}".format(fields_json), file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
+
+    annotate_pdf(input_pdf, fields_json, output_pdf)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: fill_pdf_form_with_annotations.py [input pdf] [fields.json] [output pdf]")
-        sys.exit(1)
-    input_pdf = sys.argv[1]
-    fields_json = sys.argv[2]
-    output_pdf = sys.argv[3]
-    
-    fill_pdf_form(input_pdf, fields_json, output_pdf)
+    main()

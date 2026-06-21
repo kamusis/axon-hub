@@ -1,1 +1,1 @@
-# Make scripts directory a package for relative imports in tests
+# Package marker — no public API exposed at this level.

@@ -1,35 +1,102 @@
-import os
+"""Render each page of a PDF document as a PNG image file.
+
+Usage:
+    python convert_pdf_to_images.py <input.pdf> <output_directory>
+"""
+
+import argparse
 import sys
+from pathlib import Path
+from typing import List
 
-from pdf2image import convert_from_path
+import pdf2image
+from PIL import Image
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+EXIT_SUCCESS: int = 0
+EXIT_FAILURE: int = 1
+
+RENDER_DPI: int = 200
+DEFAULT_MAX_DIMENSION: int = 1000
+
+OUTPUT_FORMAT: str = "png"
+FILENAME_TEMPLATE: str = "page_{}.png"
+
+# ---------------------------------------------------------------------------
+# Core logic
+# ---------------------------------------------------------------------------
 
 
-# Converts each page of a PDF to a PNG image.
+def render_pages_to_png(
+    source_pdf: Path,
+    dest_folder: Path,
+    dimension_cap: int = DEFAULT_MAX_DIMENSION,
+) -> None:
+    """Convert all pages in *source_pdf* to PNG files within *dest_folder*."""
+    rendered: List[Image.Image] = pdf2image.convert_from_path(
+        str(source_pdf), dpi=RENDER_DPI
+    )
+
+    for page_idx, img in enumerate(rendered):
+        w, h = img.size
+        needs_resize: bool = w > dimension_cap or h > dimension_cap
+        if needs_resize:
+            ratio: float = min(dimension_cap / w, dimension_cap / h)
+            resized_w: int = int(w * ratio)
+            resized_h: int = int(h * ratio)
+            img = img.resize((resized_w, resized_h))
+
+        out_path: Path = dest_folder / FILENAME_TEMPLATE.format(page_idx + 1)
+        img.save(str(out_path))
+        print(
+            "Saved page %d as %s (size: %s)"
+            % (page_idx + 1, out_path, str(img.size))
+        )
+
+    print("Converted %d pages to PNG images" % len(rendered))
 
 
-def convert(pdf_path, output_dir, max_dim=1000):
-    images = convert_from_path(pdf_path, dpi=200)
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
 
-    for i, image in enumerate(images):
-        # Scale image if needed to keep width/height under `max_dim`
-        width, height = image.size
-        if width > max_dim or height > max_dim:
-            scale_factor = min(max_dim / width, max_dim / height)
-            new_width = int(width * scale_factor)
-            new_height = int(height * scale_factor)
-            image = image.resize((new_width, new_height))
-        
-        image_path = os.path.join(output_dir, f"page_{i+1}.png")
-        image.save(image_path)
-        print(f"Saved page {i+1} as {image_path} (size: {image.size})")
 
-    print(f"Converted {len(images)} pages to PNG images")
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Render PDF pages as PNG image files."
+    )
+    parser.add_argument(
+        "input_pdf",
+        type=Path,
+        help="Path to the source PDF document.",
+    )
+    parser.add_argument(
+        "output_directory",
+        type=Path,
+        help="Directory to write PNG page images into.",
+    )
+    return parser
+
+
+def main() -> None:
+    """Entry point: parse arguments, create output dir, render pages."""
+    parser = build_parser()
+    args = parser.parse_args()
+
+    input_pdf: Path = args.input_pdf
+    output_dir: Path = args.output_directory
+
+    if not input_pdf.exists():
+        print("ERROR: File not found: {}".format(input_pdf), file=sys.stderr)
+        sys.exit(EXIT_FAILURE)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    render_pages_to_png(input_pdf, output_dir)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: convert_pdf_to_images.py [input pdf] [output directory]")
-        sys.exit(1)
-    pdf_path = sys.argv[1]
-    output_directory = sys.argv[2]
-    convert(pdf_path, output_directory)
+    main()
