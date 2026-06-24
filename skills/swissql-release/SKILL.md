@@ -16,7 +16,7 @@ This skill is project-specific. Prefer it over the generic `github-release` skil
 
 GitHub Actions is the release executor. The agent is the release editor.
 
-Do not rely on GitHub auto-generated release notes as the final release body. They often list internal commit titles and miss the user-facing capabilities. Generate component-specific release notes before or immediately after tags are pushed, then let GitHub Actions build artifacts and create/update releases.
+Do not rely on GitHub auto-generated release notes as the preferred final release body. They often list internal commit titles and miss the user-facing capabilities. Prepare component-specific notes before tags are pushed whenever possible. If prepared notes are missing, do not block artifact publication: let GitHub Actions publish with generated notes, then replace the release body afterward.
 
 ## Required Release Shape
 
@@ -215,20 +215,22 @@ Docker image: `ghcr.io/kamusis/swissql-core:X.Y.Z`
 
 Omit empty sections. Keep backend notes operator-facing and API-facing.
 
-### 6. Choose Notes Storage
+### 6. Prepare Repository Release Notes
 
-Default to writing release notes into the repository so GitHub Actions can reuse them:
+SwissQL has an established repository convention. Write both release notes using filenames that exactly match the planned tags:
 
 ```text
 release-notes/cli-vX.Y.Z.md
 release-notes/backend-vX.Y.Z.md
 ```
 
-If the repository does not yet have a `release-notes/` convention and the user has not asked to add one, ask before committing these files. If the user wants a quick one-off cleanup, use temporary files and `gh release edit --notes-file`.
+Read `release-notes/README.md` and follow its templates and component boundaries. Do not ask whether to use this convention during a normal release.
 
-### 7. Commit Release Notes When Used By Actions
+Prepared notes are strongly preferred but are not an artifact-publication gate. If notes cannot be committed before tags are pushed, or the tag workflows are already running, allow GitHub Actions to complete with generated notes. Prepare temporary component-specific files and update the GitHub Releases afterward.
 
-When release notes are stored in the repo:
+### 7. Commit Release Notes Before Tagging
+
+For the normal release path:
 
 ```bash
 git add release-notes/cli-vX.Y.Z.md release-notes/backend-vX.Y.Z.md
@@ -236,7 +238,9 @@ git commit -m "docs: add release notes for vX.Y.Z"
 git push origin main
 ```
 
-Only commit release note files. Do not mix code or unrelated docs into the release-notes commit.
+Only commit release note files. Do not mix code or unrelated docs into the release-notes commit. Push the commit to `main`, verify `HEAD` matches `origin/main`, and create both tags on that release-preparation commit.
+
+If this step cannot be completed, do not treat missing notes alone as a release blocker. Continue the requested release and use the post-release correction path in step 9.
 
 ### 8. Create Annotated Tags
 
@@ -248,11 +252,11 @@ git tag -a backend-vX.Y.Z -m "Backend vX.Y.Z"
 git push origin cli-vX.Y.Z backend-vX.Y.Z
 ```
 
-If GitHub Actions creates releases from tags, wait for the workflows to create or update the releases.
+Wait for both workflows to finish. Release notes must never prevent CLI binaries, OSS uploads, backend images, GHCR manifests, or SWR manifests from being published.
 
 ### 9. Update GitHub Releases If Needed
 
-If Actions generated weak notes or did not pick up the prepared files, update manually:
+If Actions used generated notes, generated weak notes, or did not pick up the prepared files, update manually:
 
 ```bash
 gh release edit cli-vX.Y.Z \
@@ -264,7 +268,7 @@ gh release edit backend-vX.Y.Z \
   --notes-file release-notes/backend-vX.Y.Z.md
 ```
 
-For temporary notes files, use the temporary paths instead.
+For temporary notes files, use the temporary paths instead. A successful post-release edit is an acceptable completion path when artifacts were published without prepared repository notes.
 
 ### 10. Verify
 
@@ -285,24 +289,41 @@ Confirm:
 
 ## GitHub Actions Contract
 
-Recommended workflow behavior:
+Required workflow behavior:
 
 - Actions may create releases and upload artifacts.
 - Actions should not be trusted to generate final human-facing notes.
-- If `release-notes/${TAG}.md` exists, Actions should apply it with `gh release edit --notes-file`.
-- If the file is missing, Actions may generate placeholder notes or GitHub auto notes, but the agent should update them before considering the release complete.
+- If `release-notes/${TAG}.md` exists, Actions should use it as the release body.
+- If the file is missing, Actions should emit a warning and continue with GitHub-generated notes.
+- Missing release notes must not fail or skip binary, OSS, container-image, GHCR, or SWR publication.
+- The agent should replace generated notes before considering the release fully documented.
 
 Suggested Actions logic:
 
-```bash
-TAG="${GITHUB_REF_NAME}"
-NOTES="release-notes/${TAG}.md"
+```yaml
+- name: Locate release notes
+  id: notes
+  run: |
+    NOTES="release-notes/${GITHUB_REF_NAME}.md"
+    if [[ -f "${NOTES}" ]]; then
+      echo "available=true" >> "$GITHUB_OUTPUT"
+      echo "path=${NOTES}" >> "$GITHUB_OUTPUT"
+    else
+      echo "available=false" >> "$GITHUB_OUTPUT"
+      echo "::warning::Missing ${NOTES}; publishing with generated notes."
+    fi
 
-if [ -f "$NOTES" ]; then
-  gh release edit "$TAG" --notes-file "$NOTES"
-else
-  echo "No prepared release notes found for $TAG"
-fi
+- name: Release from prepared notes
+  if: steps.notes.outputs.available == 'true'
+  uses: softprops/action-gh-release@v2
+  with:
+    body_path: ${{ steps.notes.outputs.path }}
+
+- name: Release with generated notes
+  if: steps.notes.outputs.available != 'true'
+  uses: softprops/action-gh-release@v2
+  with:
+    generate_release_notes: true
 ```
 
 ## Final Report
@@ -313,7 +334,8 @@ When done, report:
 - Commit SHA released
 - CLI release URL
 - Backend release URL
-- Whether release notes were committed in repo or edited directly on GitHub
+- Whether release notes were committed before tagging or edited directly on GitHub afterward
+- Release-notes commit SHA when the repository-note path was used
 - Any GitHub Actions jobs still running or failed
 
 ## Safety Rules
@@ -323,3 +345,4 @@ When done, report:
 - Do not create tags from a dirty worktree.
 - Do not mix CLI-only and backend-only notes.
 - Do not treat GitHub auto notes as sufficient when they obscure user-facing capabilities.
+- Do not fail or cancel artifact publication solely because prepared release notes are missing.
