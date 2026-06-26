@@ -20,7 +20,9 @@ uv run {baseDir}/scripts/upload.py --file <path_to_image>
 
 ## Configuration
 
-Set `SEE_API_TOKEN` in environment or `openclaw.json`.
+Set `SEE_API_TOKEN` in the environment. If unset, the script falls back to
+scanning shell rc files (`~/.bashrc`, `~/.zshrc`, `~/.bash_profile`,
+`~/.profile`, `~/.zshenv`) for an `export SEE_API_TOKEN=...` line.
 
 ## Output
 

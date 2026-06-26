@@ -1,9 +1,43 @@
 #!/usr/bin/env python3
 import os
+import re
 import sys
 import argparse
 import requests
 import json
+
+
+def _load_token_from_rc():
+    """Scan common shell rc files for SEE_API_TOKEN definition.
+    Returns the value string, or None if not found.
+    Does NOT execute the rc file — just regex-parses it (safer).
+    """
+    home = os.path.expanduser("~")
+    rc_files = [
+        ".bashrc",
+        ".bash_profile",
+        ".profile",
+        ".zshrc",
+        ".zshenv",
+    ]
+    # Match: export SEE_API_TOKEN=foo  /  SEE_API_TOKEN="foo"  /  SEE_API_TOKEN='foo'
+    pattern = re.compile(
+        r'^\s*(?:export\s+)?SEE_API_TOKEN\s*=\s*["\']?([^"\'\n\r#]+)["\']?',
+        re.MULTILINE,
+    )
+    for name in rc_files:
+        path = os.path.join(home, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+        except OSError:
+            continue
+        m = pattern.search(content)
+        if m:
+            return m.group(1).strip()
+    return None
 
 def upload_image(file_path, api_token):
     # Added is_private=0 to ensure the link is publicly accessible
@@ -64,7 +98,9 @@ if __name__ == "__main__":
     
     token = os.environ.get("SEE_API_TOKEN")
     if not token:
-        print("Error: SEE_API_TOKEN environment variable not set.")
+        token = _load_token_from_rc()
+    if not token:
+        print("Error: SEE_API_TOKEN not found in env or shell rc files (~/.bashrc, ~/.zshrc, etc.).")
         sys.exit(1)
         
     upload_image(args.file, token)
