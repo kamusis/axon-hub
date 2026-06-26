@@ -13,7 +13,7 @@ Merge a GitHub Pull Request using squash merge with a clean, well-structured Con
 2. **Validate PR title** - Check if it follows Conventional Commits format
 3. **Fix title if needed** - Convert to `type(scope): description` if non-compliant
 4. **Generate commit body** - Clean up and structure PR body into proper commit message
-5. **Execute squash merge** - Merge with `--squash --delete-branch`
+5. **Execute squash merge** - Prefer `gh pr merge --squash --subject --body-file --delete-branch` when supported; fall back to amend-based cleanup only on older `gh` versions that cannot set the squash commit message directly
 
 ## When to Use Me
 
@@ -124,6 +124,14 @@ Minor improvements:
 
 Show user the complete merge plan:
 
+First detect whether the installed `gh` supports direct custom squash commit messages:
+
+```bash
+gh pr merge --help | grep -E -- '--subject|--body-file'
+```
+
+If both `--subject` and `--body-file` are supported, prefer the direct merge plan:
+
 ```markdown
 ## PR Merge Plan
 
@@ -136,32 +144,85 @@ Show user the complete merge plan:
 <body - structured changes>
 ```
 
-**Command:**
-```bash
-gh pr merge <number> --squash --delete-branch
+**Commands (will execute in order):**
+1. `git checkout <base-branch>`
+2. `git pull origin <base-branch>`
+3. `gh pr merge <number> --squash --delete-branch --subject "<subject>" --body-file <body-file>`
+
+> Note: This `gh` version supports direct squash commit subject/body customization.
+> Use that path because `gh pr merge` performs the merge on GitHub; local `git commit --amend` may not target the merge commit.
+
+Do you want to proceed?
 ```
+
+If direct custom messages are not supported, present the fallback amend plan:
+
+```markdown
+## PR Merge Plan
+
+**PR:** #<number> - <title>
+
+**Commit message:**
+```
+<type>(<scope>): <description>
+
+<body - structured changes>
+```
+
+**Commands (will execute in order):**
+1. `git checkout <base-branch>`
+2. `git pull origin <base-branch>`
+3. `gh pr merge <number> --squash --delete-branch`
+4. `git pull origin <base-branch>`
+5. `git commit --amend -m "<type>(<scope>): <description>\n\n<body>"`
+
+> Note: This fallback is only for older `gh` versions without `--subject` and `--body-file`.
+> Pull after merge before amending so local `HEAD` is the actual squash merge commit.
 
 Do you want to proceed?
 ```
 
 ### Step 6: Execute Merge
 
-If user approves:
+If user approves, execute the following steps **in strict order**. Do NOT skip any step.
 
+**Step 6a: Detect merge-message support**
 ```bash
-# Ensure we're on the base branch
+gh pr merge --help | grep -E -- '--subject|--body-file'
+```
+
+If the installed `gh` supports both `--subject` and `--body-file`, use the preferred direct path.
+
+**Preferred path: direct custom squash message**
+```bash
 git checkout <base-branch>
 git pull origin <base-branch>
-
-# Execute squash merge
-gh pr merge <number> --squash --delete-branch
-
-# Amend commit message if needed
-git commit --amend -m "<clean commit message>"
-
-# Push if needed (usually not required with gh)
-# git push origin <base-branch>
+printf '%s\n' "<clean commit message body from Step 4>" > /tmp/pr-<number>-merge-body.txt
+gh pr merge <number> --squash --delete-branch \
+  --subject "<type>(<scope>): <description>" \
+  --body-file /tmp/pr-<number>-merge-body.txt
 ```
+
+If `--subject` or `--body-file` is not supported, use the fallback path.
+
+**Fallback path: amend after remote merge**
+```bash
+git checkout <base-branch>
+git pull origin <base-branch>
+gh pr merge <number> --squash --delete-branch
+git pull origin <base-branch>
+git commit --amend -m "<clean commit message from Step 4>"
+```
+
+Only use the fallback amend path when direct custom commit message flags are unavailable. On current `gh` versions, direct `--subject`/`--body-file` is safer because the squash merge is created by GitHub and local `HEAD` may not be the merge commit until after a pull.
+
+**Step 6b: Verify**
+```bash
+# Confirm the commit message is correct
+gh api repos/<owner>/<repo>/commits/<merge-sha> --jq '.commit.message'
+```
+
+If the message is still the default concatenated format, something went wrong. If direct flags were used, stop and report the mismatch. If the fallback path was used and the branch has not been pushed, re-run the amend step against the actual merge commit.
 
 ## Examples
 
@@ -221,6 +282,8 @@ Minor improvements:
 - **Separate subject from body with blank line**
 - **Use bullet points** for multiple changes
 - **Ask for approval** before executing merge
+- **Prefer direct custom squash messages** — If `gh pr merge` supports `--subject` and `--body-file`, use those flags and do not amend.
+- **Fallback amend only for older `gh` versions** — If direct custom message flags are unavailable, amend only after pulling the merge commit locally, then verify the remote commit message.
 
 ## Error Handling
 
