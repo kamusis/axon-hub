@@ -102,3 +102,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Maintain professional objectivity, technical accuracy, and truthfulness.
 - Avoid overly exaggerated expressions, flattery, or colloquial conversational filler.
 - All technical and status updates must be rigorous, clear, concise, and restrained.
+
+# Tools
+- Use moclaw cli for managing workspaces, agents, teams, skills in moclaw
