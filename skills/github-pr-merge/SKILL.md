@@ -119,6 +119,7 @@ Minor improvements:
 - Exclude: file paths, raw URLs, code snippets, trivial formatting, noise
 - Group related changes together
 - Use present tense imperative mood
+- **Do NOT hard-wrap lines.** Each bullet point must be a single unbroken line — never insert manual line breaks to fit a width. The terminal/editor handles soft-wrapping; hard newlines create malformed commit messages when consumed by tools.
 
 ### Step 5: Present Merge Plan
 
