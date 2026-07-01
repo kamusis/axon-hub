@@ -8,6 +8,7 @@ description: Create consistent releases and changelogs, including drafting GitHu
 - Propose (or apply) a SemVer version bump with a required `v` prefix
 - Provide copy-pasteable `git tag` and `git push` commands
 - Optionally provide copy-pasteable `gh release create` / `gh release edit` commands
+- After executing a tag/release, bump `server/pkg/version/version.go` to the next patch version when that file exists
 
 ## What I need from you
 
@@ -106,6 +107,36 @@ If GitHub release commands are requested, also output:
 
 - A copy-pasteable GitHub Release command (create or edit) with the same notes
 
+### 5) Post-release version bump
+
+After the tag has been pushed and GitHub Actions have been triggered, check whether `server/pkg/version/version.go` exists.
+
+- If the file does not exist, skip this step and say it was skipped.
+- If the file exists, bump `var Version = "<tag>"` to the just-released tag plus `0.0.1`.
+- Do not hard-code the next version. Derive it from the released SemVer tag by incrementing the patch number. Example: `v2.1.1` → `v2.1.2`.
+- Preserve the required `v` prefix.
+- Commit and push the bump to the default branch after the release tag is pushed.
+- Keep the commit message concise, for example: `chore(release): bump development version to v2.1.2`.
+
+Implementation guidance:
+
+```bash
+released_tag="<tag>"
+next_version="$(printf '%s\n' "$released_tag" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)$/v\1.\2.__PATCH__/')"
+patch="$(printf '%s\n' "$released_tag" | sed -E 's/^v[0-9]+\.[0-9]+\.([0-9]+)$/\1/')"
+next_patch=$((patch + 1))
+next_version="${next_version/__PATCH__/$next_patch}"
+
+if [ -f server/pkg/version/version.go ]; then
+  perl -0pi -e 's/var Version = "v[0-9]+\.[0-9]+\.[0-9]+"/var Version = "'"$next_version"'"/' server/pkg/version/version.go
+  git add server/pkg/version/version.go
+  git commit -m "chore(release): bump development version to $next_version"
+  git push origin HEAD:<default-branch>
+else
+  echo "server/pkg/version/version.go not found; skipping post-release version bump"
+fi
+```
+
 ## Output format (what you will get)
 
 - Proposed version tag (example: `v1.5.0`)
@@ -120,6 +151,7 @@ If the release is not requested to be executed, end with a yes/no question:
 If requested:
 
 - Copy-pasteable `gh release create` / `gh release edit` commands
+- Copy-pasteable post-release version bump commands when `server/pkg/version/version.go` exists
 
 ## Command templates
 

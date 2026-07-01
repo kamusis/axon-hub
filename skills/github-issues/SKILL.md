@@ -41,6 +41,18 @@ gh issue create --repo owner/repo --title "Title" --body "Body content" --label 
 - `--title` - Clear, actionable title
 - `--body` - Structured markdown content
 
+### Requirement Clarity Rules
+
+When creating an issue, write requirements and design decisions as a single settled specification. Do not leave ambiguity for the later implementer.
+
+- Do not use vague wording that gives the implementer multiple choices, such as "suggest", "maybe", "could", "consider", "if possible", "preferably", "one option is", "A or B", "either", "or", "and/or", "etc.", or "whatever works".
+- Do not describe several possible implementations and ask the implementer to choose.
+- Do not write acceptance criteria that allow multiple interpretations.
+- Convert user-approved decisions into definitive wording: "Do X", "Use Y", "Save is disabled when Z", "Show message M".
+- If the user has not made a required product, UX, validation, data-model, or technical decision, stop before creating the issue and ask a direct clarification question.
+- If the user asks for brainstorming or evaluation rather than issue creation, keep options in the conversation. Only create the issue after the final decision is unique and explicit.
+- Use an "Alternatives Considered" section only to record rejected approaches. Each rejected approach must clearly say it is not part of the implementation.
+
 ### Optional Parameters
 
 - `--label` - Comma-separated labels (e.g., "bug,high-priority")
@@ -234,6 +246,7 @@ Use these standard labels when applicable:
 
 - Always confirm the repository context before creating issues
 - Ask for missing critical information rather than guessing
+- Resolve ambiguous requirements before creating the issue; never leave implementation choices in the issue body
 - Link related issues when known: `Related to #123`
 - For updates, fetch current issue first to preserve unchanged fields
 - Use `gh issue view` to check existing issue state before modifying

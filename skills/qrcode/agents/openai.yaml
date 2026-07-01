@@ -1,0 +1,4 @@
+interface:
+  display_name: "QR Code"
+  short_description: "Generate and decode QR codes"
+  default_prompt: "Use $qrcode to generate or decode a QR code from a URL, text, or screenshot."
