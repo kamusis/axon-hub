@@ -105,4 +105,4 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 # Tools
 - Use moclaw cli for managing workspaces, agents, teams, skills in moclaw
-- Use /usr/bin/gh-wrapper for github operations instead of gh command
+- Use `gh-wrapper` for github operations if it is in the current PATH; otherwise use `gh` directly. Do not search for it outside PATH.
