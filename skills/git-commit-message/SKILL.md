@@ -78,7 +78,7 @@ Minor improvements:
 ### Body
 - Separate the subject from the body with a blank line
 - Use bullet points for multiple changes
-- **Do NOT hard-wrap lines.** Each bullet point must be a single unbroken line — never insert manual line breaks to fit a width. The terminal/editor handles soft-wrapping; hard newlines create malformed commit messages when consumed by tools.
+- Do not hard-wrap lines; let each bullet flow as a single line
 - Focus on what changed and why it matters, not low-level implementation detail
 - For simple changes, the body is optional
 
