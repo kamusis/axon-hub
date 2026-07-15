@@ -1,0 +1,29 @@
+{
+  "skill_name": "github-issue-to-dev-ticket",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "根据当前对话里的 RBAC Agent 保存失败调查，创建英文 GitHub bug issue，再在 dev 工作区创建中文工单并关联 GitHub issue。不要创建到 dev-v2。",
+      "expected_output": "Resolves the current local repository's GitHub remote, creates one English bug issue there, then one Chinese ticket in workspace a43acd83-25f4-43ea-bdfd-d179fb272172, verifies both, and reports the links.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "把这次 coverage improver job 没有创建工单的问题整理成 GitHub issue 和内部 dev 工单。GitHub 用英文，内部工单用中文，内部工单必须链接 GitHub issue。",
+      "expected_output": "Classifies the report as a bug, resolves the local repository remote instead of using a hardcoded repository, creates the GitHub issue first, uses the fixed dev workspace ID explicitly, and includes the returned issue URL in the Chinese ticket.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "请把这个新功能需求同步到 GitHub 和 MoClaw：GitHub 创建英文 feature issue，之后在 dev 工作区创建中文工单。先核对工作区名称，不要依赖当前激活工作区。",
+      "expected_output": "Resolves the local repository remote, creates an English enhancement issue first, validates that the fixed workspace ID maps to dev, creates a Chinese ticket there, and verifies the cross-link.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "这次聊天里同时讨论了 coverage improver 没建工单和 RBAC Admin 无法编辑 Agent。请直接使用这个 skill。",
+      "expected_output": "Does not create any external records. Asks the user to select one topic because the conversation contains multiple independent candidates and the request does not define the scope.",
+      "files": []
+    }
+  ]
+}
