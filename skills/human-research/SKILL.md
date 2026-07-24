@@ -1,5 +1,5 @@
 ---
-name: human_research
+name: human-research
 description: >
   Deep public-person research / OSINT workflow for investigating a person's public profile from names, URLs, handles, emails, companies, schools, or other identity seeds. Use this whenever the user asks to 调研一个人, research someone, investigate a person's background, find their public information, identify who a GitHub/LinkedIn/X profile belongs to, or summarize a person's career, location, affiliations, online footprint, credibility, and publicly available biographical information. This skill should trigger even if the user only provides one URL or handle, because the expected behavior is broad cross-platform research rather than reading only the provided page.
 ---
