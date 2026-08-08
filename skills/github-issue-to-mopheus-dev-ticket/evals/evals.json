@@ -1,5 +1,5 @@
 {
-  "skill_name": "github-issue-to-dev-ticket",
+  "skill_name": "github-issue-to-mopheus-dev-ticket",
   "evals": [
     {
       "id": 1,
@@ -15,7 +15,7 @@
     },
     {
       "id": 3,
-      "prompt": "请把这个新功能需求同步到 GitHub 和 MoClaw：GitHub 创建英文 feature issue，之后在 dev 工作区创建中文工单。先核对工作区名称，不要依赖当前激活工作区。",
+      "prompt": "请把这个新功能需求同步到 GitHub 和 Mopheus：GitHub 创建英文 feature issue，之后在 dev 工作区创建中文工单。先核对工作区名称，不要依赖当前激活工作区。",
       "expected_output": "Resolves the local repository remote, creates an English enhancement issue first, validates that the fixed workspace ID maps to dev, creates a Chinese ticket there, and verifies the cross-link.",
       "files": []
     },

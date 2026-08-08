@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bridge.sh — main entry point for the moclaw-mes-ticket-bridge skill (v14).
+# bridge.sh — main entry point for the mopheus-mes-ticket-bridge skill (v14).
 #
 # v14 architecture: agent-owned ticket lifecycle. The MES Webhook Handler job
 # uses `actionType=assign_agent`, so mes-leader receives the raw envelope

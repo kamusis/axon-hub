@@ -380,26 +380,37 @@ if [ "$MODE" = "worktrees" ] || [ "$MODE" = "all" ]; then
     echo ""
 
     # Parse `git worktree list --porcelain` into pipe-separated lines:
-    # path|head|branch|detached_flag
+    # path|head|branch|detached_flag|bare_flag
     worktree_data=$(git worktree list --porcelain | awk '
-    BEGIN { wt=""; head=""; branch=""; detached=0 }
+    BEGIN { wt=""; head=""; branch=""; detached=0; bare=0 }
     /^worktree / { wt=$2 }
     /^HEAD / { head=$2 }
     /^branch / { branch=$2; detached=0 }
     /^detached$/ { detached=1 }
+    /^bare$/ { bare=1 }
     /^$/ {
-        if (wt != "") printf "%s|%s|%s|%d\n", wt, head, branch, detached
-        wt=""; head=""; branch=""; detached=0
+        if (wt != "") printf "%s|%s|%s|%d|%d\n", wt, head, branch, detached, bare
+        wt=""; head=""; branch=""; detached=0; bare=0
     }
     END {
-        if (wt != "") printf "%s|%s|%s|%d\n", wt, head, branch, detached
+        if (wt != "") printf "%s|%s|%s|%d|%d\n", wt, head, branch, detached, bare
     }')
 
-    while IFS='|' read -r wt_path wt_head wt_branch wt_detached; do
+    while IFS='|' read -r wt_path wt_head wt_branch wt_detached wt_bare; do
         [ -z "$wt_path" ] && continue
+        [ "$wt_bare" = "1" ] && continue
 
-        # Skip the main worktree
+        # Skip the current worktree, but track its branch so the local branch
+        # scan does not report a branch that is still checked out.
         if [ "$wt_path" = "$REPO_ROOT" ]; then
+            if [ "$wt_detached" != "1" ]; then
+                branch_name="${wt_branch#refs/heads/}"
+                if [ -z "$branch_name" ]; then
+                    echo "ERROR: Worktree '$wt_path' has no branch or detached marker" >&2
+                    exit 1
+                fi
+                checked_out_branches["$branch_name"]="$wt_path"
+            fi
             continue
         fi
         if [ "$wt_branch" = "refs/heads/$MAIN_BRANCH" ]; then
@@ -417,10 +428,18 @@ if [ "$MODE" = "worktrees" ] || [ "$MODE" = "all" ]; then
         ref=""
         ref_label=""
         if [ "$wt_detached" = "1" ]; then
+            if [ -z "$wt_head" ]; then
+                echo "ERROR: Detached worktree '$wt_path' has no HEAD commit" >&2
+                exit 1
+            fi
             ref="$wt_head"
             ref_label="(detached @ ${wt_head:0:12})"
         else
             branch_name="${wt_branch#refs/heads/}"
+            if [ -z "$branch_name" ]; then
+                echo "ERROR: Worktree '$wt_path' has no branch or detached marker" >&2
+                exit 1
+            fi
             ref="$branch_name"
             ref_label="$branch_name"
             checked_out_branches["$branch_name"]="$wt_path"

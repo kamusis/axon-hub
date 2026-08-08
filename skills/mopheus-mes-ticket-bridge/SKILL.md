@@ -1,18 +1,18 @@
 ---
-name: moclaw-mes-ticket-bridge
-description: Bridge MES service-request webhook events into MoClaw workspace tickets. Use this skill whenever an MES webhook envelope (event_type + mes_sr_id + payload) must be processed — covering ticket.created, ticket.replied, and ticket.closed. The skill handles per-event routing, dedup, ticket creation (agent-owned), DBA dispatch, and mes-cli rate-limited outbound replies (Markdown format).
+name: mopheus-mes-ticket-bridge
+description: Bridge MES service-request webhook events into Mopheus workspace tickets. Use this skill whenever an MES webhook envelope (event_type + mes_sr_id + payload) must be processed — covering ticket.created, ticket.replied, and ticket.closed. The skill handles per-event routing, dedup, ticket creation (agent-owned), DBA dispatch, and mes-cli rate-limited outbound replies (Markdown format).
 compatibility: Requires bash, jq, an authenticated moclaw CLI, and (for outbound replies) the `mes` CLI on PATH.
 ---
 
-# MES → MoClaw Ticket Bridge
+# MES → Mopheus Ticket Bridge
 
-Synchronize an MES service-request event into the agent's active MoClaw workspace.
+Synchronize an MES service-request event into the agent's active Mopheus workspace.
 
 ## Architecture (v14: agent-owned ticket lifecycle)
 
 The MES Webhook Handler job uses `actionType=assign_agent`, so the agent (mes-leader) receives the raw MES envelope directly in its trigger context — there is **no transit-ticket placeholder**. The agent invoking this skill is responsible for the full ticket lifecycle:
 
-- For `ticket.created` → the bridge creates the canonical MoClaw ticket itself via `ticket create`.
+- For `ticket.created` → the bridge creates the canonical Mopheus ticket itself via `ticket create`.
 - For `ticket.replied` / `ticket.closed` → the bridge finds the existing canonical ticket and patches / closes it.
 
 The skill is a thin dispatcher that routes a single MES envelope to one of three event handlers. All per-event-type logic is implemented in bash, **not** in prompts — the agent invoking the skill should not reimplement any of the steps below.
@@ -31,7 +31,7 @@ Shared helpers (parsing, dedup, metadata, routing, mes-cli rate-limit, agent-run
 1. Read the complete JSON payload from a file or stdin. Treat it as authoritative — preserve every field, nested object, array, HTML tag, and original formatting.
 2. Extract `event_type` (top-level) and `mes_sr_id` (top-level, numeric).
 3. Dispatch by `event_type` to the matching handler. Refuse unknown event types.
-4. For `ticket.created`: the bridge creates the canonical MoClaw ticket directly via `ticket create`. If a canonical ticket already exists for the same `mes_sr_id`, ack dup and exit.
+4. For `ticket.created`: the bridge creates the canonical Mopheus ticket directly via `ticket create`. If a canonical ticket already exists for the same `mes_sr_id`, ack dup and exit.
 5. For every other supported event (`ticket.replied`, `ticket.closed`): **locate the existing canonical ticket by `mes_sr_id` and refuse to create a new one.** If none exists, abort with an error.
 6. Use idempotency keys (`replyId`, `(stateUpdateTime,status)`) to skip duplicate events.
 7. Route the assigned DBA agent (`mes-mysql` / `mes-postgresql` / `mes-oracle`) based on `payload.dict.itemName`; fall back to `mes-mysql` if unknown.
@@ -66,7 +66,7 @@ v14 has **no** `--transit-ticket` flag and **no** `--workspace-id` flag. The age
 - Do not pass `--transit-ticket`. There is no transit ticket in v14.
 - The `ticket.created` handler calls `ticket create` directly (NOT `ticket update`) — the agent owns the full ticket lifecycle.
 - The mes-cli reply for `ticket.replied` and `ticket.created` uses `--internal --markdown` (not `--text`). `--text` wraps the body in literal `<p>...</p>` and breaks Markdown rendering on MES.
-- Never use `curl` or raw HTTP for MoClaw operations. The `moclaw` CLI is the only allowed interface.
+- Never use `curl` or raw HTTP for Mopheus operations. The `moclaw` CLI is the only allowed interface.
 - Never invent or normalize MES field values. Preserve the raw payload verbatim.
 - Every MES SR reference must hyperlink `https://support.enmotech.com/service/request/<id>`.
 - If `bridge.sh` exits non-zero, surface the stderr to the user and stop. Do not retry the same payload blindly.

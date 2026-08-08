@@ -4,7 +4,7 @@
 # Behavior (v14, agent-owned):
 #   1. Parse payload; require dict.itemName for routing.
 #   2. Idempotency: if a canonical ticket already exists for mes_sr_id, ack dup.
-#   3. Otherwise, CREATE the canonical MoClaw ticket (no transit placeholder):
+#   3. Otherwise, CREATE the canonical Mopheus ticket (no transit placeholder):
 #        - title: "[MES SR#<id>] <payload.title>"
 #        - description: structured Source / Extracted / Plain-text / Routing
 #        - priority: mapped from typeLabel

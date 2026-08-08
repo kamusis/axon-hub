@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Mopheus Dev Delivery"
+  short_description: "Ship code through PR merge and Mopheus closure"
+  default_prompt: "Use $github-mopheus-dev-delivery to finish and deliver the current completed code change."
