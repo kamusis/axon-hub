@@ -18,7 +18,10 @@
 #
 # Output: structured report to stdout, parseable by agent or human.
 
-set -uo pipefail
+# Bash 3.2 treats an expanded, declared-but-empty array as unbound under
+# `set -u`. Empty result arrays and non-matching Git probes are valid in this
+# report, so retain pipeline failure detection without nounset or errexit.
+set -o pipefail
 
 # ---------------------------------------------------------------------------
 # Parse arguments
@@ -367,10 +370,25 @@ declare -a NOT_MERGED=()
 declare -a REDUNDANT=()
 declare -a PRUNABLE=()
 
-# Track all branch refs for redundancy detection and branch skip logic
-declare -A wt_branches  # path -> branch_name
-declare -A wt_heads      # path -> head_commit
-declare -A checked_out_branches  # branch_name -> path
+# Track worktree refs and checked-out branches using indexed arrays. macOS ships
+# Bash 3.2, which does not support associative arrays (`declare -A`).
+declare -a WT_RECORDS=()             # path|head_commit|branch_name
+declare -a CHECKED_OUT_BRANCHES=()   # branch_name
+
+# array_contains reports whether an indexed array contains an exact value.
+array_contains() {
+    local needle="$1"
+    shift
+    local value
+
+    for value in "$@"; do
+        if [ "$value" = "$needle" ]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
 
 # ---------------------------------------------------------------------------
 # Worktree detection
@@ -409,7 +427,7 @@ if [ "$MODE" = "worktrees" ] || [ "$MODE" = "all" ]; then
                     echo "ERROR: Worktree '$wt_path' has no branch or detached marker" >&2
                     exit 1
                 fi
-                checked_out_branches["$branch_name"]="$wt_path"
+                CHECKED_OUT_BRANCHES+=("$branch_name")
             fi
             continue
         fi
@@ -442,12 +460,11 @@ if [ "$MODE" = "worktrees" ] || [ "$MODE" = "all" ]; then
             fi
             ref="$branch_name"
             ref_label="$branch_name"
-            checked_out_branches["$branch_name"]="$wt_path"
+            CHECKED_OUT_BRANCHES+=("$branch_name")
         fi
 
         # Record for redundancy detection
-        wt_heads["$wt_path"]="$wt_head"
-        [ -n "$branch_name" ] && wt_branches["$wt_path"]="$branch_name"
+        WT_RECORDS+=("$wt_path|$wt_head|$branch_name")
 
         echo "--- $wt_path ($ref_label) ---"
 
@@ -484,9 +501,8 @@ if [ "$MODE" = "worktrees" ] || [ "$MODE" = "all" ]; then
     # Redundancy detection: find detached HEAD worktrees whose commit is an
     # ancestor of another worktree's branch (intermediate commit, not merged).
     # ---------------------------------------------------------------------------
-    for wt_path in "${!wt_heads[@]}"; do
-        head="${wt_heads[$wt_path]}"
-        branch="${wt_branches[$wt_path]:-}"
+    for wt_record in "${WT_RECORDS[@]}"; do
+        IFS='|' read -r wt_path head branch <<< "$wt_record"
 
         # Only check detached HEADs (no branch)
         [ -n "$branch" ] && continue
@@ -502,9 +518,10 @@ if [ "$MODE" = "worktrees" ] || [ "$MODE" = "all" ]; then
         $already_merged && continue
 
         # Check if this detached HEAD is an ancestor of any other branch
-        for other_path in "${!wt_branches[@]}"; do
+        for other_record in "${WT_RECORDS[@]}"; do
+            IFS='|' read -r other_path _other_head other_branch <<< "$other_record"
             [ "$other_path" = "$wt_path" ] && continue
-            other_branch="${wt_branches[$other_path]}"
+            [ -z "$other_branch" ] && continue
 
             if git merge-base --is-ancestor "$head" "$other_branch" 2>/dev/null; then
                 REDUNDANT+=("$wt_path|(detached @ ${head:0:12})|intermediate commit of $other_branch ($other_path)")
@@ -537,7 +554,7 @@ if [ "$MODE" = "branches" ] || [ "$MODE" = "all" ]; then
         [ "$branch_name" = "$MAIN_BRANCH" ] && continue
 
         # Skip branches already checked out in a worktree (handled above)
-        if [ -n "${checked_out_branches[$branch_name]:-}" ]; then
+        if array_contains "$branch_name" "${CHECKED_OUT_BRANCHES[@]}"; then
             continue
         fi
 
