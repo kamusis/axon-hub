@@ -1,0 +1,23 @@
+{
+  "skill_name": "mopheus-integration-preview",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "请用 /Users/kamus/CascadeProjects/mopheus/.worktrees/example-feature 启动一个 Mopheus 集成测试预览环境，复用现有 PostgreSQL，最后把登录信息告诉我。",
+      "expected_output": "The skill validates the linked worktree, reuses mopheus-postgres-1, starts both services, enables all features, verifies readiness, and prints local test credentials.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "重新打开昨天那个 Mopheus worktree 的预览，不要重置数据库，memory 和 git 等 feature 都要打开。路径是 /tmp/mopheus-worktrees/sidebar-fix。",
+      "expected_output": "The skill reuses the existing environment and data, dynamically enables every registered feature instead of hard-coding keys, and reports whether services were reused.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "在已有 Mopheus worktree 上跑本地预览，但 5432 现在被另一个容器占着；你直接帮我处理并启动。",
+      "expected_output": "The skill identifies and reports the conflicting container, does not stop it without explicit authorization, and preserves all existing preview data.",
+      "files": []
+    }
+  ]
+}
