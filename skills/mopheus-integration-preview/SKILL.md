@@ -1,7 +1,7 @@
 ---
 name: mopheus-integration-preview
 description: Create and start a reusable local Mopheus integration-test preview from an existing linked Git worktree. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, or test login. Reuse the shared mopheus-postgres-1 container, keep per-worktree databases and test data, enable every registered feature dynamically, and print the local test credentials after readiness checks.
-compatibility: Requires macOS or Linux with bash, git, Docker, curl, jq, make, lsof, Node.js, pnpm, and Go. The target must be an existing linked Mopheus Git worktree using a local .env.worktree database.
+compatibility: Requires macOS or Linux with bash, git, Docker, curl, jq, make, lsof, Node.js, pnpm, Python 3, and Go. The target must be an existing linked Mopheus Git worktree using a local .env.worktree database.
 ---
 
 # Mopheus Integration Preview
@@ -33,7 +33,7 @@ The script owns the complete workflow:
 7. Dynamically list every registered feature and set its system state to `enabled`.
 8. Create or reuse the dedicated regular test user and `dev-space` workspace.
 9. Set every registered feature override to `true` for the test workspace and verify every effective value is enabled.
-10. Print URLs, database details, enabled features, log path, and test email/password.
+10. Print URLs, database details, enabled features, backend/frontend log paths, and test email/password.
 
 Do not manually repeat these steps unless diagnosing a script failure. The bundled script is the source of truth for deterministic setup.
 
@@ -92,7 +92,7 @@ Return the script's final summary without redacting the local test email or pass
 - PostgreSQL container, port, and database name;
 - enabled feature keys;
 - test email and password;
-- service log path;
+- backend and frontend log paths;
 - whether services were started or reused.
 
 Do not claim readiness merely because processes were spawned. Both HTTP readiness checks and effective-feature verification must pass.

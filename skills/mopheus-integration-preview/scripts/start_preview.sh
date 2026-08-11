@@ -93,7 +93,7 @@ if [ "$#" -ne 1 ]; then
   exit 2
 fi
 
-for required_command in bash curl docker git go jq lsof make node pnpm; do
+for required_command in bash curl docker git go jq lsof make node pnpm python3; do
   require_command "$required_command"
 done
 
@@ -102,6 +102,7 @@ input_path="$1"
 [ -d "$input_path" ] || fail "worktree path does not exist: $input_path"
 
 worktree_path="$(cd "$input_path" && pwd -P)"
+script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 git -C "$worktree_path" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "not a Git worktree: $worktree_path"
 
 git_dir="$(git -C "$worktree_path" rev-parse --absolute-git-dir)"
@@ -164,10 +165,12 @@ login_url="$frontend_url/login"
 runtime_hash="$(printf '%s' "$worktree_path" | cksum | awk '{print $1}')"
 runtime_dir="${TMPDIR:-/tmp}/mopheus-preview-$runtime_hash"
 mkdir -p "$runtime_dir"
-log_file="$runtime_dir/services.log"
-pid_file="$runtime_dir/launcher.pid"
+backend_log_file="$runtime_dir/backend.log"
+frontend_log_file="$runtime_dir/frontend.log"
+backend_pid_file="$runtime_dir/backend.pid"
+frontend_pid_file="$runtime_dir/frontend.pid"
 services_state="reused"
-log_display="existing process; no log was created by this run"
+log_display="existing processes; no logs were created by this run"
 
 if ! is_http_ready "$auth_ready_url" || ! is_http_ready "$login_url"; then
   backend_pid="$(lsof -nP -tiTCP:"$BACKEND_PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
@@ -181,21 +184,26 @@ if ! is_http_ready "$auth_ready_url" || ! is_http_ready "$login_url"; then
   rm -rf "$worktree_path/apps/web/.next"
 
   printf '==> Starting backend and frontend...\n'
-  (
-    cd "$worktree_path"
-    nohup make start-worktree >"$log_file" 2>&1 </dev/null &
-    printf '%s\n' "$!" >"$pid_file"
-  )
+  python3 "$script_dir/start_detached.py" \
+    --cwd "$worktree_path/server" \
+    --log "$backend_log_file" \
+    --pid-file "$backend_pid_file" \
+    go run ./cmd/mopheusd
+  python3 "$script_dir/start_detached.py" \
+    --cwd "$worktree_path" \
+    --log "$frontend_log_file" \
+    --pid-file "$frontend_pid_file" \
+    pnpm dev:web
   services_state="started"
-  log_display="$log_file"
+  log_display="backend: $backend_log_file; frontend: $frontend_log_file"
 
   timeout_seconds="${MOPHEUS_PREVIEW_START_TIMEOUT:-180}"
   if ! wait_for_http "$auth_ready_url" "$timeout_seconds"; then
-    tail -n 80 "$log_file" >&2 || true
+    tail -n 80 "$backend_log_file" >&2 || true
     fail "backend did not become ready within ${timeout_seconds}s"
   fi
   if ! wait_for_http "$login_url" "$timeout_seconds"; then
-    tail -n 80 "$log_file" >&2 || true
+    tail -n 80 "$frontend_log_file" >&2 || true
     fail "frontend did not become ready within ${timeout_seconds}s"
   fi
 fi
@@ -267,4 +275,4 @@ printf 'Database: %s\n' "$POSTGRES_DB"
 printf 'Enabled features: %s\n' "$enabled_features"
 printf 'Test email: %s\n' "$preview_email"
 printf 'Test password: %s\n' "$preview_password"
-printf 'Service log: %s\n' "$log_display"
+printf 'Service logs: %s\n' "$log_display"
