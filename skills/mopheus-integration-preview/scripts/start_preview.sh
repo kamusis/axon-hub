@@ -8,7 +8,7 @@ readonly PREVIEW_WORKSPACE_NAME_DEFAULT="Dev Space"
 readonly POSTGRES_CONTAINER_NAME="mopheus-postgres-1"
 
 usage() {
-  printf 'Usage: %s <absolute-mopheus-worktree-path>\n' "$0"
+  printf 'Usage: %s [--allow-existing-previews | --reuse-db-from <absolute-source-worktree>] <absolute-target-worktree>\n' "$0"
 }
 
 fail() {
@@ -88,9 +88,45 @@ wait_for_http() {
   done
 }
 
+read_env_value() {
+  local env_path="$1"
+  local key="$2"
+  awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$env_path"
+}
+
+allow_existing_previews=0
+reuse_db_from=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --allow-existing-previews)
+      allow_existing_previews=1
+      shift
+      ;;
+    --reuse-db-from)
+      [ "$#" -ge 2 ] || fail "--reuse-db-from requires an absolute linked worktree path"
+      reuse_db_from="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --*)
+      fail "unknown option: $1"
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 if [ "$#" -ne 1 ]; then
   usage >&2
   exit 2
+fi
+
+if [ "$allow_existing_previews" = "1" ] && [ -n "$reuse_db_from" ]; then
+  fail "--allow-existing-previews and --reuse-db-from are mutually exclusive"
 fi
 
 for required_command in bash curl docker git go jq lsof make node pnpm python3; do
@@ -114,9 +150,67 @@ grep -Eq '^module[[:space:]]+mopheus$' "$worktree_path/server/go.mod" || fail "s
 [ -x "$worktree_path/scripts/init-worktree-env.sh" ] || fail "missing executable scripts/init-worktree-env.sh"
 [ -f "$worktree_path/scripts/ensure-postgres.sh" ] || fail "missing scripts/ensure-postgres.sh"
 
+existing_previews="$($script_dir/discover_previews.sh "$worktree_path")"
+if [ -n "$existing_previews" ] && [ "$allow_existing_previews" != "1" ] && [ -z "$reuse_db_from" ]; then
+  printf 'Existing Mopheus previews are running:\n' >&2
+  printf 'WORKTREE\tFRONTEND_PORT\tFRONTEND_PID\tBACKEND_PORT\tBACKEND_PID\tDATABASE\n' >&2
+  printf '%s\n' "$existing_previews" >&2
+  fail "existing preview confirmation required; ask whether to stop one and reuse its database, or rerun with --allow-existing-previews after explicit approval"
+fi
+
 env_file="$worktree_path/.env.worktree"
 if [ ! -f "$env_file" ]; then
   (cd "$worktree_path" && bash scripts/init-worktree-env.sh .env.worktree)
+fi
+
+if [ -n "$reuse_db_from" ]; then
+  [[ "$reuse_db_from" = /* ]] || fail "reuse source path must be absolute: $reuse_db_from"
+  [ -d "$reuse_db_from" ] || fail "reuse source path does not exist: $reuse_db_from"
+  reuse_db_from="$(cd "$reuse_db_from" && pwd -P)"
+  [ "$reuse_db_from" != "$worktree_path" ] || fail "reuse source and target worktrees must differ"
+
+  unexpected_previews="$(awk -F '\t' -v approved_source="$reuse_db_from" '$1 != approved_source' <<<"$existing_previews")"
+  if [ -n "$unexpected_previews" ]; then
+    printf 'Additional unconfirmed Mopheus previews are running:\n' >&2
+    printf 'WORKTREE\tFRONTEND_PORT\tFRONTEND_PID\tBACKEND_PORT\tBACKEND_PID\tDATABASE\n' >&2
+    printf '%s\n' "$unexpected_previews" >&2
+    fail "database reuse approval covers only $reuse_db_from; ask what to do with the additional previews"
+  fi
+
+  reuse_git_dir="$(git -C "$reuse_db_from" rev-parse --absolute-git-dir 2>/dev/null || true)"
+  reuse_common_dir="$(git -C "$reuse_db_from" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+  [ -n "$reuse_git_dir" ] && [ "$reuse_git_dir" != "$reuse_common_dir" ] || fail "reuse source is not a linked Git worktree: $reuse_db_from"
+
+  reuse_env_file="$reuse_db_from/.env.worktree"
+  [ -f "$reuse_env_file" ] || fail "reuse source is missing .env.worktree: $reuse_db_from"
+  reuse_frontend_port="$(read_env_value "$reuse_env_file" FRONTEND_PORT)"
+  reuse_backend_port="$(read_env_value "$reuse_env_file" BACKEND_PORT)"
+  reuse_postgres_db="$(read_env_value "$reuse_env_file" POSTGRES_DB)"
+  reuse_database_url="$(read_env_value "$reuse_env_file" DATABASE_URL)"
+  [ -n "$reuse_postgres_db" ] && [ -n "$reuse_database_url" ] || fail "reuse source database settings are incomplete"
+
+  reuse_frontend_pid="$(lsof -nP -tiTCP:"$reuse_frontend_port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+  reuse_backend_pid="$(lsof -nP -tiTCP:"$reuse_backend_port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+  if [ -n "$reuse_frontend_pid" ] || [ -n "$reuse_backend_pid" ]; then
+    fail "reuse source services are still running (frontend PID: ${reuse_frontend_pid:-none}, backend PID: ${reuse_backend_pid:-none}); stop them only after explicit user approval"
+  fi
+
+  target_frontend_port="$(read_env_value "$env_file" FRONTEND_PORT)"
+  target_backend_port="$(read_env_value "$env_file" BACKEND_PORT)"
+  target_frontend_pid="$(lsof -nP -tiTCP:"$target_frontend_port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+  target_backend_pid="$(lsof -nP -tiTCP:"$target_backend_port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+  if [ -n "$target_frontend_pid" ] || [ -n "$target_backend_pid" ]; then
+    fail "target services are still running (frontend PID: ${target_frontend_pid:-none}, backend PID: ${target_backend_pid:-none}); stop them before changing the target database"
+  fi
+
+  reuse_tmp_file="$(mktemp)"
+  awk -v postgres_db="$reuse_postgres_db" -v database_url="$reuse_database_url" '
+    /^POSTGRES_DB=/ {print "POSTGRES_DB=" postgres_db; next}
+    /^DATABASE_URL=/ {print "DATABASE_URL=" database_url; next}
+    {print}
+  ' "$env_file" >"$reuse_tmp_file"
+  mv "$reuse_tmp_file" "$env_file"
+  printf '==> Reusing database %s from %s while retaining target application ports.\n' "$reuse_postgres_db" "$reuse_db_from"
 fi
 
 set -a

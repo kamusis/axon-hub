@@ -18,6 +18,18 @@
       "prompt": "在已有 Mopheus worktree 上跑本地预览，但 5432 现在被另一个容器占着；你直接帮我处理并启动。",
       "expected_output": "The skill identifies and reports the conflicting container, does not stop it without explicit authorization, and preserves all existing preview data.",
       "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "帮我从 /Users/kamus/CascadeProjects/mopheus/.worktrees/issue-503 启动预览；我不确定之前的 issue-499 预览是不是还开着。",
+      "expected_output": "The skill first discovers active linked-worktree previews. If issue-499 is running, it reports the worktree, frontend/backend ports and database, does not start or stop anything, and asks whether to stop it and reuse its database or keep it running and start independently.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我确认停掉 /tmp/mopheus-worktrees/old-preview 的前后端，让 /tmp/mopheus-worktrees/new-code 复用它原来的测试数据库，然后启动新代码。",
+      "expected_output": "The skill stops only the explicitly approved old and target application services, preserves the source database, reuses only its database settings in the target while retaining target ports, and verifies the newly started preview before reporting readiness.",
+      "files": []
     }
   ]
 }

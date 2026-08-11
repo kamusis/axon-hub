@@ -1,12 +1,12 @@
 ---
 name: mopheus-integration-preview
-description: Create and start a reusable local Mopheus integration-test preview from an existing linked Git worktree. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, or test login. Reuse the shared mopheus-postgres-1 container, keep per-worktree databases and test data, enable every registered feature dynamically, and print the local test credentials after readiness checks.
+description: Discover, create, and start reusable local Mopheus integration-test previews from linked Git worktrees. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, or test login. Detect already-running previews before startup, require confirmation before parallel startup or service shutdown, preserve and optionally reuse preview databases, enable every registered feature dynamically, and print local test credentials after readiness checks.
 compatibility: Requires macOS or Linux with bash, git, Docker, curl, jq, make, lsof, Node.js, pnpm, Python 3, and Go. The target must be an existing linked Mopheus Git worktree using a local .env.worktree database.
 ---
 
 # Mopheus Integration Preview
 
-Create and start a disposable local preview from an existing Mopheus linked worktree. Preserve its database and test data between runs so future integration checks can reuse the same state.
+Discover and start a disposable local preview from an existing Mopheus linked worktree. Preserve databases and test data between runs so future integration checks can reuse the same state without silently creating competing application processes.
 
 ## Required input
 
@@ -14,26 +14,62 @@ Require one existing Mopheus worktree path. Resolve it to an absolute physical p
 
 If the user gives no path, ask for it. Do not infer the repository root or silently create a worktree.
 
+## Discover existing previews first
+
+Before every startup attempt, execute:
+
+```bash
+bash <skill-directory>/scripts/discover_previews.sh <absolute-target-worktree-path>
+```
+
+The discovery script maps active frontend and backend listeners from other linked worktrees to their ports and database names. If it prints any row, report the complete mapping and pause for an explicit user decision. Ask whether to:
+
+1. stop one existing preview's frontend and backend, then reuse its database for the target worktree; or
+2. keep existing previews running and start an independent target preview.
+
+Do not stop services, rewrite `.env.worktree`, switch databases, or start another preview before the user chooses. Merely asking to start a preview does not authorize shutting down an existing one.
+
 ## Run the preview
 
-Execute:
+When discovery finds no other running preview, execute:
 
 ```bash
 bash <skill-directory>/scripts/start_preview.sh <absolute-worktree-path>
 ```
 
-The script owns the complete workflow:
+After the user explicitly approves keeping existing previews and starting another independent instance, execute:
+
+```bash
+bash <skill-directory>/scripts/start_preview.sh --allow-existing-previews <absolute-target-worktree-path>
+```
+
+After the user explicitly approves stopping an existing preview and reusing its database:
+
+1. Stop the source preview with `make -C <absolute-source-worktree> stop-worktree`.
+2. Stop the target preview too if it is already running, using its own `make ... stop-worktree` command.
+3. Execute:
+
+```bash
+bash <skill-directory>/scripts/start_preview.sh \
+  --reuse-db-from <absolute-source-worktree> \
+  <absolute-target-worktree>
+```
+
+Database reuse copies only `POSTGRES_DB` and `DATABASE_URL` into the target's ignored `.env.worktree`. The target retains its own frontend and backend ports. The source database and all test data remain intact. The command refuses reuse while either source or target application services are still listening.
+
+The startup script owns the remaining workflow after discovery and confirmation:
 
 1. Validate that the path is a linked worktree of the Mopheus repository.
-2. Generate or reuse `.env.worktree` with worktree-specific application ports and database name.
-3. Reuse the shared Docker container named `mopheus-postgres-1`.
-4. Install dependencies, create the worktree database, and run migrations through the repository Make targets.
-5. Clear only the ignored worktree-local Next.js build cache before a cold start, then start backend and frontend as persistent local background processes.
-6. Wait until the auth API and login page both respond successfully.
-7. Dynamically list every registered feature and set its system state to `enabled`.
-8. Create or reuse the dedicated regular test user and `dev-space` workspace.
-9. Set every registered feature override to `true` for the test workspace and verify every effective value is enabled.
-10. Print URLs, database details, enabled features, backend/frontend log paths, and test email/password.
+2. Refuse an unconfirmed parallel startup when another linked-worktree preview is active.
+3. Generate or reuse `.env.worktree` with worktree-specific application ports and database name, or reuse an explicitly approved source database.
+4. Reuse the shared Docker container named `mopheus-postgres-1`.
+5. Install dependencies, create the selected database when missing, and run migrations through the repository Make targets.
+6. Clear only the ignored worktree-local Next.js build cache before a cold start, then start backend and frontend as persistent local background processes.
+7. Wait until the auth API and login page both respond successfully.
+8. Dynamically list every registered feature and set its system state to `enabled`.
+9. Create or reuse the dedicated regular test user and `dev-space` workspace.
+10. Set every registered feature override to `true` for the test workspace and verify every effective value is enabled.
+11. Print URLs, database details, enabled features, backend/frontend log paths, and test email/password.
 
 Do not manually repeat these steps unless diagnosing a script failure. The bundled script is the source of truth for deterministic setup.
 
@@ -81,6 +117,8 @@ Repeated runs against the same worktree must reuse:
 - existing user-created test data;
 - already-running healthy backend and frontend processes.
 
+Database reuse across worktrees is allowed only after explicit confirmation and after both affected application pairs are stopped. It must not delete the target's former database; changing `.env.worktree` only changes which preserved database the target uses.
+
 Do not delete, truncate, reseed, or reset existing data.
 
 ## Success report
@@ -103,6 +141,8 @@ Do not claim readiness merely because processes were spawned. Both HTTP readines
 - Dirty worktree: allowed; preview setup does not edit tracked source files.
 - Missing command: report the exact dependency and stop.
 - Port conflict: report the PID or container and wait for user authorization.
+- Other linked-worktree preview detected: report its worktree, frontend/backend ports and PIDs, and database; pause for the user's decision.
+- Database reuse requested while source or target services are running: report the listeners and stop without changing configuration.
 - Shared PostgreSQL missing: report the missing `mopheus-postgres-1` prerequisite.
 - Migration or startup failure: show the relevant log tail and keep all data.
 - Test-account password mismatch: stop rather than resetting a persistent account silently.
