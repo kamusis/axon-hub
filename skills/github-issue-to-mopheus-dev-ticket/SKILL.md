@@ -129,6 +129,18 @@ For a feature, use this structure:
 ## Additional Context
 ```
 
+### Requirement Clarity Rules
+
+When creating an issue, write requirements and design decisions as a single settled, definitive specification. Do not leave ambiguity or open choices for the later implementer.
+
+- Do not use vague wording that gives the implementer multiple choices, such as "suggest", "maybe", "could", "consider", "if possible", "preferably", "one option is", "A or B", "either", "or", "and/or", "etc.", or "whatever works".
+- Do not describe several possible implementations or flag names and ask the implementer to choose (e.g. avoid "Support --clear-runtime or --unbind-runtime"; choose one definitive flag like "Support --clear-runtime").
+- Do not write acceptance criteria that allow multiple interpretations.
+- Convert user-approved decisions into definitive wording: "Do X", "Use Y", "Save is disabled when Z", "Show message M".
+- If the user has not made a required product, UX, validation, data-model, or technical decision, stop before creating the issue and ask a direct clarification question.
+- If the user asks for brainstorming or evaluation rather than issue creation, keep options in the conversation. Only create the issue after the final decision is unique and explicit.
+- Use an "Alternatives Considered" section only to record rejected approaches. Each rejected approach must clearly say it is not part of the implementation.
+
 Create the issue in the resolved current repository with the `bug` label for bugs and `enhancement` for features. Add other existing repository labels only when supported by the evidence. Capture and verify the returned GitHub issue URL before continuing.
 
 Do not create the Mopheus ticket if GitHub issue creation fails or no issue URL is returned.
