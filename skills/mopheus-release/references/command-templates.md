@@ -9,7 +9,54 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 gh api user --jq .login
 ```
 
-## Validate the requested version
+## Preflight the requested version
+
+Before editing, validate SemVer syntax, tag absence, version ordering, clean `main`, and release ancestry. A source-version mismatch is expected before preparation.
+
+```bash
+git fetch origin main release --tags --prune
+git status --short
+git merge-base --is-ancestor origin/release origin/main
+git tag --list <version>
+git ls-remote --tags origin refs/tags/<version> refs/tags/<version>^{}
+```
+
+## Prepare the release commit
+
+Update these files from one release inventory:
+
+```text
+server/pkg/version/version.go
+install/env.example
+packages/docs-content/en/releases/changelog.md
+packages/docs-content/zh-Hans/releases/changelog.md
+```
+
+Then verify and commit:
+
+```bash
+make check
+git add server/pkg/version/version.go \
+  install/env.example \
+  packages/docs-content/en/releases/changelog.md \
+  packages/docs-content/zh-Hans/releases/changelog.md
+git diff --cached --check
+git commit -m "chore(release): prepare <version>"
+git push origin main
+```
+
+## Fast-forward the release branch
+
+```bash
+git fetch origin main release --prune
+git merge-base --is-ancestor origin/release origin/main
+release_sha=$(git rev-parse origin/main)
+git push origin "$release_sha":refs/heads/release
+git fetch origin release
+test "$(git rev-parse origin/release)" = "$release_sha"
+```
+
+## Validate the prepared version
 
 ```bash
 python3 <skill-directory>/scripts/validate_release.py <version>

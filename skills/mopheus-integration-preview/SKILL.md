@@ -1,6 +1,6 @@
 ---
 name: mopheus-integration-preview
-description: Discover, create, and start reusable local Mopheus integration-test previews from linked Git worktrees. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, or test login. Detect already-running previews before startup, require confirmation before parallel startup or service shutdown, preserve and optionally reuse preview databases, enable every registered feature dynamically, and print local test credentials after readiness checks.
+description: Discover, create, and start reusable local Mopheus integration-test previews from linked Git worktrees, including backend, frontend, and daemon runtimes. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, runtime, daemon, or test login. Detect already-running previews before startup, require confirmation before parallel startup or service shutdown, preserve and optionally reuse preview databases, enable every registered feature dynamically, and print local test credentials after readiness checks.
 compatibility: Requires macOS or Linux with bash, git, Docker, curl, jq, make, lsof, Node.js, pnpm, Python 3, and Go. The target must be an existing linked Mopheus Git worktree using a local .env.worktree database.
 ---
 
@@ -45,8 +45,8 @@ bash <skill-directory>/scripts/start_preview.sh --allow-existing-previews <absol
 
 After the user explicitly approves stopping an existing preview and reusing its database:
 
-1. Stop the source preview with `make -C <absolute-source-worktree> stop-worktree`.
-2. Stop the target preview too if it is already running, using its own `make ... stop-worktree` command.
+1. Stop the source preview with `make -C <absolute-source-worktree> daemon-stop-worktree` followed by `make -C <absolute-source-worktree> stop-worktree`.
+2. Stop the target preview too if it is already running, using its own daemon and application stop commands in the same order.
 3. Execute:
 
 ```bash
@@ -69,7 +69,9 @@ The startup script owns the remaining workflow after discovery and confirmation:
 8. Dynamically list every registered feature and set its system state to `enabled`.
 9. Create or reuse the dedicated regular test user and `dev-space` workspace.
 10. Set every registered feature override to `true` for the test workspace and verify every effective value is enabled.
-11. Print URLs, database details, enabled features, backend/frontend log paths, and test email/password.
+11. Start or reuse the worktree-profile daemon as a persistent local background process using the regular preview account.
+12. Wait until at least one runtime is registered in `dev-space`; a running process without registered runtimes is not ready.
+13. Print URLs, database details, enabled features, backend/frontend/daemon log paths, daemon profile and state, and test email/password.
 
 Do not manually repeat these steps unless diagnosing a script failure. The bundled script is the source of truth for deterministic setup.
 
@@ -116,6 +118,7 @@ Repeated runs against the same worktree must reuse:
 - the `dev-space` workspace;
 - existing user-created test data;
 - already-running healthy backend and frontend processes.
+- an already-running healthy daemon for the worktree's `MOPHEUS_PROFILE`.
 
 Database reuse across worktrees is allowed only after explicit confirmation and after both affected application pairs are stopped. It must not delete the target's former database; changing `.env.worktree` only changes which preserved database the target uses.
 
@@ -131,9 +134,10 @@ Return the script's final summary without redacting the local test email or pass
 - enabled feature keys;
 - test email and password;
 - backend and frontend log paths;
-- whether services were started or reused.
+- daemon profile and log path;
+- whether application services and the daemon were started or reused.
 
-Do not claim readiness merely because processes were spawned. Both HTTP readiness checks and effective-feature verification must pass.
+Do not claim readiness merely because processes were spawned. HTTP readiness checks, effective-feature verification, daemon status, and runtime registration must all pass.
 
 ## Failure handling
 
@@ -143,6 +147,7 @@ Do not claim readiness merely because processes were spawned. Both HTTP readines
 - Port conflict: report the PID or container and wait for user authorization.
 - Other linked-worktree preview detected: report its worktree, frontend/backend ports and PIDs, and database; pause for the user's decision.
 - Database reuse requested while source or target services are running: report the listeners and stop without changing configuration.
+- Database reuse requested while the source or target daemon is running: report its profile and stop without changing configuration.
 - Shared PostgreSQL missing: report the missing `mopheus-postgres-1` prerequisite.
 - Migration or startup failure: show the relevant log tail and keep all data.
 - Test-account password mismatch: stop rather than resetting a persistent account silently.
@@ -156,4 +161,4 @@ Only when the user asks to stop this preview, run:
 make -C <absolute-worktree-path> stop-worktree
 ```
 
-This stops the worktree backend and frontend while preserving the shared PostgreSQL container, database, and all test data.
+Run `make -C <absolute-worktree-path> daemon-stop-worktree` first, then the command above. This stops the worktree daemon, backend, and frontend while preserving the shared PostgreSQL container, database, and all test data.

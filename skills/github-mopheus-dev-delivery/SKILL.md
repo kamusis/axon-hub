@@ -10,7 +10,7 @@ Treat explicit invocation as authorization for every write in this workflow: com
 ## Invariants
 
 - Rebuild state from Git, GitHub, and Mopheus on every run. Resume idempotently; never rely on a previous chat checklist.
-- Use `gh-wrapper` when available, otherwise `gh`. Use `moclaw` for all Mopheus operations.
+- Use `gh-wrapper` when available, otherwise `gh`. Use the canonical `mopheus` executable for all Mopheus operations. `mop` may exist as a compatibility symlink, but write and execute this skill's commands with `mopheus`.
 - Never force-push, merge failing checks, guess an ambiguous ticket, clean a dirty worktree, or touch unrelated branches/worktrees.
 - Keep GitHub content and commit messages in English. Match the Mopheus ticket's language in comments.
 - Preserve partial success on failure. Verify whether an external write succeeded before retrying it.
@@ -21,9 +21,9 @@ Treat explicit invocation as authorization for every write in this workflow: com
 2. Read repository instructions and identify the required full verification command.
 3. Resolve exactly one existing GitHub issue from explicit context, branch/PR data, or the Mopheus ticket's structured links. This post-implementation workflow does not create a new issue; stop if none can be identified uniquely.
 4. Resolve the Mopheus workspace before lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. Stop if candidates are ambiguous.
-5. Resolve the ticket in this order: explicit ticket ID, `MOCLAW_TICKET_ID`, current task context, then `moclaw --workspace-id <id> repo links --repo <origin-url> --type git_issue --number <n>`.
+5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --workspace-id <id> repo links --repo <origin-url> --type git_issue --number <n>`.
 6. If the issue exists but no ticket is linked, read and invoke [github-issue-to-mopheus-dev-ticket](../github-issue-to-mopheus-dev-ticket/SKILL.md) in its existing-Issue mode. Reuse the created ticket and continue.
-7. Once resolved, pass the ticket's workspace ID explicitly to every subsequent `moclaw` command.
+7. Once resolved, pass the ticket's workspace ID explicitly to every subsequent `mopheus` command.
 
 Stop on multiple candidate issues/tickets, a non-GitHub origin, a missing required workspace, or mismatched repository identity.
 
@@ -65,9 +65,9 @@ Stop on multiple candidate issues/tickets, a non-GitHub origin, a missing requir
 Perform this only after the merge is verified.
 
 1. Add one completion comment with clickable Markdown links to the GitHub issue, PR, and merge commit; summarize delivered behavior and fresh verification evidence.
-2. Refresh and formally link the issue with `moclaw repo issue sync` using its actual state.
-3. Refresh and formally link the PR with `moclaw repo pr sync`, including actual title, author, refs, additions, deletions, changed files, closed state, and merged flag.
-4. Read `moclaw repo links --ticket <id>` and require both the `git_issue` and merged `git_pull_request` entries.
+2. Refresh and formally link the issue with `mopheus repo issue sync` using its actual state.
+3. Refresh and formally link the PR with `mopheus repo pr sync`, including actual title, author, refs, additions, deletions, changed files, closed state, and merged flag.
+4. Read `mopheus repo links --ticket <id>` and require both the `git_issue` and merged `git_pull_request` entries.
 5. Set the ticket to `done` only after the comment and both links succeed.
 6. Re-read the ticket and links; confirm Done, correct URLs, closed issue state, and merged PR state.
 

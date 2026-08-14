@@ -1,22 +1,27 @@
 ---
 name: mopheus-release
-description: Release Mopheus from its long-lived release branch by validating a user-supplied SemVer tag, compiling complete English release notes from all important changes since the prior release, tagging the selected release commit from main history, triggering and monitoring the repository release workflow, and replacing workflow-generated notes after the workflow finishes. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release. The GitHub repository or local folder may still be named moclaw; product naming must remain Mopheus.
+description: Release Mopheus from its long-lived release branch by validating a user-supplied SemVer tag, compiling complete release notes, updating the source version and bilingual documentation changelog in one verified preparation commit, tagging that commit, monitoring the release workflow, and replacing workflow-generated GitHub notes. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release. The GitHub repository or local folder may still be named moclaw; product naming must remain Mopheus.
 compatibility: Requires git, Python 3, GitHub CLI access, and a repository with origin/main, origin/release, and .github/workflows/release.yml.
 ---
 
 # Mopheus Release
 
-Release Mopheus by creating one validated tag on the selected `release` commit. The tag wakes the repository's GitHub Actions workflow. Treat the workflow as opaque; observe only its run state and the GitHub Release it creates.
+Release Mopheus by preparing one versioned commit on `main`, fast-forwarding `release` to that exact commit, and creating one validated tag there. The preparation commit owns both the source version and the bilingual documentation changelog. The tag wakes the repository's GitHub Actions workflow. Treat the workflow as opaque; observe only its run state and the GitHub Release it creates.
 
 ## Responsibilities
 
 This skill owns only:
 
 - validating an explicit release version;
+- updating `server/pkg/version/version.go` to the requested SemVer core version;
+- updating `install/env.example` so `MOPHEUS_IMAGE_TAG` equals that version;
 - verifying the `release` commit belongs to `main` history;
 - finding the correct previous release boundary;
 - inventorying every change in the release range;
 - drafting accurate, useful release notes in English;
+- updating `packages/docs-content/en/releases/changelog.md` and `packages/docs-content/zh-Hans/releases/changelog.md` from the same release inventory;
+- creating and pushing one `chore(release): prepare <version>` commit on `main`;
+- fast-forwarding `release` to that exact commit without merging, rebasing, resetting, or force-pushing;
 - creating and pushing the annotated tag on the verified release commit;
 - waiting for the tag-triggered workflow to finish;
 - replacing the workflow-generated GitHub Release notes after the workflow succeeds;
@@ -36,16 +41,16 @@ Require an explicit version such as `v2.2.0` or `v2.2.0-rc.1`.
 
 - If the user did not provide a version, ask for it and stop.
 - Do not recommend, infer, or increment a version.
-- Reject malformed SemVer, an existing tag, a version that is not newer than the latest reachable release tag, or a version that disagrees with the repository's base version.
+- Reject malformed SemVer, an existing tag, or a version that is not newer than the latest reachable release tag.
 - Never move, recreate, or overwrite an existing tag.
 
-Run the bundled validator before preparing the release and again immediately before tagging:
+The bundled validator requires both the repository base version and install image tag to already equal the requested version. Run it after the preparation commit has updated them, and again immediately before tagging:
 
 ```bash
 python3 <skill-directory>/scripts/validate_release.py <version>
 ```
 
-The validator prints JSON containing `version`, `releaseSha`, `previousTag`, `latestTag`, and `sourceVersion`. Treat any nonzero exit as a hard stop.
+The validator prints JSON containing `version`, `releaseSha`, `previousTag`, `latestTag`, `sourceVersion`, and `installImageTag`. Treat any nonzero exit after the preparation commit as a hard stop. Before modifying files, perform equivalent read-only preflight checks for SemVer syntax, tag absence, version ordering, branch ancestry, and repository identity; expected source-version or install-image-tag mismatches are not blockers because this skill now owns those updates.
 
 ## Release branch invariant
 
@@ -55,7 +60,7 @@ Fetch current remote state before every decision. A release is eligible only whe
 git merge-base --is-ancestor origin/release origin/main
 ```
 
-`release` may equal `main` or intentionally lag behind it. This supports selecting a known-good commit from an earlier `main` state while newer commits continue to drive nightly builds.
+At preflight, `release` may equal `main` or lag behind it, but it must be an ancestor of `main`. The release preparation commit is created on the current clean `main`, then `release` is fast-forwarded to that exact commit.
 
 If `release` is not an ancestor of `main`, stop and report both SHAs. The branches have diverged, so release boundaries are ambiguous. Synchronizing for a release means fast-forwarding `release` to an explicitly selected commit from `main`; never squash `main` into `release`, because squash creates a different commit history. Do not merge branches, rebase branches, reset branches, or force-push as part of this skill.
 
@@ -63,7 +68,7 @@ Tag the exact `releaseSha` returned by the final validator run. Do not rely on w
 
 ## Previous release boundary
 
-Only consider valid `v`-prefixed SemVer tags reachable from `releaseSha`.
+Only consider valid `v`-prefixed SemVer tags reachable from the selected pre-preparation `main` commit and, after preparation, from `releaseSha`.
 
 - For a stable target such as `v2.2.0`, use the newest reachable stable tag as `previousTag`.
 - For a prerelease target such as `v2.2.0-rc.2`, use the newest reachable prerelease with the same `v2.2.0` core. If none exists, use the newest reachable stable tag.
@@ -126,35 +131,56 @@ Guidelines:
 - End with a compare link from `previousTag` to `<version>` when a previous tag exists.
 - Do not publish the internal coverage ledger unless the user requests it.
 
-Save the final notes outside the repository worktree, preferably in a directory created with `mktemp -d`. Preserve that file until final verification succeeds.
+Save the final GitHub notes outside the repository worktree, preferably in a directory created with `mktemp -d`. Preserve that file until final verification succeeds.
+
+## Documentation changelog
+
+The documentation changelog is part of the release artifact, not a follow-up task.
+
+- Update both `packages/docs-content/en/releases/changelog.md` and `packages/docs-content/zh-Hans/releases/changelog.md` in the preparation commit.
+- Insert the new release first, immediately below each changelog introduction, using the release date in `YYYY-MM-DD` form.
+- Derive both entries from the same complete inventory and coverage ledger as the GitHub notes. Keep scope and facts aligned, while writing natural English and Simplified Chinese rather than mechanically copying one language.
+- Preserve each page's established headings and compact product-facing style. The changelog may be more concise than the GitHub Release, but every GitHub Highlight and every upgrade action must be represented in both locale entries.
+- Link verified PRs where helpful and do not include the invisible GitHub ownership marker in documentation.
+- Treat a missing locale update, mismatched version/date, or omitted upgrade requirement as a release blocker.
 
 ## Execution workflow
 
-### 1. Preflight
+### 1. Preflight and inventory
 
 - Confirm the worktree is clean.
 - Confirm `origin`, `main`, `release`, and `.github/workflows/release.yml` exist.
 - Determine the repository identity from the checkout.
 - Verify the GitHub CLI identity has access to the repository without printing credentials.
-- Run the validator and capture its JSON output.
+- Validate the requested SemVer syntax, confirm the tag does not exist locally or remotely, and confirm it is newer than the latest reachable stable/prerelease boundary using the same rules as the validator.
+- Record the current source version; it is expected to differ before a new release and will be updated by this workflow.
+- Select the current `origin/main` as the preparation base, determine the previous release boundary reachable from it, and build the complete change inventory and coverage ledger before changing files.
+- Draft the final English GitHub Release Notes in a temporary directory.
 
 If the user asked only to prepare or draft release notes, stop after presenting the notes and validation summary. Do not create or push a tag.
 
-An explicit request to release, publish, or tag the supplied version authorizes the tag push. Do not ask for redundant confirmation after all preflight checks pass.
+An explicit request to release, publish, or tag the supplied version authorizes the preparation commit, pushes to `main` and `release`, and the tag push. Do not ask for redundant confirmation after all preflight checks pass.
 
-### 2. Verify
+### 2. Prepare the release commit
 
-Run the repository's complete required check from the verified release source:
+1. Update `server/pkg/version/version.go` to the requested base version and `install/env.example` so `MOPHEUS_IMAGE_TAG` equals the complete requested version, including any prerelease suffix.
+2. Add the new version entry to both documentation changelog locales from the same inventory used for the temporary GitHub notes.
+3. Confirm only the source version, install environment example, and two changelog files changed unless another repository-defined release metadata file is explicitly required.
+4. Run the repository's complete required check from this final working tree:
 
 ```bash
 make check
 ```
 
-Do not tag if verification fails. Report the exact failing command and preserve the prepared notes.
+5. Do not commit or tag if verification fails. Report the exact failing command and preserve the prepared notes.
+6. Create one commit named `chore(release): prepare <version>` and push it to `main` without force.
+7. Verify local `main` and `origin/main` resolve to the same preparation commit.
 
-### 3. Revalidate and tag
+### 3. Fast-forward release, revalidate, and tag
 
-Remote branches may move while notes and checks are prepared. Run the validator again and require the same `releaseSha` used for the notes and verification.
+Fetch again and stop if `origin/main` moved away from the verified preparation commit. Require the old `origin/release` to remain an ancestor of that commit, then fast-forward it by pushing the explicit preparation SHA to `refs/heads/release`. Verify `origin/main` and `origin/release` now equal the same SHA.
+
+Run the bundled validator and require `releaseSha` to equal the preparation commit, `sourceVersion` to equal the requested SemVer core, `installImageTag` to equal the complete requested version, and `previousTag` to equal the boundary used for the notes. Fetch once more and repeat the validator immediately before tagging; every value must remain unchanged.
 
 Create an annotated tag on that explicit SHA, then push only the tag:
 
@@ -163,7 +189,7 @@ git tag -a <version> <releaseSha> -m "<version>"
 git push origin refs/tags/<version>
 ```
 
-Never push a branch, use force, or change the version file as part of release execution.
+After the verified preparation commit has been pushed to `main` and fast-forwarded to `release`, do not push any additional branch, use force, or change release files. Push only the new tag.
 
 ### 4. Wait for the workflow
 
@@ -208,7 +234,10 @@ Do not report release success merely because the tag push succeeded.
 - Missing version: ask for an explicit `v`-prefixed SemVer.
 - Existing version: report the existing tag and release URL when available; do not mutate it.
 - Diverged branches: report both remote SHAs and stop when `release` is not an ancestor of `main`.
-- Source version mismatch: report the requested version and `server/pkg/version/version.go` value; do not edit either.
+- Source version mismatch after the preparation commit: report the requested version and `server/pkg/version/version.go` value; do not tag.
+- Install image tag mismatch after the preparation commit: report the requested version and `install/env.example` value; do not tag.
+- Changelog mismatch: report the missing locale, version, date, highlight, or upgrade note; do not commit or tag.
+- Main moved after verification: report the verified preparation SHA and current `origin/main`; do not advance `release` or tag.
 - Verification failure: report the failing check; do not tag.
 - Tag push succeeds but workflow fails: report the tag and failed run; do not create or rewrite a release.
 - Workflow succeeds but release is delayed: retry bounded polling, then report a timeout with the notes file preserved.

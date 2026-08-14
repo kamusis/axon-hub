@@ -21,6 +21,7 @@ SEMVER_PATTERN = re.compile(
     r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
 SOURCE_VERSION_PATTERN = re.compile(r'^var Version = "(v[^"]+)"$', re.MULTILINE)
+INSTALL_IMAGE_TAG_PATTERN = re.compile(r"^MOPHEUS_IMAGE_TAG=(v\S+)$", re.MULTILINE)
 
 
 def run_git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -111,6 +112,25 @@ def read_source_version(requested: ParsedVersion, release_sha: str) -> str | Non
     return source_version
 
 
+def read_install_image_tag(version: str, release_sha: str) -> str:
+    """Read and validate the default install image tag from the release commit."""
+
+    env_file = "install/env.example"
+    exists = run_git("cat-file", "-e", f"{release_sha}:{env_file}", check=False)
+    if exists.returncode != 0:
+        raise RuntimeError(f"Could not find {env_file} in the release commit.")
+    content = run_git("show", f"{release_sha}:{env_file}").stdout
+    match = INSTALL_IMAGE_TAG_PATTERN.search(content)
+    if match is None:
+        raise RuntimeError(f"Could not read MOPHEUS_IMAGE_TAG from {env_file}.")
+    image_tag = match.group(1)
+    if image_tag != version:
+        raise RuntimeError(
+            f"Requested release is {version}, but {env_file} contains {image_tag}."
+        )
+    return image_tag
+
+
 def reachable_versions(release_sha: str) -> list[tuple[str, ParsedVersion]]:
     """Return valid release tags reachable from the release commit."""
 
@@ -178,12 +198,14 @@ def validate(version: str) -> dict[str, str | None]:
         )
 
     source_version = read_source_version(requested, release_sha)
+    install_image_tag = read_install_image_tag(version, release_sha)
     return {
         "version": version,
         "releaseSha": release_sha,
         "previousTag": select_previous_tag(requested, versions),
         "latestTag": versions[0][0] if versions else None,
         "sourceVersion": source_version,
+        "installImageTag": install_image_tag,
     }
 
 

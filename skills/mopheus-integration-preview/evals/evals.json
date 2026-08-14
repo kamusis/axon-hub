@@ -4,13 +4,13 @@
     {
       "id": 1,
       "prompt": "请用 /Users/kamus/CascadeProjects/mopheus/.worktrees/example-feature 启动一个 Mopheus 集成测试预览环境，复用现有 PostgreSQL，最后把登录信息告诉我。",
-      "expected_output": "The skill validates the linked worktree, reuses mopheus-postgres-1, starts both services in sessions that remain alive after the launcher exits, enables all features, verifies readiness, and prints local test credentials.",
+      "expected_output": "The skill validates the linked worktree, reuses mopheus-postgres-1, starts backend, frontend, and the worktree-profile daemon in sessions that remain alive after the launcher exits, enables all features, verifies runtime registration, and prints local test credentials.",
       "files": []
     },
     {
       "id": 2,
       "prompt": "重新打开昨天那个 Mopheus worktree 的预览，不要重置数据库，memory 和 git 等 feature 都要打开。路径是 /tmp/mopheus-worktrees/sidebar-fix。",
-      "expected_output": "The skill reuses the existing environment and data, dynamically enables every registered feature instead of hard-coding keys, and reports whether services were reused.",
+      "expected_output": "The skill reuses the existing environment and data, dynamically enables every registered feature instead of hard-coding keys, verifies that the daemon has registered a runtime, and separately reports whether application services and the daemon were reused.",
       "files": []
     },
     {
@@ -28,7 +28,7 @@
     {
       "id": 5,
       "prompt": "我确认停掉 /tmp/mopheus-worktrees/old-preview 的前后端，让 /tmp/mopheus-worktrees/new-code 复用它原来的测试数据库，然后启动新代码。",
-      "expected_output": "The skill stops only the explicitly approved old and target application services, preserves the source database, reuses only its database settings in the target while retaining target ports, and verifies the newly started preview before reporting readiness.",
+      "expected_output": "The skill stops only the explicitly approved old and target daemons and application services, preserves the source database, reuses only its database settings in the target while retaining target ports, and verifies application readiness plus runtime registration before reporting readiness.",
       "files": []
     }
   ]

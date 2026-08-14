@@ -88,6 +88,36 @@ wait_for_http() {
   done
 }
 
+is_daemon_running() {
+  local target_worktree="$1"
+  local profile="$2"
+  local status_output
+
+  status_output="$(cd "$target_worktree/server" && go run ./cmd/mopheus --profile "$profile" daemon status 2>/dev/null || true)"
+  grep -Eq ':[[:space:]]+running([[:space:]]|$)' <<<"$status_output"
+}
+
+wait_for_runtimes() {
+  local api_base="$1"
+  local token="$2"
+  local workspace_slug="$3"
+  local timeout_seconds="$4"
+  local started_at
+  local response
+
+  started_at="$(date +%s)"
+  while true; do
+    response="$(api_call GET "$api_base/runtimes" "$token" "$workspace_slug" 2>/dev/null || true)"
+    if json_success <<<"$response" && jq -e '(.data // []) | length > 0' <<<"$response" >/dev/null; then
+      return 0
+    fi
+    if (( $(date +%s) - started_at >= timeout_seconds )); then
+      return 1
+    fi
+    sleep 1
+  done
+}
+
 read_env_value() {
   local env_path="$1"
   local key="$2"
@@ -187,6 +217,7 @@ if [ -n "$reuse_db_from" ]; then
   reuse_backend_port="$(read_env_value "$reuse_env_file" BACKEND_PORT)"
   reuse_postgres_db="$(read_env_value "$reuse_env_file" POSTGRES_DB)"
   reuse_database_url="$(read_env_value "$reuse_env_file" DATABASE_URL)"
+  reuse_mopheus_profile="$(read_env_value "$reuse_env_file" MOPHEUS_PROFILE)"
   [ -n "$reuse_postgres_db" ] && [ -n "$reuse_database_url" ] || fail "reuse source database settings are incomplete"
 
   reuse_frontend_pid="$(lsof -nP -tiTCP:"$reuse_frontend_port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
@@ -194,13 +225,20 @@ if [ -n "$reuse_db_from" ]; then
   if [ -n "$reuse_frontend_pid" ] || [ -n "$reuse_backend_pid" ]; then
     fail "reuse source services are still running (frontend PID: ${reuse_frontend_pid:-none}, backend PID: ${reuse_backend_pid:-none}); stop them only after explicit user approval"
   fi
+  if [ -n "$reuse_mopheus_profile" ] && is_daemon_running "$reuse_db_from" "$reuse_mopheus_profile"; then
+    fail "reuse source daemon profile '$reuse_mopheus_profile' is still running; stop it only after explicit user approval"
+  fi
 
   target_frontend_port="$(read_env_value "$env_file" FRONTEND_PORT)"
   target_backend_port="$(read_env_value "$env_file" BACKEND_PORT)"
+  target_mopheus_profile="$(read_env_value "$env_file" MOPHEUS_PROFILE)"
   target_frontend_pid="$(lsof -nP -tiTCP:"$target_frontend_port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
   target_backend_pid="$(lsof -nP -tiTCP:"$target_backend_port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
   if [ -n "$target_frontend_pid" ] || [ -n "$target_backend_pid" ]; then
     fail "target services are still running (frontend PID: ${target_frontend_pid:-none}, backend PID: ${target_backend_pid:-none}); stop them before changing the target database"
+  fi
+  if [ -n "$target_mopheus_profile" ] && is_daemon_running "$worktree_path" "$target_mopheus_profile"; then
+    fail "target daemon profile '$target_mopheus_profile' is still running; stop it before changing the target database"
   fi
 
   reuse_tmp_file="$(mktemp)"
@@ -225,6 +263,7 @@ set +a
 : "${DATABASE_URL:?DATABASE_URL is required in .env.worktree}"
 : "${ADMIN_EMAIL:?ADMIN_EMAIL is required in .env.worktree}"
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required in .env.worktree}"
+: "${MOPHEUS_PROFILE:?MOPHEUS_PROFILE is required in .env.worktree}"
 
 case "$DATABASE_URL" in
   *"@localhost:"*|*"@127.0.0.1:"*) ;;
@@ -263,8 +302,12 @@ backend_log_file="$runtime_dir/backend.log"
 frontend_log_file="$runtime_dir/frontend.log"
 backend_pid_file="$runtime_dir/backend.pid"
 frontend_pid_file="$runtime_dir/frontend.pid"
+daemon_log_file="$runtime_dir/daemon.log"
+daemon_pid_file="$runtime_dir/daemon.pid"
 services_state="reused"
 log_display="existing processes; no logs were created by this run"
+daemon_state="reused"
+daemon_log_display="existing process; no daemon log was created by this run"
 
 if ! is_http_ready "$auth_ready_url" || ! is_http_ready "$login_url"; then
   backend_pid="$(lsof -nP -tiTCP:"$BACKEND_PORT" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
@@ -358,9 +401,29 @@ fi
 enabled_features="$(jq -r '(.data // {}) | to_entries | sort_by(.key) | map(.key) | join(", ")' <<<"$effective_response")"
 rm -f "$feature_keys_file"
 
+if ! is_daemon_running "$worktree_path" "$MOPHEUS_PROFILE"; then
+  printf '==> Starting daemon and registering runtimes...\n'
+  python3 "$script_dir/start_detached.py" \
+    --cwd "$worktree_path" \
+    --log "$daemon_log_file" \
+    --pid-file "$daemon_pid_file" \
+    make daemon-worktree "DEFAULT_EMAIL=$preview_email" "DEFAULT_PASSWORD=$preview_password"
+  daemon_state="started"
+  daemon_log_display="$daemon_log_file"
+fi
+
+daemon_timeout_seconds="${MOPHEUS_PREVIEW_DAEMON_TIMEOUT:-120}"
+if ! wait_for_runtimes "$api_base" "$preview_token" "$workspace_slug" "$daemon_timeout_seconds"; then
+  if [ -f "$daemon_log_file" ]; then
+    tail -n 80 "$daemon_log_file" >&2 || true
+  fi
+  fail "daemon did not register any runtime for workspace '$workspace_slug' within ${daemon_timeout_seconds}s"
+fi
+
 printf '\n'
 printf 'Mopheus integration preview is ready.\n'
-printf 'Services: %s\n' "$services_state"
+printf 'Application services: %s\n' "$services_state"
+printf 'Daemon: %s (profile: %s)\n' "$daemon_state" "$MOPHEUS_PROFILE"
 printf 'Frontend login: %s\n' "$login_url"
 printf 'Workspace: %s/%s/dashboard\n' "$frontend_url" "$workspace_slug"
 printf 'Backend: %s\n' "$backend_url"
@@ -370,3 +433,4 @@ printf 'Enabled features: %s\n' "$enabled_features"
 printf 'Test email: %s\n' "$preview_email"
 printf 'Test password: %s\n' "$preview_password"
 printf 'Service logs: %s\n' "$log_display"
+printf 'Daemon log: %s\n' "$daemon_log_display"
