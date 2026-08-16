@@ -141,6 +141,15 @@ When creating an issue, write requirements and design decisions as a single sett
 - If the user asks for brainstorming or evaluation rather than issue creation, keep options in the conversation. Only create the issue after the final decision is unique and explicit.
 - Use an "Alternatives Considered" section only to record rejected approaches. Each rejected approach must clearly say it is not part of the implementation.
 
+### CLI-First Architecture Principle (CLI 优先设计原则)
+
+When designing and specifying requirements for new features or capabilities:
+
+- **CLI First (CLI 优先)**: All features and capabilities MUST be designed and implemented with CLI support first.
+- **Unified API Contract (统一 API 契约)**: The Web UI and CLI must invoke the same underlying backend REST/GraphQL/HTTP APIs and data models. Never create UI-only backend endpoints or bifurcated execution paths.
+- **Exceptions (唯一例外)**: The only exceptions are requirements that are purely Web UI interactive behaviors (e.g. drag-and-drop animation, responsive layouts, rich text editor styling) or capabilities inherently unsuitable for a command-line interface.
+- **Explicit Scope in Tickets & Issues**: Both the English GitHub issue and Chinese Mopheus dev ticket must explicitly specify the CLI command interface (flags, subcommands, inputs, and outputs) in the technical design and acceptance criteria, unless explicitly exempt under the rule above.
+
 Create the issue in the resolved current repository with the `bug` label for bugs and `enhancement` for features. Add other existing repository labels only when supported by the evidence. Capture and verify the returned GitHub issue URL before continuing.
 
 Do not create the Mopheus ticket if GitHub issue creation fails or no issue URL is returned.
