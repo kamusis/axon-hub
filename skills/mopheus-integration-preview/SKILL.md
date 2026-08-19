@@ -1,12 +1,19 @@
 ---
 name: mopheus-integration-preview
-description: Discover, create, and start reusable local Mopheus integration-test previews from linked Git worktrees, including backend, frontend, and daemon runtimes. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, runtime, daemon, or test login. Detect already-running previews before startup, require confirmation before parallel startup or service shutdown, preserve and optionally reuse preview databases, enable every registered feature dynamically, and print local test credentials after readiness checks.
-compatibility: Requires macOS or Linux with bash, git, Docker, curl, jq, make, lsof, Node.js, pnpm, Python 3, and Go. The target must be an existing linked Mopheus Git worktree using a local .env.worktree database.
+description: Discover, create, and start reusable local Mopheus integration-test previews from linked Git worktrees, including backend, frontend, and daemon runtimes across Windows, Linux, and macOS. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, runtime, daemon, or test login. Detect already-running previews before startup, require confirmation before parallel startup or service shutdown, preserve and optionally reuse preview databases, enable every registered feature dynamically, and print local test credentials after readiness checks.
+compatibility: Requires Windows (PowerShell/CMD), macOS, or Linux with git, Docker, Node.js, pnpm, Python 3, and Go. The target must be an existing linked Mopheus Git worktree using a local .env.worktree database.
 ---
 
 # Mopheus Integration Preview
 
 Discover and start a disposable local preview from an existing Mopheus linked worktree. Preserve databases and test data between runs so future integration checks can reuse the same state without silently creating competing application processes.
+
+## 0. Check Host Operating System First
+
+At the very beginning of execution, check whether the host system is **Windows** or **Linux/macOS**:
+
+- **Windows**: Use native `python` (or `py`) to run Python scripts directly in PowerShell/CMD. **Do not use WSL or `/mnt/c` paths** when the repository is checked out on Windows.
+- **Linux / macOS**: Use `python3` (or `bash`).
 
 ## Required input
 
@@ -16,11 +23,16 @@ If the user gives no path, ask for it. Do not infer the repository root or silen
 
 ## Discover existing previews first
 
-Before every startup attempt, execute:
+Before every startup attempt, execute the cross-platform discovery tool:
 
-```bash
-bash <skill-directory>/scripts/discover_previews.sh <absolute-target-worktree-path>
-```
+- **Windows**:
+  ```powershell
+  python <skill-directory>/scripts/discover_previews.py <absolute-target-worktree-path>
+  ```
+- **Linux / macOS**:
+  ```bash
+  python3 <skill-directory>/scripts/discover_previews.py <absolute-target-worktree-path>
+  ```
 
 The discovery script maps active frontend and backend listeners from other linked worktrees to their ports and database names. If it prints any row, report the complete mapping and pause for an explicit user decision. Ask whether to:
 
@@ -33,27 +45,39 @@ Do not stop services, rewrite `.env.worktree`, switch databases, or start anothe
 
 When discovery finds no other running preview, execute:
 
-```bash
-bash <skill-directory>/scripts/start_preview.sh <absolute-worktree-path>
-```
+- **Windows**:
+  ```powershell
+  python <skill-directory>/scripts/start_preview.py <absolute-worktree-path>
+  ```
+- **Linux / macOS**:
+  ```bash
+  python3 <skill-directory>/scripts/start_preview.py <absolute-worktree-path>
+  ```
 
 After the user explicitly approves keeping existing previews and starting another independent instance, execute:
 
-```bash
-bash <skill-directory>/scripts/start_preview.sh --allow-existing-previews <absolute-target-worktree-path>
-```
+- **Windows**:
+  ```powershell
+  python <skill-directory>/scripts/start_preview.py --allow-existing-previews <absolute-target-worktree-path>
+  ```
+- **Linux / macOS**:
+  ```bash
+  python3 <skill-directory>/scripts/start_preview.py --allow-existing-previews <absolute-target-worktree-path>
+  ```
 
 After the user explicitly approves stopping an existing preview and reusing its database:
 
-1. Stop the source preview with `make -C <absolute-source-worktree> daemon-stop-worktree` followed by `make -C <absolute-source-worktree> stop-worktree`.
-2. Stop the target preview too if it is already running, using its own daemon and application stop commands in the same order.
+1. Stop the source preview services and daemon.
+2. Stop the target preview too if it is already running.
 3. Execute:
-
-```bash
-bash <skill-directory>/scripts/start_preview.sh \
-  --reuse-db-from <absolute-source-worktree> \
-  <absolute-target-worktree>
-```
+   - **Windows**:
+     ```powershell
+     python <skill-directory>/scripts/start_preview.py --reuse-db-from <absolute-source-worktree> <absolute-target-worktree>
+     ```
+   - **Linux / macOS**:
+     ```bash
+     python3 <skill-directory>/scripts/start_preview.py --reuse-db-from <absolute-source-worktree> <absolute-target-worktree>
+     ```
 
 Database reuse copies only `POSTGRES_DB` and `DATABASE_URL` into the target's ignored `.env.worktree`. The target retains its own frontend and backend ports. The source database and all test data remain intact. The command refuses reuse while either source or target application services are still listening.
 
@@ -63,7 +87,7 @@ The startup script owns the remaining workflow after discovery and confirmation:
 2. Refuse an unconfirmed parallel startup when another linked-worktree preview is active.
 3. Generate or reuse `.env.worktree` with worktree-specific application ports and database name, or reuse an explicitly approved source database.
 4. Reuse the shared Docker container named `mopheus-postgres-1`.
-5. Install dependencies, create the selected database when missing, and run migrations through the repository Make targets.
+5. Install dependencies, create the selected database when missing, and run migrations.
 6. Clear only the ignored worktree-local Next.js build cache before a cold start, then start backend and frontend as persistent local background processes.
 7. Wait until the auth API and login page both respond successfully.
 8. Dynamically list every registered feature and set its system state to `enabled`.
@@ -155,10 +179,12 @@ Do not claim readiness merely because processes were spawned. HTTP readiness che
 
 ## Stop application processes
 
-Only when the user asks to stop this preview, run:
+Only when the user asks to stop this preview:
 
-```bash
-make -C <absolute-worktree-path> stop-worktree
-```
-
-Run `make -C <absolute-worktree-path> daemon-stop-worktree` first, then the command above. This stops the worktree daemon, backend, and frontend while preserving the shared PostgreSQL container, database, and all test data.
+- **Linux / macOS**:
+  ```bash
+  make -C <absolute-worktree-path> daemon-stop-worktree
+  make -C <absolute-worktree-path> stop-worktree
+  ```
+- **Windows**:
+  Use PowerShell to stop the backend, frontend, and daemon processes recorded in the preview log directory (`%TEMP%\mopheus-preview-<hash>\*.pid`).
