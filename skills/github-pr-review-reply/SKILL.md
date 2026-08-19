@@ -11,7 +11,7 @@ Reply to and resolve GitHub Pull Request review conversations using the correct 
 
 Before replying or resolving, you need:
 
-- Repository owner and name (e.g., `enmotech/moclaw`)
+- Repository owner and name (e.g., `enmotech/mopheus`)
 - PR number
 - The review comment ID you are replying to (the original comment, not your reply)
 

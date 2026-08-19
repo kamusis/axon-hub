@@ -115,7 +115,7 @@ EOF
 )"
 
 DBA_DISPATCH_RESULT="no-dispatch"
-DISPATCH_COMMENT_ID="$(printf '%s' "$MERGED_COMMENT" | moclaw \
+DISPATCH_COMMENT_ID="$(printf '%s' "$MERGED_COMMENT" | mopheus \
   ticket comment add "$TARGET" --content-stdin --output json 2>/dev/null | jq -r '.id // empty')"
 if [[ -n "$DBA_AGENT_ID" ]]; then
   if [[ -n "$DISPATCH_COMMENT_ID" ]]; then

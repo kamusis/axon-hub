@@ -63,7 +63,7 @@ md_set "$TARGET" last_event_type "ticket.closed"
 md_set "$TARGET" last_occurred_at "$(jq -r '.occurred_at // empty' <<<"$PAYLOAD_JSON")"
 idempotency_record "$TARGET" state_transitions "$ID_KEY"
 
-moclaw ticket status "$TARGET" done >/dev/null
+mopheus ticket status "$TARGET" done >/dev/null
 log "flipped ticket $TARGET to done (no closure-record comment — mes-leader summary is the only visible record)"
 
 printf 'closed ticket %s (mes_sr_id=%s, closed_by=%s, comments=no)\n' \

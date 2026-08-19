@@ -35,12 +35,12 @@ Keep the original remote URL for Mopheus repository operations, and normalize it
 
 Do not infer the GitHub repository from the Mopheus workspace name, prior conversation, or a previous task.
 
-Never use the current active workspace, `dev-v2`, or a workspace selected by a prior command for the internal ticket. Always pass the fixed workspace ID explicitly with `moclaw --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ...`.
+Never use the current active workspace, `dev-v2`, or a workspace selected by a prior command for the internal ticket. Always pass the fixed workspace ID explicitly with `mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ...`.
 
 Before creating the internal ticket, run:
 
 ```bash
-moclaw workspace list --output json
+mopheus workspace list --output json
 ```
 
 Verify that the fixed ID exists and its `name` is exactly `dev`. If the ID is missing or maps to another name, stop before creating any record and report the mismatch.
@@ -51,7 +51,7 @@ Verify that the fixed ID exists and its `name` is exactly `dev`. If the ID is mi
 
 - Use **Existing-Issue mode** only when the user or calling skill supplies one unambiguous GitHub issue URL or number and states that its Mopheus ticket is missing.
 - Verify the issue with `gh-wrapper issue view` in the repository resolved from the current local `origin`. Stop on a repository mismatch or missing issue.
-- Query `moclaw --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --repo <original-git-remote-url> --type git_issue --number <n> --output json`.
+- Query `mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --repo <original-git-remote-url> --type git_issue --number <n> --output json`.
 - If a linked ticket already exists, return and reuse it; do not create another ticket.
 - In Existing-Issue mode, never run `gh issue create`. Treat the verified issue title, body, labels, state, URL, and relevant conversation evidence as the canonical report.
 - Otherwise use **New-report mode** and retain the issue-first workflow below.
@@ -63,7 +63,7 @@ Before extracting evidence or performing any external write, determine which sin
 - Treat the user's latest explicit scope, named topic, issue, PR, job, task ID, or screenshot context as authoritative.
 - Use earlier conversation content only when it directly supports that selected scope.
 - Do not merge independent bugs or features into one GitHub issue or one Mopheus ticket.
-- If the conversation contains multiple independent candidate topics and the user's instruction does not identify one, stop and ask which topic to process. Do not run `gh issue create`, `moclaw ticket create`, or `moclaw repo issue sync` while the scope is ambiguous.
+- If the conversation contains multiple independent candidate topics and the user's instruction does not identify one, stop and ask which topic to process. Do not run `gh issue create`, `mopheus ticket create`, or `mopheus repo issue sync` while the scope is ambiguous.
 - If the user explicitly requests separate records for multiple topics, process each topic independently, creating one GitHub issue and one linked Mopheus ticket per topic.
 
 For example, a conversation that contains both a coverage-job failure and an RBAC authorization bug requires a scope clarification unless the user names one of them.
@@ -159,7 +159,7 @@ Do not create the Mopheus ticket if GitHub issue creation fails or no issue URL 
 After GitHub creation or existing-Issue verification succeeds, create the internal ticket with the explicit fixed workspace ID:
 
 ```bash
-moclaw --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket create \
+mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket create \
   --title "<Chinese title>" \
   --priority high \
   --status todo \
@@ -182,7 +182,7 @@ Use `high` priority only when the conversation indicates meaningful user impact;
 After the ticket exists, sync the GitHub issue into the Mopheus repository mirror and link it to the ticket:
 
 ```bash
-moclaw --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo issue sync \
+mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo issue sync \
   --number <github-issue-number> \
   --repo <original-git-remote-url> \
   --ticket <ticket-id> \
@@ -198,8 +198,8 @@ Read both records after creation:
 
 ```bash
 gh-wrapper issue view <number> --repo <resolved-owner/repo> --json number,title,url,state,labels
-moclaw --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket get <ticket-id> --output json
-moclaw --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --ticket <ticket-id> --output json
+mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket get <ticket-id> --output json
+mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --ticket <ticket-id> --output json
 ```
 
 Confirm:

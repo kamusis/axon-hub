@@ -2,7 +2,7 @@
 # lib_common.sh — shared helpers for MES event handlers (v14).
 # v14: removed cancel_transit_ticket (no transit concept).
 # v14: removed WORKSPACE_ID guard — the bridge does not accept --workspace-id;
-# every `moclaw` call here inherits the agent's active workspace.
+# every `mopheus` call here inherits the agent's active workspace.
 
 set -euo pipefail
 
@@ -18,7 +18,7 @@ MES_SR_URL_FMT="https://support.enmotech.com/service/request/%d"
 # ---------------- Tooling guards ----------------
 
 require_tools() {
-  command -v moclaw >/dev/null || { printf 'error: moclaw is required\n' >&2; exit 127; }
+  command -v mopheus >/dev/null || { printf 'error: mopheus is required\n' >&2; exit 127; }
   command -v jq >/dev/null     || { printf 'error: jq is required\n' >&2; exit 127; }
   command -v mes >/dev/null 2>&1 || printf 'warn: mes (mes-cli) not in PATH; outbound replies will be skipped\n' >&2 || true
 }
@@ -57,7 +57,7 @@ find_canonical_ticket() {
   local filter
   filter="$(jq -cn --argjson id "$sr_id" '{mes_sr_id: $id}')"
   local ticket_json
-  ticket_json="$(moclaw ticket list --metadata-json "$filter" --limit 10 --output json)"
+  ticket_json="$(mopheus ticket list --metadata-json "$filter" --limit 10 --output json)"
   local count
   count="$(jq 'length' <<<"$ticket_json")"
   if (( count > 1 )); then
@@ -77,13 +77,13 @@ find_canonical_ticket() {
 md_get() {
   local ticket="$1" key="$2"
   local out
-  out="$(moclaw ticket metadata list "$ticket" --output json 2>/dev/null || true)"
+  out="$(mopheus ticket metadata list "$ticket" --output json 2>/dev/null || true)"
   jq -r --arg k "$key" '.[$k] // empty' <<<"$out"
 }
 
 md_set() {
   local ticket="$1" key="$2" value="$3" type="${4:-string}"
-  moclaw ticket metadata set "$ticket" \
+  mopheus ticket metadata set "$ticket" \
     --key "$key" --value "$value" --type "$type" >/dev/null
 }
 
@@ -123,7 +123,7 @@ wait_for_agent_run() {
   local deadline=$(( $(date +%s) + timeout ))
   while (( $(date +%s) < deadline )); do
     local runs_json
-    runs_json="$(moclaw ticket runs "$ticket" --output json 2>/dev/null || echo '[]')"
+    runs_json="$(mopheus ticket runs "$ticket" --output json 2>/dev/null || echo '[]')"
     local status
     status="$(jq -r --arg c "$trigger_comment_id" \
       'map(select(.triggerCommentId == $c)) | (.[0].status // empty)' <<<"$runs_json" 2>/dev/null || true)"
@@ -141,7 +141,7 @@ wait_for_agent_by_id() {
   local deadline=$(( $(date +%s) + timeout ))
   while (( $(date +%s) < deadline )); do
     local runs_json
-    runs_json="$(moclaw ticket runs "$ticket" --output json 2>/dev/null || echo '[]')"
+    runs_json="$(mopheus ticket runs "$ticket" --output json 2>/dev/null || echo '[]')"
     local status
     status="$(jq -r --arg a "$agent_id" '
       map(select(.agentId == $a)) | sort_by(.startedAt) | .[-1].status // empty
@@ -158,7 +158,7 @@ wait_for_agent_by_id() {
 get_latest_agent_comment() {
   local ticket="$1" agent_id="$2"
   local comments_json
-  comments_json="$(moclaw ticket comment list "$ticket" --output json 2>/dev/null || echo '')"
+  comments_json="$(mopheus ticket comment list "$ticket" --output json 2>/dev/null || echo '')"
   tail -n +2 <<<"$comments_json" | jq -r --arg a "$agent_id" '
     map(select(.authorType == 1 and .authorId == $a))
     | sort_by(.createdAt)
@@ -208,7 +208,7 @@ route_dba_agent() {
 #   2. `route_dba_agent($mes_sr_db_type)` → already has its own unknown→
 #      MySQL fallback, so this tier also handles db_types the label table
 #      doesn't list (zDBM, TiDB, MariaDB, …).
-#   3. The ticket's current `assigneeId` from `moclaw ticket get` — last
+#   3. The ticket's current `assigneeId` from `mopheus ticket get` — last
 #      resort. This is whatever the ticket was last assigned to, even if it
 #      is no DBA agent (we still log a warning).
 #
@@ -248,7 +248,7 @@ resolve_dba_agent_for_reply() {
   fi
 
   local current_assignee
-  current_assignee="$(moclaw ticket get "$ticket" --output json 2>/dev/null \
+  current_assignee="$(mopheus ticket get "$ticket" --output json 2>/dev/null \
     | jq -r '.assigneeId // empty' 2>/dev/null || true)"
   if [[ -n "$current_assignee" && "$current_assignee" =~ ^[0-9a-fA-F-]{36}$ ]]; then
     printf '%s|%s|assignee_id' "$current_assignee" "current-assignee"

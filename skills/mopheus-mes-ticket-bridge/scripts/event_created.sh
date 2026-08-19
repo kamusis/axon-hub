@@ -109,7 +109,7 @@ EOF
 TICKET_TITLE="$(mes_sr_title "$MES_SR_ID") $TITLE_RAW"
 
 # v14: create canonical ticket (no transit placeholder).
-CREATE_OUT="$(printf '%s' "$DESCRIPTION" | moclaw \
+CREATE_OUT="$(printf '%s' "$DESCRIPTION" | mopheus \
   ticket create \
   --title "$TICKET_TITLE" \
   --description-stdin \
@@ -122,11 +122,11 @@ if [[ -z "$TICKET_ID" ]]; then
 fi
 log "created canonical ticket $TICKET_ID (mes_sr_id=$MES_SR_ID)"
 
-moclaw ticket assign "$TICKET_ID" \
+mopheus ticket assign "$TICKET_ID" \
   --agent-id "$DBA_AGENT_ID" >/dev/null
 log "assigned $DBA_LABEL agent to ticket $TICKET_ID"
 
-moclaw ticket status "$TICKET_ID" todo >/dev/null
+mopheus ticket status "$TICKET_ID" todo >/dev/null
 log "moved ticket $TICKET_ID to todo"
 
 md_set "$TICKET_ID" mes_sr_id "$MES_SR_ID" number

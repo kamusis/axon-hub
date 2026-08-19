@@ -12,7 +12,7 @@
 #
 # The design does not cross workspaces: there is no --workspace-id flag and no
 # WORKSPACE_ID export. The agent's currently active workspace is inherited by
-# every `moclaw` call inside the bridge. This avoids bypassing the platform's
+# every `mopheus` call inside the bridge. This avoids bypassing the platform's
 # permission scope via hand-typed workspace IDs.
 #
 # Dispatches by payload.event_type. v14 has no `--transit-ticket` flag.
@@ -28,7 +28,7 @@ Reads an MES webhook payload (event_type + mes_sr_id + payload object) from
 PAYLOAD_FILE or stdin, and dispatches to the matching event_*.sh handler.
 
 v14: no transit-ticket, no workspace flag. The bridge owns ticket creation /
-patching / closure and uses the agent's active workspace via the moclaw CLI.
+patching / closure and uses the agent's active workspace via the mopheus CLI.
 USAGE
 }
 

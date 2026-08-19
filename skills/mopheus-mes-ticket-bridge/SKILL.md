@@ -1,7 +1,7 @@
 ---
 name: mopheus-mes-ticket-bridge
 description: Bridge MES service-request webhook events into Mopheus workspace tickets. Use this skill whenever an MES webhook envelope (event_type + mes_sr_id + payload) must be processed — covering ticket.created, ticket.replied, and ticket.closed. The skill handles per-event routing, dedup, ticket creation (agent-owned), DBA dispatch, and mes-cli rate-limited outbound replies (Markdown format).
-compatibility: Requires bash, jq, an authenticated moclaw CLI, and (for outbound replies) the `mes` CLI on PATH.
+compatibility: Requires bash, jq, an authenticated mopheus CLI, and (for outbound replies) the `mes` CLI on PATH.
 ---
 
 # MES → Mopheus Ticket Bridge
@@ -41,7 +41,7 @@ Shared helpers (parsing, dedup, metadata, routing, mes-cli rate-limit, agent-run
 
 ## Workspace safety
 
-The design does not cross workspaces — the bridge skill intentionally does **not** accept `--workspace-id`, never hard-codes a workspace name or ID, and never exports `WORKSPACE_ID`. All `moclaw` calls inside the bridge inherit the agent's currently active workspace, so do not pass `--workspace-id` to `bridge.sh`, do not export it manually in your prompt, and do not hard-code it in any caller. Letting the task handle workspace context automatically is intentional: a hand-typed workspace ID can bypass the platform's permission scope.
+The design does not cross workspaces — the bridge skill intentionally does **not** accept `--workspace-id`, never hard-codes a workspace name or ID, and never exports `WORKSPACE_ID`. All `mopheus` calls inside the bridge inherit the agent's currently active workspace, so do not pass `--workspace-id` to `bridge.sh`, do not export it manually in your prompt, and do not hard-code it in any caller. Letting the task handle workspace context automatically is intentional: a hand-typed workspace ID can bypass the platform's permission scope.
 
 ## Shell implementation
 
@@ -66,7 +66,7 @@ v14 has **no** `--transit-ticket` flag and **no** `--workspace-id` flag. The age
 - Do not pass `--transit-ticket`. There is no transit ticket in v14.
 - The `ticket.created` handler calls `ticket create` directly (NOT `ticket update`) — the agent owns the full ticket lifecycle.
 - The mes-cli reply for `ticket.replied` and `ticket.created` uses `--internal --markdown` (not `--text`). `--text` wraps the body in literal `<p>...</p>` and breaks Markdown rendering on MES.
-- Never use `curl` or raw HTTP for Mopheus operations. The `moclaw` CLI is the only allowed interface.
+- Never use `curl` or raw HTTP for Mopheus operations. The `mopheus` CLI is the only allowed interface.
 - Never invent or normalize MES field values. Preserve the raw payload verbatim.
 - Every MES SR reference must hyperlink `https://support.enmotech.com/service/request/<id>`.
 - If `bridge.sh` exits non-zero, surface the stderr to the user and stop. Do not retry the same payload blindly.
