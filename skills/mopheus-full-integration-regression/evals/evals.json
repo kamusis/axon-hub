@@ -1,0 +1,35 @@
+{
+  "skill_name": "mopheus-full-integration-regression",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run the Weekly full integration regression for the runtime-provided Mopheus checkout and return a revision-bound report.",
+      "expected_output": "The agent reads the repository guides, inventories the current contract, runs every required automation phase, reconciles every numbered scenario, verifies the report, and cleans the isolated environment.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Resume last night's interrupted full Mopheus integration run. Keep valid evidence but make sure nothing is left NOT RUN.",
+      "expected_output": "The agent proves the checkout revision matches the interrupted run before reusing evidence, resumes only incomplete work, and applies the report completion gate.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Audit this Mopheus integration report and tell me whether it accounts for every scenario in the current checkout.",
+      "expected_output": "The agent dynamically compares the report to the current repository scenario inventory and distinguishes coverage completeness from an all-pass product result.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Start a reusable Mopheus preview for this worktree and keep its database for tomorrow.",
+      "expected_output": "This skill should not trigger; the reusable integration preview workflow is the appropriate capability.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Run the Go unit tests for the ticket service and show me the failing assertions.",
+      "expected_output": "This skill should not trigger because the request is a unit-test task, not a full integration regression.",
+      "files": []
+    }
+  ]
+}
