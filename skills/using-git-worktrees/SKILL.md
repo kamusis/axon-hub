@@ -98,47 +98,17 @@ git worktree add "$path" -b "$BRANCH_NAME"
 cd "$path"
 ```
 
-### 3. Run Project Setup
+### 3. Stop at Git Isolation
 
-Auto-detect and run appropriate setup:
+Creating a worktree ends after `git worktree add` and changing into the new directory. Do not automatically install dependencies, build code, run tests, create environment files, start containers or services, create databases, or run migrations.
 
-```bash
-# Node.js
-if [ -f package.json ]; then npm install; fi
+Treat every environment preparation or verification command as a separate task action. Run it only when the user's request requires it, after inspecting what the command does and confirming that its mutations stay within the authorized scope.
 
-# Rust
-if [ -f Cargo.toml ]; then cargo build; fi
-
-# Python
-if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-if [ -f pyproject.toml ]; then poetry install; fi
-
-# Go
-if [ -f go.mod ]; then go mod download; fi
-```
-
-### 4. Verify Clean Baseline
-
-Run tests to ensure worktree starts clean:
-
-```bash
-# Examples - use project-appropriate command
-npm test
-cargo test
-pytest
-go test ./...
-```
-
-**If tests fail:** Report failures, ask whether to proceed or investigate.
-
-**If tests pass:** Report ready.
-
-### 5. Report Location
+### 4. Report Location
 
 ```
 Worktree ready at <full-path>
-Tests passing (<N> tests, 0 failures)
-Ready to implement <feature-name>
+Branch: <branch-name>
 ```
 
 ## Quick Reference
@@ -150,8 +120,7 @@ Ready to implement <feature-name>
 | Both exist | Use `.worktrees/` |
 | Neither exists | Check CLAUDE.md → Ask user |
 | Directory not ignored | Add to .gitignore + commit |
-| Tests fail during baseline | Report failures + ask |
-| No package.json/Cargo.toml | Skip dependency install |
+| Worktree created | Report path and branch; stop |
 
 ## Common Mistakes
 
@@ -165,15 +134,10 @@ Ready to implement <feature-name>
 - **Problem:** Creates inconsistency, violates project conventions
 - **Fix:** Follow priority: existing > CLAUDE.md > ask
 
-### Proceeding with failing tests
+### Expanding into environment setup
 
-- **Problem:** Can't distinguish new bugs from pre-existing issues
-- **Fix:** Report failures, get explicit permission to proceed
-
-### Hardcoding setup commands
-
-- **Problem:** Breaks on projects using different tools
-- **Fix:** Auto-detect from project files (package.json, etc.)
+- **Problem:** Worktree creation unexpectedly installs dependencies or mutates services and databases
+- **Fix:** Stop after Git isolation; inspect and authorize setup commands separately
 
 ## Example Workflow
 
@@ -183,28 +147,24 @@ You: I'm using the using-git-worktrees skill to set up an isolated workspace.
 [Check .worktrees/ - exists]
 [Verify ignored - git check-ignore confirms .worktrees/ is ignored]
 [Create worktree: git worktree add .worktrees/auth -b feature/auth]
-[Run npm install]
-[Run npm test - 47 passing]
 
 Worktree ready at /Users/jesse/myproject/.worktrees/auth
-Tests passing (47 tests, 0 failures)
-Ready to implement auth feature
+Branch: feature/auth
 ```
 
 ## Red Flags
 
 **Never:**
 - Create worktree without verifying it's ignored (project-local)
-- Skip baseline test verification
-- Proceed with failing tests without asking
 - Assume directory location when ambiguous
 - Skip CLAUDE.md check
+- Run dependency installation, builds, tests, containers, services, database operations, or migrations as part of worktree creation
 
 **Always:**
 - Follow directory priority: existing > CLAUDE.md > ask
 - Verify directory is ignored for project-local
-- Auto-detect and run project setup
-- Verify clean test baseline
+- Stop after creating the worktree and report its path and branch
+- Evaluate any later setup or verification command as a separate, scoped action
 
 ## Integration
 
