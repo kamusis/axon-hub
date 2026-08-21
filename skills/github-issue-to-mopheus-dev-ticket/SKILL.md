@@ -22,6 +22,29 @@ The Mopheus internal target is fixed:
 
 The GitHub repository is not fixed. Resolve it from the local repository where the task is being performed.
 
+## Formal Mopheus CLI boundary
+
+This skill writes to the formal `dev` workspace. Before any Mopheus lookup or write:
+
+1. Require the host-installed `mopheus` executable from PATH. Never use `mop`, `go run ./cmd/mopheus`, `make mopheus`, a repository/worktree binary, or a temporary build.
+2. Use only the formal `default` profile. Never use or repoint `local`, `wt-*`, or another preview/test profile.
+3. Do not source `.env.worktree`. Remove `MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, `MOPHEUS_TOKEN`, `MOPHEUS_AGENT_ID`, and `MOPHEUS_DAEMON_ID` preview overrides from the command environment.
+4. Bind and verify the formal profile. Use `connect` when the installed version supports it:
+   ```bash
+   mopheus --profile default connect --server_url https://dev.mopheus.ai
+   ```
+   Current releases without `connect` must use:
+   ```bash
+   mopheus --profile default config set server-url https://dev.mopheus.ai
+   ```
+   Then run:
+   ```bash
+   mopheus --profile default config show --output json
+   mopheus --profile default auth status
+   ```
+   Require the configured server URL to be exactly `https://dev.mopheus.ai`. Stop if the installed CLI is unavailable, connection/authentication fails, or the URL differs; never fall back to a preview profile.
+5. Pass `--profile default` on every Mopheus command and the fixed `--workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172` on every workspace-scoped command.
+
 ## Resolve the GitHub repository
 
 Run these checks before creating or verifying the GitHub issue:
@@ -35,12 +58,12 @@ Keep the original remote URL for Mopheus repository operations, and normalize it
 
 Do not infer the GitHub repository from the Mopheus workspace name, prior conversation, or a previous task.
 
-Never use the current active workspace, `dev-v2`, or a workspace selected by a prior command for the internal ticket. Always pass the fixed workspace ID explicitly with `mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ...`.
+Never use the current active workspace, `dev-v2`, or a workspace selected by a prior command for the internal ticket. Always pass the formal profile and fixed workspace ID explicitly with `mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ...`.
 
 Before creating the internal ticket, run:
 
 ```bash
-mopheus workspace list --output json
+mopheus --profile default workspace list --output json
 ```
 
 Verify that the fixed ID exists and its `name` is exactly `dev`. If the ID is missing or maps to another name, stop before creating any record and report the mismatch.
@@ -51,7 +74,7 @@ Verify that the fixed ID exists and its `name` is exactly `dev`. If the ID is mi
 
 - Use **Existing-Issue mode** only when the user or calling skill supplies one unambiguous GitHub issue URL or number and states that its Mopheus ticket is missing.
 - Verify the issue with `gh-wrapper issue view` in the repository resolved from the current local `origin`. Stop on a repository mismatch or missing issue.
-- Query `mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --repo <original-git-remote-url> --type git_issue --number <n> --output json`.
+- Query `mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --repo <original-git-remote-url> --type git_issue --number <n> --output json`.
 - If a linked ticket already exists, return and reuse it; do not create another ticket.
 - In Existing-Issue mode, never run `gh issue create`. Treat the verified issue title, body, labels, state, URL, and relevant conversation evidence as the canonical report.
 - Otherwise use **New-report mode** and retain the issue-first workflow below.
@@ -159,7 +182,7 @@ Do not create the Mopheus ticket if GitHub issue creation fails or no issue URL 
 After GitHub creation or existing-Issue verification succeeds, create the internal ticket with the explicit fixed workspace ID:
 
 ```bash
-mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket create \
+mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket create \
   --title "<Chinese title>" \
   --priority high \
   --status todo \
@@ -182,7 +205,7 @@ Use `high` priority only when the conversation indicates meaningful user impact;
 After the ticket exists, sync the GitHub issue into the Mopheus repository mirror and link it to the ticket:
 
 ```bash
-mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo issue sync \
+mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo issue sync \
   --number <github-issue-number> \
   --repo <original-git-remote-url> \
   --ticket <ticket-id> \
@@ -198,8 +221,8 @@ Read both records after creation:
 
 ```bash
 gh-wrapper issue view <number> --repo <resolved-owner/repo> --json number,title,url,state,labels
-mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket get <ticket-id> --output json
-mopheus --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --ticket <ticket-id> --output json
+mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket get <ticket-id> --output json
+mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --ticket <ticket-id> --output json
 ```
 
 Confirm:

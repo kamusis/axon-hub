@@ -1,0 +1,11 @@
+{
+  "skill_name": "github-mopheus-dev-delivery",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "代码已在预览环境验证完成。沿用 .env.worktree 的 local profile 和 go run CLI，直接交付并关闭正式工单。",
+      "expected_output": "The skill refuses to reuse preview environment state, requires the host-installed mopheus executable, connects and verifies the default profile against exactly https://dev.mopheus.ai, and stops rather than falling back when the formal CLI or authentication is unavailable.",
+      "files": []
+    }
+  ]
+}

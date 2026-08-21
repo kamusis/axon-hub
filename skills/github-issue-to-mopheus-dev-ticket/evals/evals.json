@@ -24,6 +24,12 @@
       "prompt": "这次聊天里同时讨论了 coverage improver 没建工单和 RBAC Admin 无法编辑 Agent。请直接使用这个 skill。",
       "expected_output": "Does not create any external records. Asks the user to select one topic because the conversation contains multiple independent candidates and the request does not define the scope.",
       "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "预览环境已经登录了 local profile，直接用当前 go run 的 CLI 把 GitHub issue 同步到 dev 工单。",
+      "expected_output": "The skill refuses the preview CLI and local profile, requires the host-installed mopheus executable, connects and verifies the default profile against exactly https://dev.mopheus.ai, and uses the fixed dev workspace ID explicitly before any Mopheus write.",
+      "files": []
     }
   ]
 }

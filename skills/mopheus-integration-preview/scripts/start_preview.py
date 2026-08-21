@@ -22,6 +22,7 @@ PREVIEW_PASSWORD_DEFAULT = "MopheusPR484!"
 PREVIEW_WORKSPACE_SLUG_DEFAULT = "dev-space"
 PREVIEW_WORKSPACE_NAME_DEFAULT = "Dev Space"
 POSTGRES_CONTAINER_NAME = "mopheus-postgres-1"
+LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 def fail(msg: str) -> None:
@@ -99,6 +100,20 @@ def write_env_file(env_path: Path, updates: dict[str, str]) -> None:
         if k not in keys_updated:
             lines.append(f"{k}={v}")
     env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def validate_preview_cli_boundary(profile: str, server_url: str) -> None:
+    """Reject formal profiles and non-loopback servers in preview environments."""
+    if not profile.startswith("wt-"):
+        fail(f"preview MOPHEUS_PROFILE must start with 'wt-'; refusing profile: {profile or '<missing>'}")
+
+    parsed = urllib.parse.urlparse(server_url)
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    if parsed.scheme != "http" or parsed.hostname not in LOOPBACK_HOSTS or port is None:
+        fail(f"preview MOPHEUS_SERVER_URL must be an HTTP loopback URL; refusing: {server_url or '<missing>'}")
 
 
 def api_request(method: str, url: str, token: str = "", workspace_slug: str = "", payload: dict | None = None) -> dict:
@@ -317,7 +332,9 @@ def main() -> int:
     fe_port = int(env_vars.get("FRONTEND_PORT", "3000"))
     admin_email = env_vars.get("ADMIN_EMAIL", "admin@test.local")
     admin_password = env_vars.get("ADMIN_PASSWORD", "AdminPassword123!")
-    profile = env_vars.get("MOPHEUS_PROFILE", "default")
+    profile = env_vars.get("MOPHEUS_PROFILE", "").strip()
+    server_url = env_vars.get("MOPHEUS_SERVER_URL", "").strip()
+    validate_preview_cli_boundary(profile, server_url)
     db_port = env_vars.get("POSTGRES_PORT", "5432")
 
     # Start PostgreSQL container if stopped

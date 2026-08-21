@@ -99,6 +99,16 @@ The startup script owns the remaining workflow after discovery and confirmation:
 
 Do not manually repeat these steps unless diagnosing a script failure. The bundled script is the source of truth for deterministic setup.
 
+## Preview CLI profile boundary
+
+Preview CLI state is disposable and must remain isolated from formal Mopheus delivery state:
+
+- Require `.env.worktree` to define a worktree-specific `MOPHEUS_PROFILE` beginning with `wt-`. Treat a missing profile, `default`, `local`, or any other profile name as a setup error.
+- Require `MOPHEUS_SERVER_URL` to use plain HTTP on a loopback host (`localhost`, `127.0.0.1`, or `::1`). Refuse remote hosts and HTTPS endpoints before login or daemon startup.
+- Never run the host-installed formal `mopheus` CLI for preview login or daemon startup. The preview-only `go run ./cmd/mopheus` path is permitted here solely because it is bound to the validated worktree profile and loopback server.
+- Never repoint a preview profile to `https://dev.mopheus.ai`, and never use the formal `default` profile or its credentials for preview operations.
+- These preview exceptions do not apply to release, GitHub delivery, or formal ticket-management skills; those workflows must use the host-installed CLI and formal `default` profile.
+
 ## Credential exception
 
 The dedicated preview credential is intentionally safe to print because it is restricted to disposable local integration environments. The script prints it at the end of every successful run.

@@ -264,6 +264,17 @@ set +a
 : "${ADMIN_EMAIL:?ADMIN_EMAIL is required in .env.worktree}"
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required in .env.worktree}"
 : "${MOPHEUS_PROFILE:?MOPHEUS_PROFILE is required in .env.worktree}"
+: "${MOPHEUS_SERVER_URL:?MOPHEUS_SERVER_URL is required in .env.worktree}"
+
+case "$MOPHEUS_PROFILE" in
+  wt-*) ;;
+  *) fail "preview MOPHEUS_PROFILE must start with 'wt-'; refusing profile: $MOPHEUS_PROFILE" ;;
+esac
+
+case "$MOPHEUS_SERVER_URL" in
+  http://localhost:*|http://127.0.0.1:*|http://\[::1\]:*) ;;
+  *) fail "preview MOPHEUS_SERVER_URL must be an HTTP loopback URL; refusing: $MOPHEUS_SERVER_URL" ;;
+esac
 
 case "$DATABASE_URL" in
   *"@localhost:"*|*"@127.0.0.1:"*) ;;

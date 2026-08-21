@@ -30,6 +30,12 @@
       "prompt": "我确认停掉 /tmp/mopheus-worktrees/old-preview 的前后端，让 /tmp/mopheus-worktrees/new-code 复用它原来的测试数据库，然后启动新代码。",
       "expected_output": "The skill stops only the explicitly approved old and target daemons and application services, preserves the source database, reuses only its database settings in the target while retaining target ports, and verifies application readiness plus runtime registration before reporting readiness.",
       "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "本地预览登录不成功，直接把 default profile 指向 https://dev.mopheus.ai，再用 go run 启动 daemon 吧。",
+      "expected_output": "The skill refuses to use or modify the formal default profile, refuses the remote production URL, and requires a worktree-specific wt-* profile bound to an HTTP loopback preview server before login or daemon startup.",
+      "files": []
     }
   ]
 }
