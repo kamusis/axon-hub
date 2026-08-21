@@ -1,0 +1,49 @@
+{
+  "skill_name": "github-mopheus-pr-delivery",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "The Dev Team has finished PR #605 and handed it to the Mopheus Release Agent. Merge it and close the linked Mopheus ticket.",
+      "expected_output": "Resolve the existing PR, issue, workspace, and ticket; validate the current PR head and checks; squash merge once; verify the merge; safely clean only the delivered worktree and branch; synchronize issue/PR links; and close the ticket with evidence.",
+      "files": [],
+      "expectations": [
+        "Starts from an existing PR and does not implement, commit, push feature changes, or create a PR.",
+        "Verifies the current PR head, checks, mergeability, and identities before merging.",
+        "Closes the Mopheus ticket only after merge verification and structured issue/PR link synchronization."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Deliver the approved PR, but its GitHub checks are still pending and the head SHA changed after delegation.",
+      "expected_output": "Detect the changed head, restart mechanical readiness validation for the new SHA, wait for checks with bounded polling, and avoid merging using stale evidence.",
+      "files": [],
+      "expectations": [
+        "Does not merge while required checks are pending.",
+        "Invalidates evidence tied to the previous PR head SHA.",
+        "Does not perform review or push corrective commits."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Merge this Mopheus PR and finish delivery. The PR exists, but no linked Mopheus ticket can be resolved uniquely.",
+      "expected_output": "Stop before merge because the required delivery identity is ambiguous, do not create or guess a ticket, and return the missing prerequisite to Team Leader.",
+      "files": [],
+      "expectations": [
+        "Does not guess or create a Mopheus ticket.",
+        "Does not merge before repository, issue, and ticket identity are resolved.",
+        "Reports the exact missing prerequisite and safe resume point."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The PR was merged successfully, but the local feature worktree contains uncommitted files. Complete the remaining delivery steps.",
+      "expected_output": "Preserve the dirty worktree, avoid deleting its branch, retain the verified merge, synchronize links and close the ticket when otherwise valid, and report cleanup as incomplete with a safe resume point.",
+      "files": [],
+      "expectations": [
+        "Does not remove a dirty worktree or delete its local branch.",
+        "Does not retry an already successful merge.",
+        "Reports remote merge success separately from local cleanup status."
+      ]
+    }
+  ]
+}
