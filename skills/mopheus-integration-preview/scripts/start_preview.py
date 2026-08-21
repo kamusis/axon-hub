@@ -143,6 +143,22 @@ def wait_for_http(url: str, timeout_seconds: int) -> bool:
     return False
 
 
+def wait_for_runtimes(api_base: str, token: str, workspace_slug: str, timeout_seconds: int) -> bool:
+    """Wait until the preview workspace has at least one registered runtime."""
+    start = time.time()
+    while time.time() - start < timeout_seconds:
+        try:
+            response = api_request("GET", f"{api_base}/runtimes", token=token, workspace_slug=workspace_slug)
+            runtimes = response.get("data", [])
+            if response.get("success") is True and isinstance(runtimes, list) and runtimes:
+                return True
+        except SystemExit:
+            # The daemon may still be completing registration while the API is ready.
+            pass
+        time.sleep(1)
+    return False
+
+
 def discover_previews(script_dir: Path, target_worktree: Path) -> list[dict]:
     py_script = script_dir / "discover_previews.py"
     res = subprocess.run([sys.executable, str(py_script), str(target_worktree)], capture_output=True, text=True, check=False)
@@ -327,7 +343,7 @@ def main() -> int:
     run_env = os.environ.copy()
     run_env.update(env_vars)
     migrate_res = subprocess.run(
-        ["go", "run", "./cmd/migrate", "up", "--seed-demo-data"],
+        ["go", "run", "./cmd/migrate", "up"],
         cwd=str(target_path / "server"),
         env=run_env,
         capture_output=True,
@@ -468,18 +484,55 @@ def main() -> int:
     daemon_log_display = "existing process"
 
     if not is_daemon_running(target_path, profile):
-        print("==> Starting daemon...")
+        print("==> Starting daemon and registering runtimes...")
         start_detached = script_dir / "start_detached.py"
-        # Daemon command
+        if sys.platform != "win32":
+            daemon_cwd = target_path
+            if shutil.which("make"):
+                daemon_command = [
+                    "make", "daemon-worktree",
+                    f"DEFAULT_EMAIL={preview_email}",
+                    f"DEFAULT_PASSWORD={preview_password}",
+                ]
+            else:
+                login_res = subprocess.run(
+                    ["go", "run", "./cmd/mopheus", "--profile", profile, "login",
+                     "--email", preview_email, "--password", preview_password],
+                    cwd=str(target_path / "server"),
+                    env=run_env,
+                    input="y\n",
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if login_res.returncode != 0:
+                    fail(f"daemon profile login failed:\n{login_res.stderr}\n{login_res.stdout}")
+                daemon_cwd = target_path / "server"
+                daemon_command = [
+                    "go", "run", "./cmd/mopheus", "--profile", profile,
+                    "daemon", "start", "--foreground", "--allow-root",
+                ]
+        else:
+            daemon_command = [
+                "go", "run", "./cmd/mopheus", "--profile", profile, "daemon", "start",
+            ]
+            daemon_cwd = target_path / "server"
         subprocess.run([
             sys.executable, str(start_detached),
-            "--cwd", str(target_path / "server"),
+            "--cwd", str(daemon_cwd),
             "--log", str(daemon_log),
             "--pid-file", str(daemon_pid),
-            "go", "run", "./cmd/mopheus", "--profile", profile, "daemon", "start"
+            *daemon_command,
         ], check=True, env=run_env)
         daemon_state = "started"
         daemon_log_display = str(daemon_log)
+
+    daemon_timeout = int(os.environ.get("MOPHEUS_PREVIEW_DAEMON_TIMEOUT", "120"))
+    if not wait_for_runtimes(api_base, preview_token, workspace_slug, daemon_timeout):
+        if daemon_log.is_file():
+            tail = daemon_log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
+            sys.stderr.write("Daemon log tail:\n" + "\n".join(tail) + "\n")
+        fail(f"daemon did not register any runtime for workspace '{workspace_slug}' within {daemon_timeout}s")
 
     print("\n" + "=" * 50)
     print("Mopheus integration preview is ready.")

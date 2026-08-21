@@ -93,7 +93,7 @@ The startup script owns the remaining workflow after discovery and confirmation:
 8. Dynamically list every registered feature and set its system state to `enabled`.
 9. Create or reuse the dedicated regular test user and `dev-space` workspace.
 10. Set every registered feature override to `true` for the test workspace and verify every effective value is enabled.
-11. Start or reuse the worktree-profile daemon as a persistent local background process using the regular preview account.
+11. On non-Windows hosts, start or reuse the worktree-profile daemon as a persistent local background process. Prefer `make daemon-worktree` with the regular preview account; if `make` is unavailable, perform the equivalent profile login and run `go run ./cmd/mopheus ... daemon start --foreground --allow-root`. Windows uses the platform-specific daemon startup path.
 12. Wait until at least one runtime is registered in `dev-space`; a running process without registered runtimes is not ready.
 13. Print URLs, database details, enabled features, backend/frontend/daemon log paths, daemon profile and state, and test email/password.
 

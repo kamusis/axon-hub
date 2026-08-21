@@ -403,11 +403,21 @@ rm -f "$feature_keys_file"
 
 if ! is_daemon_running "$worktree_path" "$MOPHEUS_PROFILE"; then
   printf '==> Starting daemon and registering runtimes...\n'
-  python3 "$script_dir/start_detached.py" \
-    --cwd "$worktree_path" \
-    --log "$daemon_log_file" \
-    --pid-file "$daemon_pid_file" \
-    make daemon-worktree "DEFAULT_EMAIL=$preview_email" "DEFAULT_PASSWORD=$preview_password"
+  if command -v make >/dev/null 2>&1; then
+    python3 "$script_dir/start_detached.py" \
+      --cwd "$worktree_path" \
+      --log "$daemon_log_file" \
+      --pid-file "$daemon_pid_file" \
+      make daemon-worktree "DEFAULT_EMAIL=$preview_email" "DEFAULT_PASSWORD=$preview_password"
+  else
+    printf '==> make not found; using direct daemon login and foreground startup...\n'
+    printf 'y\n' | (cd "$worktree_path/server" && go run ./cmd/mopheus --profile "$MOPHEUS_PROFILE" login --email "$preview_email" --password "$preview_password")
+    python3 "$script_dir/start_detached.py" \
+      --cwd "$worktree_path/server" \
+      --log "$daemon_log_file" \
+      --pid-file "$daemon_pid_file" \
+      go run ./cmd/mopheus --profile "$MOPHEUS_PROFILE" daemon start --foreground --allow-root
+  fi
   daemon_state="started"
   daemon_log_display="$daemon_log_file"
 fi
