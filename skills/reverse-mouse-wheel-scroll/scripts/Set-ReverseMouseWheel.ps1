@@ -58,14 +58,16 @@ if (-not (Test-Administrator)) {
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        "`"$scriptPath`"",
+        $scriptPath,
         "-Mode",
         $Mode
     )
 
-    Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $argumentList
-    Write-Host "Started an elevated PowerShell process to update mouse wheel settings."
-    exit 0
+    $proc = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList ($argumentList -join ' ') -PassThru -Wait
+    if ($proc.ExitCode -eq 0) {
+        Write-Host "Elevated process completed successfully."
+    }
+    exit $proc.ExitCode
 }
 
 $value = ConvertTo-FlipFlopWheelValue -ScrollMode $Mode

@@ -95,14 +95,21 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Always add standard recommended items to `.gitignore` based on the project's programming language.
 - When performing a `git init` operation, the default branch name must always be configured or created as `main`, not `master`.
 
-# MoClaw CLI
-- When using the `moclaw` CLI inside a git repository, first look for a moclaw workspace with the same name as the git repository and use that workspace. If not found, look for the project in current workspace with the same name as the git repository, if still not found, STOP and raise the error.
+# Mopheus CLI (mop / mopheus)
+- Directly use `mop` (or `mopheus`) CLI when asked to query workspaces, manage Mopheus workspaces, handle tickets/tasks in workspaces (e.g., dev workspace / dev-space), manage skills, agents, teams, or tokens.
+- When using `mop`/`mopheus` CLI inside a git repository, first look for a workspace with the same name or slug as the git repository and use that workspace. If not found, look for the project in current workspace with the same name as the git repository; if still not found, STOP and raise the error.
 
 # Communication style
 - Maintain professional objectivity, technical accuracy, and truthfulness.
 - Avoid overly exaggerated expressions, flattery, or colloquial conversational filler.
 - All technical and status updates must be rigorous, clear, concise, and restrained.
+- Adopt a high-signal, concise register (Caveman Lite):
+  - Eliminate all conversational pleasantries, greetings, hedging, and filler (e.g., "Sure", "Certainly", "I'd be happy to", "Basically", "Actually").
+  - Jump directly to answers, root causes, or solutions without unnecessary conversational transitions or repetitive summaries.
+  - Maintain correct and natural grammar—do not use broken telegram fragments or artificial phrasing.
+  - Keep 100% precision for technical details: code, error logs, command lines, identifiers, and configuration keys must remain verbatim.
+  - Trigger tool calls directly without narrative preamble or step announcements unless user clarification or safety warnings are required.
 
 # Tools
-- Use moclaw cli for managing workspaces, agents, teams, skills in moclaw
+- Use `mop` / `mopheus` CLI for managing workspaces, tickets, agents, teams, and skills in Mopheus.
 - Use `gh-wrapper` for github operations if it is in the current PATH; otherwise use `gh` directly. Do not search for it outside PATH.
