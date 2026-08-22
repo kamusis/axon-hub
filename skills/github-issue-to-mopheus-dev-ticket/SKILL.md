@@ -182,6 +182,33 @@ When designing and specifying requirements for new features or capabilities:
 - **Exceptions (唯一例外)**: The only exceptions are requirements that are purely Web UI interactive behaviors (e.g. drag-and-drop animation, responsive layouts, rich text editor styling) or capabilities inherently unsuitable for a command-line interface.
 - **Explicit Scope in Tickets & Issues**: Both the English GitHub issue and Chinese Mopheus dev ticket must explicitly specify the CLI command interface (flags, subcommands, inputs, and outputs) in the technical design and acceptance criteria, unless explicitly exempt under the rule above.
 
+### Mandatory Comprehensive Test Deliverables in Acceptance Criteria (验收标准必须包含全层级测试要求)
+
+Every created GitHub Issue and Mopheus Dev Ticket **MUST explicitly specify and enumerate test deliverables across all applicable testing tiers** in the `## Acceptance Criteria` (验收标准) section. Never write a vague "add tests" bullet point.
+
+The `Acceptance Criteria` must explicitly break down test requirements into:
+
+1. **Unit Tests (单元测试)**:
+   - Backend: models, repo queries/cascades, service logic/permissions/error codes, HTTP handlers/validation, CLI flags/subcommands parsing and execution.
+   - Frontend: Zod schemas, React query hooks/mutations, Zustand stores, UI component states and interactions.
+2. **Integration Tests (集成测试)**:
+   - Specification: update/create scenario markdown specifications in `tests/integration/` (e.g., `03-cli-core-lifecycle.md`, `04-comments-and-pins-advanced.md`, `14-daemon-lifecycle-and-tasks.md`) to document new CLI commands, flags, API routes, cross-resource side effects, and boundary rejection rules.
+   - Automation: update/create automated shell test scripts under `tests/integration/scripts/` (e.g. `it-test-stage2-group03-cli.sh`, `it-test-stage3-groups-04-15-api.sh`) to assert positive workflows and boundary rejection.
+3. **E2E / Playwright Tests (端到端/Playwright 测试)**:
+   - For all user-visible capabilities, interactive UI behaviors, new pages, dialogs, or dropdown actions, explicitly specify creating/updating Playwright specs in `tests/e2e/*.spec.ts` covering browser-driven user journeys, UI component visibility, form submissions, and real-time state updates.
+
+Example of mandatory Acceptance Criteria test section:
+```markdown
+## Acceptance Criteria
+1. Feature requirement 1...
+2. Feature requirement 2...
+...
+N. Testing & Quality Assurance Deliverables:
+   - **Unit Tests**: Full unit test coverage across repo, service, HTTP, CLI, and web hooks/components.
+   - **Integration Tests**: Update `tests/integration/<group>.md` specification and `tests/integration/scripts/<script>.sh` runner script with new CLI/API regression tests.
+   - **E2E Tests**: Add/update Playwright specs in `tests/e2e/<feature>.spec.ts` covering browser user flow and interactive behaviors.
+```
+
 Create the issue in `enmotech/mopheus` by passing `--repo enmotech/mopheus`, with the `bug` label for bugs and `enhancement` for features. Add other existing repository labels only when supported by the evidence. Capture and verify the returned GitHub issue URL before continuing.
 
 Do not create the Mopheus ticket if GitHub issue creation fails or no issue URL is returned.
@@ -200,11 +227,15 @@ mopheus <target-connection-args> --workspace-id <target-workspace-id> ticket cre
 
 Write the ticket in Chinese. Include:
 
-- A concise explanation of the problem.
-- The user reproduction flow.
-- Verified evidence and root cause.
-- The required implementation behavior.
-- The workaround, if any.
+- A concise explanation of the problem / 需求背景与目标.
+- The user reproduction flow / 复现步骤.
+- Verified evidence and root cause / 验证证据与根因分析.
+- The required implementation behavior / 详细功能设计（严格遵循 CLI 优先原则，明确 CLI 命令、参数、输入输出与 Web UI 交互）.
+- The workaround, if any / 规避方案.
+- **完备的验收标准（必须明确包含全层级测试交付要求）**：
+  - **单元测试**：覆盖 Models、Repo、Service 逻辑/权限/错误码、HTTP Handler、CLI 参数解析与 Frontend Hooks/Components/Stores。
+  - **集成测试**：明确更新或新增 `tests/integration/` 场景说明规范（Markdown）及 `tests/integration/scripts/` 自动化测试脚本。
+  - **E2E / Playwright 测试**：对所有用户可见功能及交互行为，明确更新或新增 `tests/e2e/*.spec.ts` 浏览器端到端交互用例。
 - The exact GitHub issue URL near the top and again in the closing context when useful.
 
 Use `high` priority only when the conversation indicates meaningful user impact; otherwise use `normal`. Do not assign a project, assignee, or due date unless the user asks.
