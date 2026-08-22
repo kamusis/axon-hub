@@ -44,6 +44,17 @@
         "Does not retry an already successful merge.",
         "Reports remote merge success separately from local cleanup status."
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Deliver an approved Mopheus PR, but the supplied PR URL and current origin belong to another GitHub repository.",
+      "expected_output": "Keep enmotech/mopheus as the fixed target, reject the repository mismatch before merge or ticket writes, and never redirect the workflow to the supplied repository.",
+      "files": [],
+      "expectations": [
+        "Treats enmotech/mopheus as the only valid GitHub repository.",
+        "Stops before merge and Mopheus repository-link synchronization.",
+        "Does not infer a replacement target from the PR URL or local origin."
+      ]
     }
   ]
 }

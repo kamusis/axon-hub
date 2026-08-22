@@ -1,6 +1,6 @@
 ---
 name: github-issue-to-mopheus-dev-ticket
-description: "Create a complete cross-platform bug or feature report from the current conversation, or create only the missing Chinese Mopheus dev ticket for an already-existing GitHub issue. Use when the user wants both an English GitHub issue and linked Mopheus ticket, or explicitly has a GitHub issue but no corresponding Mopheus ticket. Always resolve the repository from the current local git remote, use the fixed dev workspace ID, verify its name, and never duplicate an existing issue or ticket."
+description: "Create a complete Mopheus bug or feature report from the current conversation, or create only the missing Chinese Mopheus ticket for an already-existing enmotech/mopheus GitHub issue. Use when the user wants both an English GitHub issue and linked Mopheus ticket, or explicitly has a Mopheus GitHub issue but no corresponding Mopheus ticket. Always use the fixed enmotech/mopheus GitHub repository; target the task workspace for an internal Mopheus agent and otherwise fall back to the formal dev workspace; never duplicate an existing issue or ticket."
 ---
 
 # GitHub Issue to Mopheus Dev Ticket
@@ -12,24 +12,43 @@ Support two modes:
 
 The GitHub issue is the canonical external report. The Mopheus ticket is the internal implementation entry and must link to the GitHub issue URL.
 
-## Fixed internal target
+## Fixed GitHub target and external fallback
 
-The Mopheus internal target is fixed:
+The GitHub target is always fixed. The Mopheus target depends on the caller:
 
 - GitHub CLI: use `gh-wrapper` when it is available; otherwise use `gh`
-- Mopheus workspace name: `dev`
-- Mopheus workspace ID: `a43acd83-25f4-43ea-bdfd-d179fb272172`
+- GitHub repository: `enmotech/mopheus`
+- Canonical GitHub repository URL for Mopheus repo operations: `https://github.com/enmotech/mopheus.git`
+- External fallback server: `https://dev.mopheus.ai`
+- External fallback profile: `default`
+- External fallback workspace name: `dev`
+- External fallback workspace ID: `a43acd83-25f4-43ea-bdfd-d179fb272172`
 
-The GitHub repository is not fixed. Resolve it from the local repository where the task is being performed.
+The GitHub repository is fixed because this skill is specific to Mopheus. Do not derive or override it from the current directory, local Git remotes, active GitHub repository, Mopheus workspace, or prior conversation.
 
-## Formal Mopheus CLI boundary
+## Resolve the Mopheus target
 
-This skill writes to the formal `dev` workspace. Before any Mopheus lookup or write:
+Require the host-installed `mopheus` executable from PATH in both modes. Never use `mop`, `go run ./cmd/mopheus`, `make mopheus`, a repository/worktree binary, or a temporary build.
 
-1. Require the host-installed `mopheus` executable from PATH. Never use `mop`, `go run ./cmd/mopheus`, `make mopheus`, a repository/worktree binary, or a temporary build.
-2. Use only the formal `default` profile. Never use or repoint `local`, `wt-*`, or another preview/test profile.
-3. Do not source `.env.worktree`. Remove `MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, `MOPHEUS_TOKEN`, `MOPHEUS_AGENT_ID`, and `MOPHEUS_DAEMON_ID` preview overrides from the command environment.
-4. Bind and verify the formal profile. Use `connect` when the installed version supports it:
+### Internal Mopheus-agent mode
+
+Use this mode only when authoritative task/runtime context identifies the caller as a Mopheus agent task and supplies that task's workspace ID. The task workspace has highest priority and cannot be overridden by the user, active CLI workspace, fallback ID, or prior conversation.
+
+1. Read the task workspace ID from the trusted Mopheus task context. A bare environment variable in an otherwise external session is not sufficient to classify the caller as internal.
+2. Preserve the runtime-provided Mopheus server, authentication, and profile context. Do not run `connect`, repoint a profile, source `.env.worktree`, or replace runtime credentials.
+3. Verify authentication, then run `mopheus workspace get <task-workspace-id> --output json` using the runtime connection.
+4. Require the returned workspace ID to equal the task workspace ID. Stop on missing access, authentication failure, server ambiguity, or mismatch.
+5. Pass `--workspace-id <task-workspace-id>` explicitly on every workspace-scoped command. Pass the runtime profile explicitly when the task context provides one.
+
+Set `<target-workspace-id>` to the verified task workspace ID and `<target-connection-args>` to the runtime-provided profile arguments, or to no profile flag when the runtime connection is environment-backed.
+
+### External caller mode
+
+Use this mode for Codex, another external agent, or any invocation without trustworthy Mopheus task workspace context. Retain the formal fixed fallback:
+
+1. Use only the `default` profile. Never use or repoint `local`, `wt-*`, or another preview/test profile.
+2. Do not source `.env.worktree`. Remove `MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, `MOPHEUS_TOKEN`, `MOPHEUS_AGENT_ID`, and `MOPHEUS_DAEMON_ID` preview overrides from the command environment.
+3. Bind and verify the formal profile. Use `connect` when the installed version supports it:
    ```bash
    mopheus --profile default connect --server_url https://dev.mopheus.ai
    ```
@@ -43,38 +62,28 @@ This skill writes to the formal `dev` workspace. Before any Mopheus lookup or wr
    mopheus --profile default auth status
    ```
    Require the configured server URL to be exactly `https://dev.mopheus.ai`. Stop if the installed CLI is unavailable, connection/authentication fails, or the URL differs; never fall back to a preview profile.
-5. Pass `--profile default` on every Mopheus command and the fixed `--workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172` on every workspace-scoped command.
+4. Run `mopheus --profile default workspace get a43acd83-25f4-43ea-bdfd-d179fb272172 --output json` and require its name to be exactly `dev`.
+5. Pass `--profile default` on every Mopheus command and `--workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172` on every workspace-scoped command.
 
-## Resolve the GitHub repository
+Set `<target-workspace-id>` to `a43acd83-25f4-43ea-bdfd-d179fb272172` and `<target-connection-args>` to `--profile default`.
 
-Run these checks before creating or verifying the GitHub issue:
+After either mode resolves, use `<target-connection-args>` and `<target-workspace-id>` consistently for the entire workflow. Never switch modes or workspaces mid-run.
 
-```bash
-git rev-parse --show-toplevel
-git remote get-url origin
-```
+## Fixed GitHub repository
 
-Keep the original remote URL for Mopheus repository operations, and normalize it separately to the GitHub `owner/repo` form accepted by `gh`, supporting both HTTPS and SSH forms. If `origin` is missing, points to a non-GitHub host, or cannot be resolved unambiguously, stop and ask for the repository instead of guessing. Use the resolved `owner/repo` for GitHub commands and the original remote URL for Mopheus repository commands.
+Use `--repo enmotech/mopheus` on every `gh-wrapper` or `gh` issue command, including lookup, duplicate detection, creation, and verification. Use `https://github.com/enmotech/mopheus.git` as the `--repo` value for every Mopheus repository-link command.
 
-Do not infer the GitHub repository from the Mopheus workspace name, prior conversation, or a previous task.
+Do not inspect or depend on the current local Git repository. A caller may invoke this skill outside a checkout or from an unrelated checkout; that must not change the target. If the user supplies an issue URL from another repository, stop and report the repository mismatch instead of creating or linking a ticket.
 
-Never use the current active workspace, `dev-v2`, or a workspace selected by a prior command for the internal ticket. Always pass the formal profile and fixed workspace ID explicitly with `mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ...`.
-
-Before creating the internal ticket, run:
-
-```bash
-mopheus --profile default workspace list --output json
-```
-
-Verify that the fixed ID exists and its `name` is exactly `dev`. If the ID is missing or maps to another name, stop before creating any record and report the mismatch.
+Never select a workspace by name search, current active workspace, or a previous command. The internal task workspace ID or external fallback ID must always be explicit.
 
 ## Workflow
 
 ### 0. Select the mode
 
 - Use **Existing-Issue mode** only when the user or calling skill supplies one unambiguous GitHub issue URL or number and states that its Mopheus ticket is missing.
-- Verify the issue with `gh-wrapper issue view` in the repository resolved from the current local `origin`. Stop on a repository mismatch or missing issue.
-- Query `mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --repo <original-git-remote-url> --type git_issue --number <n> --output json`.
+- Verify the issue with `gh-wrapper issue view <number> --repo enmotech/mopheus`. Stop on a repository mismatch or missing issue.
+- Query `mopheus <target-connection-args> --workspace-id <target-workspace-id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n> --output json`.
 - If a linked ticket already exists, return and reuse it; do not create another ticket.
 - In Existing-Issue mode, never run `gh issue create`. Treat the verified issue title, body, labels, state, URL, and relevant conversation evidence as the canonical report.
 - Otherwise use **New-report mode** and retain the issue-first workflow below.
@@ -173,16 +182,16 @@ When designing and specifying requirements for new features or capabilities:
 - **Exceptions (唯一例外)**: The only exceptions are requirements that are purely Web UI interactive behaviors (e.g. drag-and-drop animation, responsive layouts, rich text editor styling) or capabilities inherently unsuitable for a command-line interface.
 - **Explicit Scope in Tickets & Issues**: Both the English GitHub issue and Chinese Mopheus dev ticket must explicitly specify the CLI command interface (flags, subcommands, inputs, and outputs) in the technical design and acceptance criteria, unless explicitly exempt under the rule above.
 
-Create the issue in the resolved current repository with the `bug` label for bugs and `enhancement` for features. Add other existing repository labels only when supported by the evidence. Capture and verify the returned GitHub issue URL before continuing.
+Create the issue in `enmotech/mopheus` by passing `--repo enmotech/mopheus`, with the `bug` label for bugs and `enhancement` for features. Add other existing repository labels only when supported by the evidence. Capture and verify the returned GitHub issue URL before continuing.
 
 Do not create the Mopheus ticket if GitHub issue creation fails or no issue URL is returned.
 
-### 5. Create the Chinese `dev` ticket
+### 5. Create the Chinese Mopheus ticket
 
-After GitHub creation or existing-Issue verification succeeds, create the internal ticket with the explicit fixed workspace ID:
+After GitHub creation or existing-Issue verification succeeds, create the internal ticket in the resolved target workspace:
 
 ```bash
-mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket create \
+mopheus <target-connection-args> --workspace-id <target-workspace-id> ticket create \
   --title "<Chinese title>" \
   --priority high \
   --status todo \
@@ -205,9 +214,9 @@ Use `high` priority only when the conversation indicates meaningful user impact;
 After the ticket exists, sync the GitHub issue into the Mopheus repository mirror and link it to the ticket:
 
 ```bash
-mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo issue sync \
+mopheus <target-connection-args> --workspace-id <target-workspace-id> repo issue sync \
   --number <github-issue-number> \
-  --repo <original-git-remote-url> \
+  --repo https://github.com/enmotech/mopheus.git \
   --ticket <ticket-id> \
   --state <actual-issue-state> \
   --output json
@@ -220,27 +229,27 @@ This structured `git_issue` link is required in addition to the clickable GitHub
 Read both records after creation:
 
 ```bash
-gh-wrapper issue view <number> --repo <resolved-owner/repo> --json number,title,url,state,labels
-mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 ticket get <ticket-id> --output json
-mopheus --profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172 repo links --ticket <ticket-id> --output json
+gh-wrapper issue view <number> --repo enmotech/mopheus --json number,title,url,state,labels
+mopheus <target-connection-args> --workspace-id <target-workspace-id> ticket get <ticket-id> --output json
+mopheus <target-connection-args> --workspace-id <target-workspace-id> repo links --ticket <ticket-id> --output json
 ```
 
 Confirm:
 
-- GitHub issue is in the resolved remote repository for the current local git repository. In New-report mode, confirm it contains the English analysis; in Existing-Issue mode, confirm no duplicate issue was created.
-- Mopheus ticket belongs to workspace ID `a43acd83-25f4-43ea-bdfd-d179fb272172`.
+- GitHub issue is in `enmotech/mopheus`. In New-report mode, confirm it contains the English analysis; in Existing-Issue mode, confirm no duplicate issue was created.
+- Mopheus ticket belongs to `<target-workspace-id>` resolved at the start of the run.
 - The ticket description contains the exact GitHub URL.
 - Mopheus structured links include the synced `git_issue` entity for the GitHub issue number and repository.
-- No record was created in `dev-v2`.
+- No record was created in another workspace.
 
-If an incorrect ticket was accidentally created in another workspace, cancel it, then create the correct ticket in `dev`; report both IDs and statuses.
+If an incorrect ticket was accidentally created in another workspace, cancel it, then create the correct ticket in `<target-workspace-id>`; report both IDs and statuses.
 
 ## Final response
 
 Report only verified results:
 
 - GitHub issue URL and number.
-- `dev` ticket number and ID.
+- Mopheus ticket number, ID, and workspace ID.
 - Ticket status and priority.
 - Any screenshot hosting limitation or corrected accidental record.
 

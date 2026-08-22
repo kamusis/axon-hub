@@ -6,6 +6,12 @@
       "prompt": "代码已在预览环境验证完成。沿用 .env.worktree 的 local profile 和 go run CLI，直接交付并关闭正式工单。",
       "expected_output": "The skill refuses to reuse preview environment state, requires the host-installed mopheus executable, connects and verifies the default profile against exactly https://dev.mopheus.ai, and stops rather than falling back when the formal CLI or authentication is unavailable.",
       "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "在一个 origin 指向其他 GitHub 仓库的 checkout 中运行 Mopheus 全量交付。",
+      "expected_output": "The skill keeps enmotech/mopheus as the fixed GitHub target, detects that origin does not identify the canonical repository, and stops before any GitHub, Git, or Mopheus repository-link write instead of deriving a different owner/repo.",
+      "files": []
     }
   ]
 }

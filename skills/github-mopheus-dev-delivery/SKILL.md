@@ -1,6 +1,6 @@
 ---
 name: github-mopheus-dev-delivery
-description: "Deliver a completed Mopheus code change end to end in one authorized run: verify, commit, push, create or reuse a GitHub PR, wait for checks, squash merge, clean the feature worktree, update the Mopheus ticket, and formally link its GitHub issue and PR. Use after implementation is finished when the user wants the entire delivery and ticket-closure workflow without repeated approvals."
+description: "Deliver a completed enmotech/mopheus code change end to end in one authorized run: verify, commit, push, create or reuse a GitHub PR, wait for checks, squash merge, clean the feature worktree, update the Mopheus ticket, and formally link its GitHub issue and PR. Use after implementation is finished when the user wants the entire delivery and ticket-closure workflow without repeated approvals. Always target the fixed enmotech/mopheus GitHub repository."
 ---
 
 # GitHub Mopheus Dev Delivery
@@ -11,6 +11,7 @@ Treat explicit invocation as authorization for every write in this workflow: com
 
 - Rebuild state from Git, GitHub, and Mopheus on every run. Resume idempotently; never rely on a previous chat checklist.
 - Use `gh-wrapper` when available, otherwise `gh`.
+- The GitHub repository is fixed to `enmotech/mopheus`; its canonical repository URL is `https://github.com/enmotech/mopheus.git`. Pass `--repo enmotech/mopheus` to every GitHub CLI command. Never derive the operation target from the current directory, `origin`, an active GitHub repository, or conversation context.
 - Never force-push, merge failing checks, guess an ambiguous ticket, clean a dirty worktree, or touch unrelated branches/worktrees.
 - Keep GitHub content and commit messages in English. Match the Mopheus ticket's language in comments.
 - Preserve partial success on failure. Verify whether an external write succeeded before retrying it.
@@ -37,15 +38,15 @@ Delivery updates durable records in the formal Mopheus deployment, so it must ne
 
 ## 1. Resolve delivery context
 
-1. Resolve the git root, `origin`, GitHub `owner/repo`, current feature branch/worktree, default branch, and main worktree.
+1. Resolve the git root, `origin`, current feature branch/worktree, default branch, and main worktree. Require `origin` to identify `enmotech/mopheus` through an accepted HTTPS or SSH URL before any Git or GitHub write; use it only as an identity and transport check, never to select the GitHub repository.
 2. Read repository instructions and identify the required full verification command.
 3. Resolve exactly one existing GitHub issue from explicit context, branch/PR data, or the Mopheus ticket's structured links. This post-implementation workflow does not create a new issue; stop if none can be identified uniquely.
 4. Resolve the Mopheus workspace before lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. Stop if candidates are ambiguous.
-5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --profile default --workspace-id <id> repo links --repo <origin-url> --type git_issue --number <n>`.
+5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --profile default --workspace-id <id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n>`.
 6. If the issue exists but no ticket is linked, read and invoke [github-issue-to-mopheus-dev-ticket](../github-issue-to-mopheus-dev-ticket/SKILL.md) in its existing-Issue mode. Reuse the created ticket and continue.
 7. Once resolved, pass the ticket's workspace ID explicitly to every subsequent `mopheus` command.
 
-Stop on multiple candidate issues/tickets, a non-GitHub origin, a missing required workspace, or mismatched repository identity.
+Stop on multiple candidate issues/tickets, an `origin` that does not identify `enmotech/mopheus`, a missing required workspace, or mismatched repository identity.
 
 ## 2. Verify and commit
 
@@ -67,7 +68,7 @@ Stop on multiple candidate issues/tickets, a non-GitHub origin, a missing requir
 1. Poll checks with bounded waits until terminal. Continue when no checks are configured. Stop on failed/cancelled checks, conflicts, missing required approval, draft state, or branch-protection denial.
 2. Require the PR to be open and mergeable. Validate or fix its Conventional Commit title.
 3. Generate a concise squash body with major changes and relevant minor improvements.
-4. Prefer `gh pr merge --squash --delete-branch --subject <title> --body-file <file>` when supported.
+4. Prefer `gh pr merge --repo enmotech/mopheus --squash --delete-branch --subject <title> --body-file <file>` when supported.
 5. If the merge command reports a local branch deletion error, query the PR before retrying; the remote merge may already have succeeded.
 6. Verify `MERGED`, capture the merge SHA, and read the remote commit through the GitHub API to confirm its exact message.
 
@@ -85,8 +86,8 @@ Stop on multiple candidate issues/tickets, a non-GitHub origin, a missing requir
 Perform this only after the merge is verified.
 
 1. Add one completion comment with clickable Markdown links to the GitHub issue, PR, and merge commit; summarize delivered behavior and fresh verification evidence.
-2. Refresh and formally link the issue with `mopheus --profile default --workspace-id <workspace-id> repo issue sync` using its actual state.
-3. Refresh and formally link the PR with `mopheus --profile default --workspace-id <workspace-id> repo pr sync`, including actual title, author, refs, additions, deletions, changed files, closed state, and merged flag.
+2. Refresh and formally link the issue with `mopheus --profile default --workspace-id <workspace-id> repo issue sync --repo https://github.com/enmotech/mopheus.git` using its actual state.
+3. Refresh and formally link the PR with `mopheus --profile default --workspace-id <workspace-id> repo pr sync --repo https://github.com/enmotech/mopheus.git`, including actual title, author, refs, additions, deletions, changed files, closed state, and merged flag.
 4. Read `mopheus --profile default --workspace-id <workspace-id> repo links --ticket <id>` and require both the `git_issue` and merged `git_pull_request` entries.
 5. Set the ticket to `done` only after the comment and both links succeed.
 6. Re-read the ticket and links; confirm Done, correct URLs, closed issue state, and merged PR state.

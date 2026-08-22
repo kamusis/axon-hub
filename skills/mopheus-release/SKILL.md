@@ -1,6 +1,6 @@
 ---
 name: mopheus-release
-description: Release Mopheus from its long-lived release branch by validating a user-supplied SemVer tag, compiling complete release notes, updating the source version and bilingual documentation changelog in one verified preparation commit, tagging that commit, monitoring the release workflow, and replacing workflow-generated GitHub notes. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release. The GitHub repository or local folder may still be named moclaw; product naming must remain Mopheus.
+description: Release Mopheus from the fixed enmotech/mopheus GitHub repository and its long-lived release branch by validating a user-supplied SemVer tag, compiling complete release notes, updating the source version and bilingual documentation changelog in one verified preparation commit, tagging that commit, monitoring the release workflow, and replacing workflow-generated GitHub notes. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release.
 compatibility: Requires git, Python 3, GitHub CLI access, and a repository with origin/main, origin/release, and .github/workflows/release.yml.
 ---
 
@@ -31,9 +31,9 @@ Do not run `gh release create`; the workflow creates the GitHub Release.
 
 ## Product and repository naming
 
-Use **Mopheus** in release titles and prose. Do not infer the product name from the repository directory or GitHub repository name. The repository may still be named `moclaw`, and a future repository rename must not change this workflow.
+Use **Mopheus** in release titles and prose. Do not infer the product name from the local repository directory.
 
-Derive the GitHub owner/repository from the current checkout rather than hard-coding it.
+The GitHub repository is fixed to `enmotech/mopheus`; its canonical repository URL is `https://github.com/enmotech/mopheus.git`. Pass `--repo enmotech/mopheus` to every GitHub CLI command. Require `origin` to identify that repository through an accepted HTTPS or SSH URL before any write. The checkout and `origin` are validation and Git transport inputs only; never derive or override the GitHub operation target from them.
 
 ## Required input
 
@@ -150,7 +150,7 @@ The documentation changelog is part of the release artifact, not a follow-up tas
 
 - Confirm the worktree is clean.
 - Confirm `origin`, `main`, `release`, and `.github/workflows/release.yml` exist.
-- Determine the repository identity from the checkout.
+- Require the checkout and `origin` to identify `enmotech/mopheus`.
 - Verify the GitHub CLI identity has access to the repository without printing credentials.
 - Validate the requested SemVer syntax, confirm the tag does not exist locally or remotely, and confirm it is newer than the latest reachable stable/prerelease boundary using the same rules as the validator.
 - Record the current source version; it is expected to differ before a new release and will be updated by this workflow.
@@ -195,7 +195,7 @@ After the verified preparation commit has been pushed to `main` and fast-forward
 
 Find the run from `.github/workflows/release.yml` whose event is `push`, tag ref is `<version>`, and `headSha` equals `releaseSha`. Do not select a run by recency alone.
 
-Wait for the matching run with `gh run watch <run-id> --exit-status`. If the run fails, stop without creating or editing a GitHub Release. Report the run URL and keep the notes file for recovery.
+Wait for the matching run with `gh run watch <run-id> --repo enmotech/mopheus --exit-status`. If the run fails, stop without creating or editing a GitHub Release. Report the run URL and keep the notes file for recovery.
 
 If multiple attempts exist for the same tag and SHA, wait until no matching run is queued or in progress, then require the latest attempt to have conclusion `success`.
 
@@ -205,8 +205,8 @@ Provide concise progress updates while a long workflow is running.
 
 The workflow owns initial GitHub Release creation, so wait for the workflow to succeed before touching release notes. Then:
 
-1. Poll `gh release view <version>` with a bounded timeout until the release exists.
-2. Run `gh release edit <version> --title <version> --notes-file <notes-file> --verify-tag`.
+1. Poll `gh release view <version> --repo enmotech/mopheus` with a bounded timeout until the release exists.
+2. Run `gh release edit <version> --repo enmotech/mopheus --title <version> --notes-file <notes-file> --verify-tag`.
 3. Read the release body back from GitHub.
 4. Require the exact `<!-- mopheus-release-notes:<version> -->` marker and the expected section content.
 5. Check once more that no matching workflow attempt is still active.

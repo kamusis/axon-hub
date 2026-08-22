@@ -1,0 +1,16 @@
+{
+  "skill_name": "mopheus-release",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Release Mopheus v3.0.0 from a checkout whose origin points to another GitHub repository.",
+      "expected_output": "The skill treats enmotech/mopheus as the fixed release repository, rejects the mismatched checkout and origin during preflight, and performs no branch push, tag creation, workflow operation, or GitHub Release edit.",
+      "files": [],
+      "expectations": [
+        "Treats enmotech/mopheus as the only valid GitHub repository.",
+        "Stops before every release write when repository identity mismatches.",
+        "Does not derive a replacement repository from the current checkout or origin."
+      ]
+    }
+  ]
+}
