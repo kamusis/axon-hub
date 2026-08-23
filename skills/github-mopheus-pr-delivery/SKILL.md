@@ -1,11 +1,11 @@
 ---
 name: github-mopheus-pr-delivery
-description: "Complete delivery of an already-created and reviewed enmotech/mopheus pull request: validate the existing PR and linked issue/ticket, wait for GitHub checks, squash merge, verify the merge, safely clean the feature worktree and branches, synchronize Mopheus repository links, add completion evidence, and close the ticket. Use when the Dev Team leader explicitly hands an approved PR to the Mopheus Release Agent for merge and closure. Always target the fixed enmotech/mopheus GitHub repository. This skill starts at PR delivery and never implements code, commits, pushes feature changes, creates a PR, performs review, or publishes a version."
+description: "Complete delivery of an already-created and reviewed enmotech/mopheus pull request: validate the existing PR and any available linked issue/ticket, wait for GitHub checks, squash merge, verify the merge, safely clean the feature worktree and branches, and synchronize available Mopheus repository links. If no corresponding GitHub issue or Mopheus ticket can be found, skip that integration and continue delivery. Use when the Dev Team leader explicitly hands an approved PR to the Mopheus Release Agent for merge and closure. Always target the fixed enmotech/mopheus GitHub repository. This skill starts at PR delivery and never implements code, commits, pushes feature changes, creates a PR, performs review, or publishes a version."
 ---
 
 # GitHub Mopheus PR Delivery
 
-Deliver an existing reviewed PR from merge readiness through verified Mopheus ticket closure.
+Deliver an existing reviewed PR from merge readiness through verified Mopheus ticket closure when the corresponding issue and ticket exist.
 
 Explicit invocation authorizes the writes in this workflow: squash merge, remote feature-branch deletion, verified local worktree and branch cleanup, main fast-forward, Mopheus ticket comments, repository-link synchronization, and ticket completion. It does not authorize implementation, commit creation, feature-branch pushes, PR creation or editing, review, test-environment setup, deployment, or version release.
 
@@ -21,26 +21,28 @@ Explicit invocation authorizes the writes in this workflow: squash merge, remote
 
 ## 1. Resolve the delivery context
 
-Resolve and verify exactly one of each:
+Resolve and verify the PR, and resolve the associated Issue/Mopheus records when they are available:
 
 - the fixed `enmotech/mopheus` GitHub repository and its default branch;
 - existing pull request, its base/head branches, current head SHA, state, draft status, author, title, and URL;
-- existing GitHub issue associated through the PR body, branch context, or structured Mopheus links;
-- Mopheus workspace and ticket;
+- existing GitHub issue associated through the PR body, branch context, or structured Mopheus links, when present;
+- Mopheus workspace and ticket, when present;
 - feature worktree and main worktree when local cleanup is possible.
 
 Prefer explicit task context, then PR metadata and structured Mopheus repository links. Require every supplied PR URL, issue URL, structured link, and local `origin` to identify `enmotech/mopheus`; stop on a mismatch. Pass the resolved workspace ID to every `mopheus` command and use `https://github.com/enmotech/mopheus.git` for repository-link operations.
 
+Treat the PR, repository identity, and delegated head as mandatory. Treat the GitHub issue, Mopheus workspace, ticket, and Issue/ticket link as optional integration records. Record `github_issue=SKIPPED` or `mopheus_ticket=SKIPPED` when the corresponding record is not found, and continue with PR delivery. Do not create missing issues or tickets.
+
 Stop when:
 
 - the PR does not exist, is closed without being merged, is draft, or targets an unexpected base branch;
-- repository, PR, issue, workspace, or ticket identity is missing or ambiguous;
-- the issue and ticket are not already linked;
+- repository or PR identity is missing or ambiguous;
+- issue or ticket candidates are ambiguous, supplied identities mismatch, or the repository identity does not match;
 - the PR head differs from the delegated head SHA when one was supplied;
 - the PR includes unexpected commits or files outside the delegated change;
 - local repository identity does not match the GitHub repository.
 
-Do not create missing issues, tickets, commits, branches, or PRs. Return the missing prerequisite to Team Leader.
+Do not create missing issues, tickets, commits, branches, or PRs. A missing Issue, workspace, ticket, or Issue/ticket link is not a blocker; report it as `SKIPPED` and continue. Return only genuine delivery blockers to Team Leader.
 
 ## 2. Validate merge readiness
 
@@ -95,9 +97,9 @@ If no local worktree can be resolved, report cleanup as not applicable. If it is
 
 Verify the expected local/remote feature refs are absent and the main worktree is clean and synchronized when cleanup was performed.
 
-## 5. Synchronize and close the Mopheus ticket
+## 5. Synchronize and close the Mopheus ticket when both records exist
 
-Perform this stage only after the remote merge is verified.
+Perform this stage only after the remote merge is verified and both `github_issue` and `mopheus_ticket` were resolved. If either is `SKIPPED`, skip this entire stage and continue to the final report.
 
 1. Add one completion comment containing clickable links to the GitHub issue, PR, and merge commit; include the merged head SHA, check evidence, delivered behavior, and cleanup result.
 2. Refresh the issue through `mopheus repo issue sync --repo https://github.com/enmotech/mopheus.git` using its actual GitHub state.
@@ -106,7 +108,7 @@ Perform this stage only after the remote merge is verified.
 5. Set the ticket to `done` only after the completion comment and both structured links succeed.
 6. Re-read the ticket and links. Confirm the ticket is Done, the URLs are correct, the issue state is current, and the PR is recorded as merged.
 
-Do not close the ticket when the PR is unmerged, link synchronization fails, or the ticket identity is ambiguous.
+Do not close the ticket when the PR is unmerged, link synchronization fails, or the ticket identity is ambiguous. Missing Issue or ticket records are handled as `SKIPPED`, not as closure blockers.
 
 ## Failure and final report
 
@@ -116,8 +118,7 @@ On success report only verified identifiers and evidence:
 
 - repository and PR URL;
 - merged PR head SHA and merge commit SHA;
-- GitHub issue URL;
-- Mopheus workspace and ticket;
 - check result;
-- structured-link state;
 - main synchronization and cleanup result.
+- GitHub issue URL, Mopheus workspace/ticket, and structured-link state when resolved;
+- `SKIPPED` reason for each missing Issue or ticket integration.

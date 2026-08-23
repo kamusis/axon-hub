@@ -1,11 +1,11 @@
 ---
 name: github-mopheus-dev-delivery
-description: "Deliver a completed enmotech/mopheus code change end to end in one authorized run: verify, commit, push, create or reuse a GitHub PR, wait for checks, squash merge, clean the feature worktree, update the Mopheus ticket, and formally link its GitHub issue and PR. Use after implementation is finished when the user wants the entire delivery and ticket-closure workflow without repeated approvals. Always target the fixed enmotech/mopheus GitHub repository."
+description: "Deliver a completed enmotech/mopheus code change end to end in one authorized run: verify, commit, push, create or reuse a GitHub PR, wait for checks, squash merge, clean the feature worktree, and update the available Mopheus ticket and GitHub issue/PR links when they exist. If no corresponding GitHub issue or Mopheus ticket can be found, skip that integration and continue delivery. Use after implementation is finished when the user wants the entire delivery workflow without repeated approvals. Always target the fixed enmotech/mopheus GitHub repository."
 ---
 
 # GitHub Mopheus Dev Delivery
 
-Treat explicit invocation as authorization for every write in this workflow: commit, push, PR creation, squash merge, remote branch deletion, verified worktree cleanup, ticket creation when required, ticket comments, repo links, and ticket completion. Do not ask for step-by-step approval. Stop only on a safety blocker.
+Treat explicit invocation as authorization for every write in this workflow: commit, push, PR creation, squash merge, remote branch deletion, verified worktree cleanup, ticket comments, repo links, and ticket completion when the corresponding records exist. Do not create a missing GitHub issue or Mopheus ticket for this workflow. If either record cannot be found, mark the integration as `SKIPPED` and continue delivery without its writes. Do not ask for step-by-step approval. Stop only on a safety blocker.
 
 ## Invariants
 
@@ -40,13 +40,13 @@ Delivery updates durable records in the formal Mopheus deployment, so it must ne
 
 1. Resolve the git root, `origin`, current feature branch/worktree, default branch, and main worktree. Require `origin` to identify `enmotech/mopheus` through an accepted HTTPS or SSH URL before any Git or GitHub write; use it only as an identity and transport check, never to select the GitHub repository.
 2. Read repository instructions and identify the required full verification command.
-3. Resolve exactly one existing GitHub issue from explicit context, branch/PR data, or the Mopheus ticket's structured links. This post-implementation workflow does not create a new issue; stop if none can be identified uniquely.
-4. Resolve the Mopheus workspace before lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. Stop if candidates are ambiguous.
-5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --profile default --workspace-id <id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n>`.
-6. If the issue exists but no ticket is linked, read and invoke [github-issue-to-mopheus-dev-ticket](../github-issue-to-mopheus-dev-ticket/SKILL.md) in its existing-Issue mode. Reuse the created ticket and continue.
-7. Once resolved, pass the ticket's workspace ID explicitly to every subsequent `mopheus` command.
+3. Attempt to resolve exactly one existing GitHub issue from explicit context, branch/PR data, or the Mopheus ticket's structured links. This workflow does not create a new issue. If none is found, record `github_issue=SKIPPED` and continue; stop only when multiple candidates are ambiguous.
+4. If Mopheus lookup is available, resolve the workspace before ticket lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. If no required workspace or ticket is found, record `mopheus_ticket=SKIPPED` and continue. Stop if candidates are ambiguous or formal CLI authentication/configuration is unsafe.
+5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --profile default --workspace-id <id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n>`. Do not create a ticket when this lookup returns no matching ticket.
+6. If the issue exists but no ticket is linked, record `mopheus_ticket=SKIPPED`; do not invoke a ticket-creation skill. If a ticket exists but no issue is found, record `github_issue=SKIPPED` and continue without issue-linking or issue-closing actions.
+7. Once a ticket is resolved, pass its workspace ID explicitly to every subsequent `mopheus` command. If either `github_issue` or `mopheus_ticket` is `SKIPPED`, omit all dependent lookup, sync, link, comment, and completion writes.
 
-Stop on multiple candidate issues/tickets, an `origin` that does not identify `enmotech/mopheus`, a missing required workspace, or mismatched repository identity.
+Stop on multiple candidate issues/tickets, an `origin` that does not identify `enmotech/mopheus`, unsafe formal CLI authentication/configuration, or mismatched repository identity. A missing workspace or ticket record is `SKIPPED`, not a blocker.
 
 ## 2. Verify and commit
 
@@ -59,7 +59,7 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 ## 3. Create or reuse the PR
 
 1. Look up an existing PR by head branch before creating one.
-2. If absent, create a ready-for-review PR against the default branch with a Conventional Commit title and an English body covering description, changes, test evidence, and `Closes #<issue>`.
+2. If absent, create a ready-for-review PR against the default branch with a Conventional Commit title and an English body covering description, changes, and test evidence. Add `Closes #<issue>` only when `github_issue` was resolved; otherwise omit issue-closing language.
 3. Verify PR number, URL, base/head branches, commit set, and merge-base diff. Use three-dot diff for the PR scope when the default branch advanced.
 4. Treat an existing matching PR as success; never create a duplicate.
 
@@ -81,9 +81,9 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 5. Delete only its local feature branch; use `-D` solely for a detector-confirmed squash merge. Prune remote tracking and stale worktree metadata.
 6. Verify the path, local branch, and remote branch are absent and `main` is clean and synchronized.
 
-## 6. Close the Mopheus ticket
+## 6. Close the Mopheus ticket when both records exist
 
-Perform this only after the merge is verified.
+Perform this only after the merge is verified and both `github_issue` and `mopheus_ticket` were resolved. If either is `SKIPPED`, skip this entire section and continue to the final report.
 
 1. Add one completion comment with clickable Markdown links to the GitHub issue, PR, and merge commit; summarize delivered behavior and fresh verification evidence.
 2. Refresh and formally link the issue with `mopheus --profile default --workspace-id <workspace-id> repo issue sync --repo https://github.com/enmotech/mopheus.git` using its actual state.
@@ -94,6 +94,6 @@ Perform this only after the merge is verified.
 
 ## Failure and final report
 
-On a blocker, leave completed external state intact and report the exact failed stage, evidence, and safe resume point. Do not mark the ticket Done.
+On a blocker, leave completed external state intact and report the exact failed stage, evidence, and safe resume point. Do not mark the ticket Done. A missing issue or ticket is not a blocker: report the corresponding integration as `SKIPPED` and continue.
 
-On success, report only verified identifiers and URLs: commit, PR, merge SHA, issue, ticket, link state, cleanup result, and verification command.
+On success, report only verified identifiers and URLs: commit, PR, merge SHA, cleanup result, and verification command. Include issue, ticket, and link state when resolved; otherwise report the exact `SKIPPED` reason for each missing record.
