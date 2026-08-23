@@ -17,8 +17,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-PREVIEW_EMAIL_DEFAULT = "pr484-web-admin@test.local"
-PREVIEW_PASSWORD_DEFAULT = "MopheusPR484!"
+PREVIEW_EMAIL_DEFAULT = "preview-admin@test.local"
+PREVIEW_PASSWORD_DEFAULT = "MopheusPreview123!"
 PREVIEW_WORKSPACE_SLUG_DEFAULT = "dev-space"
 PREVIEW_WORKSPACE_NAME_DEFAULT = "Dev Space"
 POSTGRES_CONTAINER_NAME = "mopheus-postgres-1"
@@ -272,10 +272,204 @@ def is_daemon_running(worktree_path: Path, profile: str) -> bool:
         return False
 
 
+def sync_code_from_source(source_path: Path, target_path: Path) -> dict[str, bool]:
+    """Sync code changes from source worktree to target preview worktree and detect what changed."""
+    check_git_worktree(source_path)
+    check_git_worktree(target_path)
+
+    # Record target HEAD before sync to compute diff
+    target_old_head = ""
+    try:
+        target_old_head = subprocess.run(
+            ["git", "-C", str(target_path), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True
+        ).stdout.strip()
+    except Exception:
+        pass
+
+    # Get source HEAD
+    src_head = subprocess.run(
+        ["git", "-C", str(source_path), "rev-parse", "HEAD"],
+        capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    print(f"==> Syncing code from {source_path} (commit {src_head[:8]}) to {target_path}...")
+
+    # Fast reset target to source commit (preserves untracked/ignored files like .env.worktree)
+    subprocess.run(["git", "-C", str(target_path), "reset", "--hard", src_head], capture_output=True, check=True)
+
+    # Check for uncommitted working-tree modifications in source
+    status_res = subprocess.run(
+        ["git", "-C", str(source_path), "status", "--porcelain"],
+        capture_output=True, text=True, check=True
+    )
+    if status_res.stdout.strip():
+        print("==> Applying uncommitted working-tree changes from source...")
+        diff_res = subprocess.run(
+            ["git", "-C", str(source_path), "diff", "HEAD"],
+            capture_output=True, check=True
+        )
+        if diff_res.stdout:
+            subprocess.run(
+                ["git", "-C", str(target_path), "apply", "--whitespace=nowarn"],
+                input=diff_res.stdout,
+                capture_output=True,
+                check=False
+            )
+
+    # Detect modified paths
+    changed_files: list[str] = []
+    if target_old_head:
+        diff_res = subprocess.run(
+            ["git", "-C", str(target_path), "diff", "--name-only", target_old_head],
+            capture_output=True, text=True, check=False
+        )
+        changed_files = diff_res.stdout.splitlines()
+
+    go_changed = any(f.startswith("server/") and f.endswith(".go") for f in changed_files)
+    pkg_changed = any("package.json" in f or "pnpm-lock.yaml" in f for f in changed_files)
+    migrations_changed = any("migrations/" in f for f in changed_files)
+
+    return {
+        "go_changed": go_changed,
+        "pkg_changed": pkg_changed,
+        "migrations_changed": migrations_changed,
+    }
+
+
+IGNORED_WATCH_DIRS = {
+    ".git", "node_modules", ".next", ".turbo", "dist", "bin",
+    "__pycache__", ".vscode", ".idea", "coverage", ".worktrees"
+}
+IGNORED_WATCH_EXTS = {
+    ".log", ".tmp", ".pid", ".swp", ".swo", ".pyc"
+}
+
+
+def get_source_mtimes(root_dir: Path) -> dict[str, float]:
+    """Collect source file relative paths and their mtimes, skipping ignored directories."""
+    mtimes: dict[str, float] = {}
+    for top in ("apps", "server", "packages"):
+        top_path = root_dir / top
+        if not top_path.exists():
+            continue
+        for parent, dirs, files in os.walk(top_path):
+            dirs[:] = [d for d in dirs if d not in IGNORED_WATCH_DIRS and not d.startswith(".")]
+            for f in files:
+                ext = os.path.splitext(f)[1].lower()
+                if ext in IGNORED_WATCH_EXTS or f.startswith("."):
+                    continue
+                full_path = Path(parent) / f
+                try:
+                    rel = str(full_path.relative_to(root_dir))
+                    mtimes[rel] = full_path.stat().st_mtime
+                except OSError:
+                    pass
+    return mtimes
+
+
+def sync_single_file(source_path: Path, target_path: Path, rel_file: str) -> None:
+    """Copy or remove a single file from source worktree to target worktree."""
+    src_file = source_path / rel_file
+    dst_file = target_path / rel_file
+    if src_file.exists():
+        dst_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_file, dst_file)
+    elif dst_file.exists():
+        dst_file.unlink(missing_ok=True)
+
+
+def watch_and_sync(
+    source_path: Path,
+    target_path: Path,
+    auth_ready_url: str,
+    backend_pid: Path,
+    backend_log: Path,
+    script_dir: Path,
+    run_env: dict[str, str],
+) -> None:
+    """Continuously watch for file changes in source worktree and sync in real time."""
+    print(f"\n==> Watching for file changes in {source_path}...")
+    print("    (Press Ctrl+C to stop watcher; preview services will remain running)")
+
+    last_mtimes = get_source_mtimes(source_path)
+    start_detached = script_dir / "start_detached.py"
+
+    try:
+        while True:
+            time.sleep(0.5)
+            current_mtimes = get_source_mtimes(source_path)
+
+            # Detect added, modified, deleted files
+            changed: list[str] = []
+            for rel_file, mtime in current_mtimes.items():
+                if rel_file not in last_mtimes or mtime > last_mtimes[rel_file]:
+                    changed.append(rel_file)
+            for rel_file in last_mtimes:
+                if rel_file not in current_mtimes:
+                    changed.append(rel_file)
+
+            if not changed:
+                continue
+
+            # Small debounce sleep for batch editor saves
+            time.sleep(0.15)
+            current_mtimes = get_source_mtimes(source_path)
+            last_mtimes = current_mtimes
+
+            now_str = time.strftime("%H:%M:%S")
+            go_changed = False
+            migrations_changed = False
+
+            for rel_file in changed:
+                sync_single_file(source_path, target_path, rel_file)
+                if rel_file.startswith("server/") and rel_file.endswith(".go"):
+                    go_changed = True
+                if "migrations/" in rel_file:
+                    migrations_changed = True
+
+            print(f"[{now_str}] Synced {len(changed)} file(s): {', '.join(changed[:3])}{'...' if len(changed) > 3 else ''}")
+
+            if migrations_changed:
+                print(f"[{now_str}] Migrations changed, running db migrate...")
+                subprocess.run(["go", "run", "./cmd/migrate", "up"], cwd=str(target_path / "server"), env=run_env, check=False)
+
+            if go_changed:
+                print(f"[{now_str}] Go backend modified, reloading backend...")
+                if backend_pid.is_file():
+                    try:
+                        old_pid = int(backend_pid.read_text().strip())
+                        if sys.platform == "win32":
+                            subprocess.run(["powershell", "-NoProfile", "-Command", f"Stop-Process -Id {old_pid} -Force -ErrorAction SilentlyContinue"], capture_output=True, check=False)
+                        else:
+                            subprocess.run(["kill", "-9", str(old_pid)], capture_output=True, check=False)
+                    except Exception:
+                        pass
+                    time.sleep(0.3)
+
+                subprocess.run([
+                    sys.executable, str(start_detached),
+                    "--cwd", str(target_path / "server"),
+                    "--log", str(backend_log),
+                    "--pid-file", str(backend_pid),
+                    "go", "run", "./cmd/mopheusd"
+                ], check=True, env=run_env)
+
+                if wait_for_http(auth_ready_url, 30):
+                    print(f"[{now_str}] Backend reloaded and ready.")
+                else:
+                    print(f"[{now_str}] Warning: backend reload check timed out.")
+
+    except KeyboardInterrupt:
+        print("\n==> Watcher stopped. Preview services are still running.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Start a Mopheus integration preview")
     parser.add_argument("--allow-existing-previews", action="store_true", help="Allow starting while other previews are active")
     parser.add_argument("--reuse-db-from", help="Absolute linked worktree path to reuse database from")
+    parser.add_argument("--sync-from", help="Absolute linked worktree path to sync code changes from")
+    parser.add_argument("--watch", action="store_true", help="Continuously watch source worktree and sync modifications in real time")
     parser.add_argument("target_worktree", help="Absolute path to the target linked Git worktree")
     args = parser.parse_args()
 
@@ -324,7 +518,16 @@ def main() -> int:
             "POSTGRES_DB": source_env["POSTGRES_DB"],
             "DATABASE_URL": source_env["DATABASE_URL"],
         })
-        print(f"==> Reusing database {source_env['POSTGRES_DB']} from {source_path}")
+    sync_stats: dict[str, bool] = {}
+    if args.sync_from:
+        source_path = Path(args.sync_from).resolve()
+        if source_path == target_path:
+            fail("sync source and target worktrees must differ")
+        sync_stats = sync_code_from_source(source_path, target_path)
+        if sync_stats.get("pkg_changed"):
+            print("==> Package manifests changed, updating node dependencies...")
+            pnpm_bin = shutil.which("pnpm") or "pnpm"
+            subprocess.run([pnpm_bin, "install"], cwd=str(target_path), check=False)
 
     env_vars = read_env_file(env_file)
     db_name = env_vars.get("POSTGRES_DB")
@@ -394,34 +597,56 @@ def main() -> int:
     services_state = "reused"
     log_display = "existing processes"
 
-    if not is_http_ready(auth_ready_url) or not is_http_ready(login_url):
-        # Clear next cache
-        next_cache = target_path / "apps" / "web" / ".next"
-        if next_cache.exists():
-            shutil.rmtree(next_cache, ignore_errors=True)
+    backend_ready = is_http_ready(auth_ready_url)
+    frontend_ready = is_http_ready(login_url)
 
-        print("==> Starting backend and frontend...")
+    # If backend is already running and Go code changed during sync, reload backend
+    if backend_ready and args.sync_from and sync_stats.get("go_changed"):
+        print("==> Go backend code modified during sync, restarting backend process...")
+        if backend_pid.is_file():
+            try:
+                old_pid = int(backend_pid.read_text().strip())
+                if sys.platform == "win32":
+                    subprocess.run(["powershell", "-NoProfile", "-Command", f"Stop-Process -Id {old_pid} -Force -ErrorAction SilentlyContinue"], capture_output=True, check=False)
+                else:
+                    subprocess.run(["kill", "-9", str(old_pid)], capture_output=True, check=False)
+            except Exception:
+                pass
+            time.sleep(0.5)
+        backend_ready = False
+
+    if not backend_ready or not frontend_ready:
         start_detached = script_dir / "start_detached.py"
 
-        # Start backend
-        subprocess.run([
-            sys.executable, str(start_detached),
-            "--cwd", str(target_path / "server"),
-            "--log", str(backend_log),
-            "--pid-file", str(backend_pid),
-            "go", "run", "./cmd/mopheusd"
-        ], check=True, env=run_env)
+        if not backend_ready:
+            print("==> Starting backend...")
+            subprocess.run([
+                sys.executable, str(start_detached),
+                "--cwd", str(target_path / "server"),
+                "--log", str(backend_log),
+                "--pid-file", str(backend_pid),
+                "go", "run", "./cmd/mopheusd"
+            ], check=True, env=run_env)
 
-        # Start frontend
-        subprocess.run([
-            sys.executable, str(start_detached),
-            "--cwd", str(target_path),
-            "--log", str(frontend_log),
-            "--pid-file", str(frontend_pid),
-            "pnpm", "--filter=@mopheus/web", "exec", "next", "dev", "--turbo", "-p", str(fe_port)
-        ], check=True, env=run_env)
+        if not frontend_ready:
+            # Clear next cache only on frontend cold start
+            next_cache = target_path / "apps" / "web" / ".next"
+            if next_cache.exists():
+                shutil.rmtree(next_cache, ignore_errors=True)
 
-        services_state = "started"
+            print("==> Starting frontend...")
+            pnpm_cmd = ["pnpm", "--filter=@mopheus/web", "exec", "next", "dev", "--turbo", "-p", str(fe_port)]
+            if sys.platform == "win32":
+                pnpm_cmd[0] = shutil.which("pnpm") or "pnpm"
+            subprocess.run([
+                sys.executable, str(start_detached),
+                "--cwd", str(target_path),
+                "--log", str(frontend_log),
+                "--pid-file", str(frontend_pid),
+                *pnpm_cmd,
+            ], check=True, env=run_env)
+
+        services_state = "started" if (not backend_ready and not frontend_ready) else "reloaded"
         log_display = f"backend: {backend_log}; frontend: {frontend_log}"
 
         timeout = int(os.environ.get("MOPHEUS_PREVIEW_START_TIMEOUT", "180"))
@@ -503,37 +728,31 @@ def main() -> int:
     if not is_daemon_running(target_path, profile):
         print("==> Starting daemon and registering runtimes...")
         start_detached = script_dir / "start_detached.py"
-        if sys.platform != "win32":
+        if sys.platform != "win32" and shutil.which("make"):
             daemon_cwd = target_path
-            if shutil.which("make"):
-                daemon_command = [
-                    "make", "daemon-worktree",
-                    f"DEFAULT_EMAIL={preview_email}",
-                    f"DEFAULT_PASSWORD={preview_password}",
-                ]
-            else:
-                login_res = subprocess.run(
-                    ["go", "run", "./cmd/mopheus", "--profile", profile, "login",
-                     "--email", preview_email, "--password", preview_password],
-                    cwd=str(target_path / "server"),
-                    env=run_env,
-                    input="y\n",
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if login_res.returncode != 0:
-                    fail(f"daemon profile login failed:\n{login_res.stderr}\n{login_res.stdout}")
-                daemon_cwd = target_path / "server"
-                daemon_command = [
-                    "go", "run", "./cmd/mopheus", "--profile", profile,
-                    "daemon", "start", "--foreground", "--allow-root",
-                ]
-        else:
             daemon_command = [
-                "go", "run", "./cmd/mopheus", "--profile", profile, "daemon", "start",
+                "make", "daemon-worktree",
+                f"DEFAULT_EMAIL={preview_email}",
+                f"DEFAULT_PASSWORD={preview_password}",
             ]
+        else:
+            login_res = subprocess.run(
+                ["go", "run", "./cmd/mopheus", "--profile", profile, "login",
+                 "--email", preview_email, "--password", preview_password],
+                cwd=str(target_path / "server"),
+                env=run_env,
+                input="y\n",
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if login_res.returncode != 0:
+                fail(f"daemon profile login failed:\n{login_res.stderr}\n{login_res.stdout}")
             daemon_cwd = target_path / "server"
+            daemon_command = [
+                "go", "run", "./cmd/mopheus", "--profile", profile,
+                "daemon", "start", "--foreground",
+            ]
         subprocess.run([
             sys.executable, str(start_detached),
             "--cwd", str(daemon_cwd),
@@ -566,6 +785,13 @@ def main() -> int:
     print(f"Service logs: {log_display}")
     print(f"Daemon log: {daemon_log_display}")
     print("=" * 50)
+
+    if args.watch:
+        if not args.sync_from:
+            fail("--watch requires --sync-from <dev-worktree>")
+        source_path = Path(args.sync_from).resolve()
+        watch_and_sync(source_path, target_path, auth_ready_url, backend_pid, backend_log, script_dir, run_env)
+
     return 0
 
 

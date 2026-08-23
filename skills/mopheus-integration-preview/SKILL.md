@@ -8,18 +8,39 @@ compatibility: Requires Windows (PowerShell/CMD), macOS, or Linux with git, Dock
 
 Discover and start a disposable local preview from an existing Mopheus linked worktree. Preserve databases and test data between runs so future integration checks can reuse the same state without silently creating competing application processes.
 
-## 0. Check Host Operating System First
+## 0. Check Host Operating System and Execution Mode First
 
-At the very beginning of execution, check whether the host system is **Windows** or **Linux/macOS**:
+At the very beginning of execution, determine the host environment and required execution mode:
 
-- **Windows**: Use native `python` (or `py`) to run Python scripts directly in PowerShell/CMD. **Do not use WSL or `/mnt/c` paths** when the repository is checked out on Windows.
+- **Windows (Native)**: Use native `python` (or `py`) in PowerShell/CMD when running lightweight web/frontend/backend previews directly on Windows where full POSIX Daemon/ACP agent runtime is not required. **Never use `/mnt/c` paths inside WSL** for preview execution due to severe cross-filesystem I/O performance degradation.
+- **Windows (Full-Stack in WSL)**: When the user requests running the preview in WSL (or when full Agent daemon, ACP providers like Claude/Codex/Kimi/Mimo, and Linux process/bash tool runtimes are needed), run the entire stack (Backend + Frontend + Daemon) **inside WSL using a native Linux repository path** (e.g., `/home/<user>/CascadeProjects/mopheus/...`). Follow [Running Full-Stack Preview in WSL on Windows](#running-full-stack-preview-in-wsl-on-windows-wsl-mode).
 - **Linux / macOS**: Use `python3` (or `bash`).
 
-## Required input
+## Worktree and Harness Resolution (Zero-Config Default)
 
-Require one existing Mopheus worktree path. Resolve it to an absolute physical path before running the bundled script.
+When the skill is invoked directly (e.g., typing `/mopheus-integration-preview` or saying "起预览环境") without explicit worktree arguments:
 
-If the user gives no path, ask for it. Do not infer the repository root or silently create a worktree.
+1. **Identify Current Development Worktree (`<dev-worktree>`)**:
+   - If the conversation/agent is in a feature worktree (e.g., `.worktrees/issue-xxx`), treat it as `<dev-worktree>`.
+   - If in the main repository, use the active worktree or ask for confirmation if ambiguous.
+2. **Locate Dedicated Preview Harness (`<preview-test>`)**:
+   - Target the dedicated preview worktree at `.worktrees/preview-test` within the repository (e.g., `/home/<user>/CascadeProjects/mopheus/.worktrees/preview-test` in WSL/Linux, or `.worktrees/preview-test` on Windows).
+   - If `.worktrees/preview-test` does not exist yet, create it automatically from `main` (`git worktree add .worktrees/preview-test main -B preview-test`).
+3. **Default Action: Sync & Watch Target Harness**:
+   - Automatically execute with `--sync-from` and `--watch`:
+     - **Windows (WSL Mode)**:
+       ```bash
+       wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py --sync-from <wsl-dev-worktree> <wsl-preview-test-worktree> --watch"
+       ```
+     - **Linux / macOS**:
+       ```bash
+       python3 <skill-directory>/scripts/start_preview.py --sync-from <dev-worktree> <preview-test-worktree> --watch"
+       ```
+     - **Windows (Native)**:
+       ```powershell
+       python <skill-directory>/scripts/start_preview.py --sync-from <dev-worktree> <preview-test-worktree> --watch
+       ```
+   - This provides a seamless, zero-config developer experience: code is instantly synced, live hot reload is active, and the fixed access URL is displayed.
 
 ## Discover existing previews first
 
@@ -80,6 +101,46 @@ After the user explicitly approves stopping an existing preview and reusing its 
      ```
 
 Database reuse copies only `POSTGRES_DB` and `DATABASE_URL` into the target's ignored `.env.worktree`. The target retains its own frontend and backend ports. The source database and all test data remain intact. The command refuses reuse while either source or target application services are still listening.
+
+### Code synchronization to a dedicated preview worktree (`--sync-from`, `--watch`)
+
+To support a persistent preview harness (e.g., keeping a persistent `preview-test` worktree running while actively editing code in a separate development worktree):
+
+- **One-shot sync**:
+  - **Windows (Native)**:
+    ```powershell
+    python <skill-directory>/scripts/start_preview.py --sync-from <absolute-dev-worktree-path> <absolute-target-preview-worktree-path>
+    ```
+  - **Linux / macOS**:
+    ```bash
+    python3 <skill-directory>/scripts/start_preview.py --sync-from <absolute-dev-worktree-path> <absolute-target-preview-worktree-path>
+    ```
+  - **Windows (WSL Mode)**:
+    ```bash
+    wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py --sync-from <wsl-dev-worktree-path> <wsl-target-preview-worktree-path>"
+    ```
+
+- **Continuous watch & auto-sync mode (`--watch`)**:
+  - **Windows (Native)**:
+    ```powershell
+    python <skill-directory>/scripts/start_preview.py --sync-from <absolute-dev-worktree-path> <absolute-target-preview-worktree-path> --watch
+    ```
+  - **Linux / macOS**:
+    ```bash
+    python3 <skill-directory>/scripts/start_preview.py --sync-from <absolute-dev-worktree-path> <absolute-target-preview-worktree-path> --watch
+    ```
+  - **Windows (WSL Mode)**:
+    ```bash
+    wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py --sync-from <wsl-dev-worktree-path> <wsl-target-preview-worktree-path> --watch"
+    ```
+
+`--sync-from` (and `--watch`) automatically:
+1. Fast-syncs tracked commits and uncommitted working-tree modifications from the development worktree into the target preview worktree without modifying `.env.worktree`, database credentials, or active ports.
+2. Runs `pnpm install` if package dependencies or locks changed.
+3. Runs database migrations (`go run ./cmd/migrate up`) if schema migrations changed.
+4. Leverages Next.js Turbopack for instant frontend hot reloading in the browser (~100ms) without restarting the frontend process.
+5. Gracefully restarts the backend process if Go backend code was modified, preserving the same ports, database, and registered daemon runtimes.
+6. When `--watch` is enabled, runs an active file watcher on the development worktree: saving files in the editor automatically syncs changes and hot-reloads the preview environment with zero manual terminal commands.
 
 The startup script owns the remaining workflow after discovery and confirmation:
 
@@ -187,6 +248,47 @@ Do not claim readiness merely because processes were spawned. HTTP readiness che
 - Test-account password mismatch: stop rather than resetting a persistent account silently.
 - Feature enablement mismatch: list the keys that remain disabled and stop.
 
+## Running Full-Stack Preview in WSL on Windows (WSL Mode)
+
+When on Windows and the user requests running the preview in WSL (or when full Agent daemon execution, ACP providers like Claude/Codex/Kimi/Mimo, and Linux bash tool runtimes are needed):
+
+### 1. File System Requirement: Native Linux Path Only
+- **CRITICAL**: Never launch preview processes in WSL using `/mnt/c/...` or Windows NTFS paths. Cross-OS 9P file system access causes severe I/O degradation on `node_modules`, Next.js build cache, and Go compilation.
+- Always use the native Linux clone/worktree under the WSL user home directory (e.g., `/home/<user>/CascadeProjects/mopheus/.worktrees/<worktree-name>`).
+
+### 2. Cleanup Lingering Processes First
+Before starting, ensure both Windows host and WSL have no conflicting preview listeners or orphan daemons:
+- Terminate any lingering Windows preview processes on the target ports:
+  ```powershell
+  Get-NetTCPConnection -LocalPort <frontend_port>, <backend_port> -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+  ```
+- Terminate lingering WSL background processes (`mopheusd`, `mopheus daemon`, `next dev`):
+  ```bash
+  wsl sh -c "pkill -9 -f mopheusd || true; pkill -9 -f 'mopheus.*daemon' || true; pkill -9 -f 'next.*dev' || true"
+  ```
+
+### 3. Worktree & Dependency Preparation in WSL
+In WSL:
+```bash
+wsl bash -i -c "cd /home/<user>/CascadeProjects/mopheus && git worktree add .worktrees/<name> <branch-or-commit> -B <name> || true"
+wsl bash -i -c "cd /home/<user>/CascadeProjects/mopheus/.worktrees/<name> && pnpm install"
+```
+
+### 4. Discover and Start Preview in WSL
+Execute the preview start script via WSL interactive shell using the native WSL path:
+```bash
+wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py /home/<user>/CascadeProjects/mopheus/.worktrees/<name>"
+```
+To reuse a database from an existing worktree in WSL:
+```bash
+wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py --reuse-db-from /home/<user>/CascadeProjects/mopheus/.worktrees/<source-name> /home/<user>/CascadeProjects/mopheus/.worktrees/<target-name>"
+```
+
+### 5. Access from Windows Host
+- WSL2 automatically forwards loopback ports to the Windows host.
+- The user can directly open the printed URLs (e.g., `http://localhost:<frontend_port>/login`, `http://localhost:<backend_port>`) in their Windows browser.
+- Backend, Frontend, Daemon, and WebSocket all run within the same WSL network stack, guaranteeing real-time WebSocket push notifications and seamless Agent task lifecycle updates.
+
 ## Stop application processes
 
 Only when the user asks to stop this preview:
@@ -196,5 +298,9 @@ Only when the user asks to stop this preview:
   make -C <absolute-worktree-path> daemon-stop-worktree
   make -C <absolute-worktree-path> stop-worktree
   ```
-- **Windows**:
+- **Windows (Native)**:
   Use PowerShell to stop the backend, frontend, and daemon processes recorded in the preview log directory (`%TEMP%\mopheus-preview-<hash>\*.pid`).
+- **Windows (WSL Mode)**:
+  ```bash
+  wsl sh -c "pkill -9 -f mopheusd || true; pkill -9 -f 'mopheus.*daemon' || true; pkill -9 -f 'next.*dev' || true"
+  ```

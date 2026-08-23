@@ -47,8 +47,12 @@ def main() -> None:
             resolved = shutil.which(command[0])
             if resolved:
                 command[0] = resolved
+                if resolved.lower().endswith((".cmd", ".bat")):
+                    command = ["cmd.exe", "/c"] + command
             elif os.path.exists(command[0]):
                 command[0] = str(Path(command[0]).resolve())
+                if command[0].lower().endswith((".cmd", ".bat")):
+                    command = ["cmd.exe", "/c"] + command
             else:
                 popen_kwargs["shell"] = True
     else:
