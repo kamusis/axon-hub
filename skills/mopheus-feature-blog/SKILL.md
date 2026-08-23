@@ -30,8 +30,8 @@ Best for: Griller reviewer agent, ticket comment deep-links, external platform i
    - Minimalist data modeling & role inheritance (e.g. single boolean flags, zero redundant fields).
    - Strict execution/prompt guardrails (thread scoping, language adaptation, hierarchical replies).
    - CLI-First & multi-surface real-time sync (CLI commands, Web UI, WebSocket live updates).
-5. **Human & Agent Collaboration (Dual-Track)**: How human engineers and agents interact together without friction.
-6. **Future Horizon & Call to Action**: Connect to broader roadmap and invite exploration of `enmotech/mopheus` on GitHub.
+- **Human & Agent Collaboration (Dual-Track)**: How human engineers and agents interact together without friction.
+- **Future Horizon & Call to Action**: Connect to broader roadmap and invite exploration of Mopheus official website (https://www.mopheus.ai). Never link to private GitHub repositories.
 
 ### Archetype B: Deep Architecture & Implementation Breakdown (底层架构与技术实现剖析)
 Best for: Three-tier Git virtualization, Daemon execution engine, Worktree isolation, Memory/pgvector recall, WebSocket multiplexing.
@@ -56,4 +56,12 @@ Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-A
 - **File Location**: Save articles as Markdown under `docs/blog/<slug>.md`.
 - **Language**: Default to natural, high-signal Chinese for prose when requested in Chinese, while keeping all code, CLI commands, identifiers, configuration keys, and error names in verbatim English.
 - **Visuals**: Use clear ASCII flowcharts and data flow diagrams to make complex mental models instantly graspable.
+- **External Links & Call to Action (CTA)**: End every article with a standard blockquote CTA:
+  ```markdown
+  ---
+
+  > **<针对文章主题的引导问句，如：想让严苛专业的 Griller 智能体为你的团队方案把关吗？>**  
+  > 立即上手探索 [Mopheus (mopheus.ai)](https://www.mopheus.ai)，<针对文章主题的价值行动句，如：为你的工作空间配置专属的架构与质量审查官！>
+  ```
+  第一句引导问句与第二句结尾行动句根据文章内容动态变化，中间“`立即上手探索 [Mopheus (mopheus.ai)](https://www.mopheus.ai)，`”固定不变。**NEVER link to GitHub (enmotech/mopheus is a private repository).**
 - **Tone**: Professional, confident, technically sharp, empathetic, and inspiring.

@@ -1,30 +1,32 @@
 ---
 name: mopheus-full-integration-regression
-description: Run, resume, or validate a complete Mopheus integration regression against a runtime-provided repository revision. Use this for the Weekly full integration regression, requests to execute the entire Mopheus integration suite, or audits of whether a full regression report covers every current repository scenario. Read the repository guides as the sole test procedure, execute all required automation, reconcile every Markdown scenario, preserve revision-bound evidence, and enforce cleanup and report completeness. Do not use this for reusable previews, a single scenario, unit tests, code coverage, or ordinary development environment startup.
-compatibility: Requires a runtime-provided Mopheus Git checkout, Python 3, Bash, Docker, Go, Node.js, pnpm, Playwright dependencies, and any external capability explicitly required by the repository integration guides.
+description: Run, resume, or validate a complete Mopheus integration regression against a clean, revision-bound repository checkout from remote main. Use this for the Weekly full integration regression, requests to execute the entire Mopheus integration suite, or audits of whether a full regression report covers every current repository scenario. Read the repository guides as the sole test procedure, execute all required automation, reconcile every Markdown scenario, preserve revision-bound evidence, and enforce cleanup and report completeness. Do not use this for reusable previews, a single scenario, unit tests, code coverage, or ordinary development environment startup.
+compatibility: Requires a clean Mopheus Git checkout from remote main, Python 3, Bash, Docker, Go, Node.js, pnpm, Playwright dependencies, and any external capability explicitly required by the repository integration guides.
 ---
 
 # Mopheus Full Integration Regression
 
 Coordinate a long-running, revision-bound regression without copying the test procedure out of the repository. The current checkout owns commands, scenarios, capability gates, evidence rules, and cleanup rules; this Skill supplies discovery and completion checks around that contract.
 
-## Inputs
+## Inputs & Repository Checkout
 
-Require the repository checkout supplied by the task runtime. Respect the assignment boundary supplied by the Job, Team, and Agent instructions.
-
-Do not create or switch worktrees. Do not substitute a different checkout, branch, backend, or database.
+1. Obtain a fresh, isolated repository checkout based on the latest remote `main` branch:
+   ```bash
+   mopheus repo checkout https://github.com/enmotech/mopheus --ref main --output json
+   ```
+   Or use the isolated task worktree provided by the runtime.
+2. **Never test unmanaged, dirty, or stale host development directories** (e.g., `/home/*/*`).
+3. Record the exact commit SHA of the isolated worktree as `TESTED_REVISION`. All assignments, commands, browser runs, evidence, and the final report must be bound to this revision.
 
 ## Establish the contract
 
 From this Skill directory, run:
 
 ```bash
-python3 scripts/regression_contract.py inspect <runtime-repository-path>
+python3 scripts/regression_contract.py inspect <isolated-repository-path>
 ```
 
 The command verifies that the checkout is clean, resolves the exact revision, and dynamically inventories the current numbered specifications and scenarios. Treat any failure as a blocker; a dirty checkout cannot be represented by a commit SHA alone.
-
-Record the returned revision as `TESTED_REVISION`. Keep all assignments, commands, browser runs, evidence, and the final report bound to it.
 
 Read these files completely from the tested checkout before executing anything:
 
@@ -54,7 +56,7 @@ Follow Team and Agent instructions for assignment and aggregation. This Skill do
 After scenario reconciliation and cleanup, run:
 
 ```bash
-python3 scripts/regression_contract.py verify-report <runtime-repository-path> <integration-report-path>
+python3 scripts/regression_contract.py verify-report <isolated-repository-path> <integration-report-path>
 ```
 
 The report is complete only when it contains exactly the scenarios discovered from the tested checkout, records the same revision, has no `NOT RUN` row, uses a valid execution source, and includes evidence for every outcome. `FAIL` and evidence-backed `SKIP` are complete outcomes; they must not be converted to `PASS`.
