@@ -14,6 +14,19 @@ Over time, server environments accumulate obsolete Docker images from daily cont
 
 ---
 
+## ⚠️ Absolute Safety First Principle (安全至上，保守第一)
+
+- **Safety Over Aggressiveness**: Safety is always the highest priority. If there is ANY doubt, ambiguity, missing evidence, unexpected error, or uncertainty about whether an item is safe to remove, **DO NOT delete it**. Keeping an obsolete item is completely harmless and can be handled later; deleting an active or unique resource causes irreversible data loss.
+- **Never Escalate Destructiveness**: Never use `--force`, `docker rmi -f`, `git worktree remove --force`, or `docker system prune -a --volumes`. If a normal deletion fails, keep the item, record the failure reason, and continue with other independent items.
+- **Protected Resources (Never Delete)**:
+  - Any Docker image in active use by running or stopped containers (`docker ps -a`), or base toolchain/infra images (`alpine`, `golang`, `nginx`, `minio`, `pgvector`, `swissql-core`, etc.).
+  - The main repository worktree and main/master branches.
+  - Worktrees with uncommitted, untracked, or unique changes.
+  - Remote Git branches (`git push --delete` is strictly forbidden).
+  - Persistent volume directories, database storage, user directories, or paths outside authorized temporary scopes.
+
+---
+
 ## 1. Docker Cleanup Policy
 
 ### A. Protected Resources (Never Delete)
@@ -71,7 +84,7 @@ Format detection findings in a structured Markdown summary:
    bash <skill-dir>/scripts/detect-docker-images.sh --keep 3 --apply
    ```
 2. **Clean Verified Git Worktrees**:
-   Execute worktree and branch removals according to the `cleaning-merged-worktrees` protocol.
+   Execute worktree and branch removals according to the `cleaning-merged-worktrees` protocol. Skip any item classified as `NEEDS_REVIEW` or dirty.
 3. **Prune Stale System Resources**:
    ```bash
    docker image prune -f
@@ -79,23 +92,10 @@ Format detection findings in a structured Markdown summary:
    git worktree prune
    ```
 
-### Step 4: Verify and Close Ticket
+### Step 4: Output Summary Report
 
-1. Post a complete summary comment to the run ticket including:
-   - Deleted Docker images and reclaimed disk space.
-   - Removed worktrees and deleted merged local branches.
-   - Protected images and active worktrees kept.
-   - Post-cleanup `docker images` and `git worktree list` verification.
-2. If all operations completed without fatal errors, set ticket status to `done`:
-   ```bash
-   mopheus ticket status <ticket-id> done
-   ```
-
----
-
-## 4. Safety Guardrails
-
-- Never execute `docker rmi -f` on in-use images.
-- Never run `docker system prune -a --volumes` (dangerous, could erase persistent volumes and all base images).
-- Always verify merge status before removing any Git worktree or branch.
-- If image removal fails due to dependent child layers, log the warning and proceed without blocking the run.
+Produce a complete Markdown summary containing:
+- Deleted Docker images and reclaimed disk space.
+- Removed worktrees and deleted merged local branches.
+- Protected images and active/preserved worktrees kept (with reasons).
+- Post-cleanup `docker images` and `git worktree list` verification.
