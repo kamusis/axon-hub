@@ -80,6 +80,7 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 4. Remove only the target worktree when it is clean and classified merged with no review items.
 5. Delete only its local feature branch; use `-D` solely for a detector-confirmed squash merge. Prune remote tracking and stale worktree metadata.
 6. Verify the path, local branch, and remote branch are absent and `main` is clean and synchronized.
+7. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update and reset it to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
 
 ## 6. Close the Mopheus ticket when both records exist
 

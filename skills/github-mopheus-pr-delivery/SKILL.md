@@ -92,6 +92,7 @@ Delete the remote feature branch if GitHub did not remove it. For local cleanup:
 3. Remove only a clean worktree classified as merged with no review items.
 4. Delete only the corresponding local feature branch. Use forced local deletion solely when the detector confirms a squash merge.
 5. Prune stale remote tracking and worktree metadata.
+6. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update and reset it to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
 
 If no local worktree can be resolved, report cleanup as not applicable. If it is dirty or uncertain, preserve it and report the blocker; the verified remote merge remains successful.
 
