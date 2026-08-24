@@ -16,9 +16,9 @@ At the very beginning of execution, determine the host environment and required 
 - **Windows (Full-Stack in WSL)**: When the user requests running the preview in WSL (or when full Agent daemon, ACP providers like Claude/Codex/Kimi/Mimo, and Linux process/bash tool runtimes are needed), run the entire stack (Backend + Frontend + Daemon) **inside WSL using a native Linux repository path** (e.g., `/home/<user>/CascadeProjects/mopheus/...`). Follow [Running Full-Stack Preview in WSL on Windows](#running-full-stack-preview-in-wsl-on-windows-wsl-mode).
 - **Linux / macOS**: Use `python3` (or `bash`).
 
-## Worktree and Harness Resolution (Zero-Config Default)
+## Worktree and Harness Resolution (Default: Dedicated Preview Harness)
 
-When the skill is invoked directly (e.g., typing `/mopheus-integration-preview` or saying "起预览环境") without explicit worktree arguments:
+By default, Mopheus integration preview runs in **Dedicated Preview Harness Mode** to reuse the existing preview database (`mopheus_wt_preview_test`), test credentials, and fixed ports (`3230`/`8230`):
 
 1. **Identify Current Development Worktree (`<dev-worktree>`)**:
    - If the conversation/agent is in a feature worktree (e.g., `.worktrees/issue-xxx`), treat it as `<dev-worktree>`.
@@ -26,21 +26,36 @@ When the skill is invoked directly (e.g., typing `/mopheus-integration-preview` 
 2. **Locate Dedicated Preview Harness (`<preview-test>`)**:
    - Target the dedicated preview worktree at `.worktrees/preview-test` within the repository (e.g., `/home/<user>/CascadeProjects/mopheus/.worktrees/preview-test` in WSL/Linux, or `.worktrees/preview-test` on Windows).
    - If `.worktrees/preview-test` does not exist yet, create it automatically from `main` (`git worktree add .worktrees/preview-test main -B preview-test`).
-3. **Default Action: Sync & Watch Target Harness**:
-   - Automatically execute with `--sync-from` and `--watch`:
+3. **Default Action: Sync & Watch Target Harness (Reuses Database)**:
+   - Automatically executes against `.worktrees/preview-test` with `--sync-from <dev-worktree>` and `--watch`:
      - **Windows (WSL Mode)**:
        ```bash
        wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py --sync-from <wsl-dev-worktree> <wsl-preview-test-worktree> --watch"
        ```
      - **Linux / macOS**:
        ```bash
-       python3 <skill-directory>/scripts/start_preview.py --sync-from <dev-worktree> <preview-test-worktree> --watch"
+       python3 <skill-directory>/scripts/start_preview.py --sync-from <dev-worktree> <preview-test-worktree> --watch
        ```
      - **Windows (Native)**:
        ```powershell
-       python <skill-directory>/scripts/start_preview.py --sync-from <dev-worktree> <preview-test-worktree> --watch
+       python <skill-directory>/scripts/start_preview.py <dev-worktree>
        ```
-   - This provides a seamless, zero-config developer experience: code is instantly synced, live hot reload is active, and the fixed access URL is displayed.
+   - This provides a seamless, zero-config developer experience: code is instantly synced, live hot reload is active, and the fixed access URL and database are reused.
+
+## Opt-in: Worktree-Specific Isolated Database (`--isolated-db`)
+
+Only when the user explicitly requests an isolated, independent preview database for the current worktree (e.g., saying "新建隔离数据库", "独立环境", or passing `--isolated-db`):
+
+- **Windows**:
+  ```powershell
+  python <skill-directory>/scripts/start_preview.py --isolated-db <absolute-worktree-path>
+  ```
+- **Linux / macOS / WSL**:
+  ```bash
+  python3 <skill-directory>/scripts/start_preview.py --isolated-db <absolute-worktree-path>
+  ```
+
+In isolated mode, a new worktree-specific database (`mopheus_wt_<branch>`) and dynamic ports are allocated.
 
 ## Discover existing previews first
 
@@ -64,26 +79,19 @@ Do not stop services, rewrite `.env.worktree`, switch databases, or start anothe
 
 ## Run the preview
 
-When discovery finds no other running preview, execute:
+When running in default Dedicated Harness mode:
 
 - **Windows**:
   ```powershell
-  python <skill-directory>/scripts/start_preview.py <absolute-worktree-path>
+  python <skill-directory>/scripts/start_preview.py <dev-worktree>
   ```
 - **Linux / macOS**:
   ```bash
-  python3 <skill-directory>/scripts/start_preview.py <absolute-worktree-path>
+  python3 <skill-directory>/scripts/start_preview.py --sync-from <dev-worktree> <preview-test-worktree> --watch
   ```
-
-After the user explicitly approves keeping existing previews and starting another independent instance, execute:
-
-- **Windows**:
-  ```powershell
-  python <skill-directory>/scripts/start_preview.py --allow-existing-previews <absolute-target-worktree-path>
-  ```
-- **Linux / macOS**:
+- **Windows (WSL Mode)**:
   ```bash
-  python3 <skill-directory>/scripts/start_preview.py --allow-existing-previews <absolute-target-worktree-path>
+  wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py --sync-from <wsl-dev-worktree> <wsl-preview-test-worktree> --watch"
   ```
 
 After the user explicitly approves stopping an existing preview and reusing its database:

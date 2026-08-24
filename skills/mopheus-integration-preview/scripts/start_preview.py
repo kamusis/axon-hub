@@ -216,10 +216,37 @@ def check_git_worktree(worktree_path: Path) -> tuple[Path, Path]:
 
 def ensure_env_worktree(worktree_path: Path) -> Path:
     env_file = worktree_path / ".env.worktree"
+
+    # Dedicated Preview Harness always uses fixed ports and database
+    if worktree_path.name == "preview-test":
+        db_name = "mopheus_wt_preview_test"
+        profile = "wt-preview-test"
+        be_port = 8230
+        fe_port = 3230
+        env_content = f"""# Dedicated preview harness environment
+POSTGRES_USER=mopheus
+POSTGRES_PASSWORD=mopheus
+POSTGRES_DB={db_name}
+POSTGRES_PORT=5432
+DATABASE_URL=postgres://mopheus:mopheus@localhost:5432/{db_name}?sslmode=disable
+BACKEND_PORT={be_port}
+FRONTEND_PORT={fe_port}
+FRONTEND_ORIGIN=http://localhost:{fe_port}
+NEXT_PUBLIC_API_URL=http://localhost:{be_port}
+REMOTE_API_URL=http://localhost:{be_port}
+ADMIN_EMAIL=admin@test.local
+ADMIN_PASSWORD=AdminPassword123!
+JWT_SECRET=preview-secret-key-12345678901234567890
+MOPHEUS_PROFILE={profile}
+MOPHEUS_SERVER_URL=http://localhost:{be_port}
+"""
+        env_file.write_text(env_content, encoding="utf-8")
+        return env_file
+
     if env_file.is_file():
         return env_file
 
-    # Generate default .env.worktree
+    # Generate default .env.worktree for isolated custom worktrees
     branch = "preview"
     try:
         branch_res = subprocess.run(["git", "-C", str(worktree_path), "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True)
@@ -231,8 +258,7 @@ def ensure_env_worktree(worktree_path: Path) -> Path:
     db_name = slug.replace("-", "_").lower()
     profile = f"wt-{branch}"
 
-    # Calculate deterministic ports from path hash
-    h = int(hashlib.md5(str(worktree_path).encode("utf-8")).hexdigest()[:4], 16)
+    h = int(hashlib.md5(branch.encode("utf-8")).hexdigest()[:4], 16)
     offset = h % 500
     be_port = 8100 + offset
     fe_port = 3100 + offset
@@ -464,22 +490,86 @@ def watch_and_sync(
         print("\n==> Watcher stopped. Preview services are still running.")
 
 
+def find_repo_root(path: Path) -> Path | None:
+    """Find the main repository root from a worktree or repo directory."""
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=str(path),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            top = Path(res.stdout.strip()).resolve()
+            if ".worktrees" in top.parts:
+                idx = top.parts.index(".worktrees")
+                return Path(*top.parts[:idx])
+            res_common = subprocess.run(
+                ["git", "rev-parse", "--git-common-dir"],
+                cwd=str(path),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if res_common.returncode == 0 and res_common.stdout.strip():
+                common_dir = Path(res_common.stdout.strip()).resolve()
+                if common_dir.name == ".git":
+                    return common_dir.parent
+            return top
+    except Exception:
+        pass
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Start a Mopheus integration preview")
+    parser.add_argument("target_worktree", nargs="?", default=".", help="Worktree path (default: current directory)")
+    parser.add_argument("--isolated-db", action="store_true", help="Start an isolated preview with a dedicated worktree-specific database instead of the shared preview-test harness")
     parser.add_argument("--allow-existing-previews", action="store_true", help="Allow starting while other previews are active")
     parser.add_argument("--reuse-db-from", help="Absolute linked worktree path to reuse database from")
     parser.add_argument("--sync-from", help="Absolute linked worktree path to sync code changes from")
     parser.add_argument("--watch", action="store_true", help="Continuously watch source worktree and sync modifications in real time")
-    parser.add_argument("target_worktree", help="Absolute path to the target linked Git worktree")
+    parser.add_argument("--no-watch", action="store_true", help="Do not watch source worktree after initial sync")
     args = parser.parse_args()
 
-    target_path = Path(args.target_worktree).resolve()
-    if not target_path.exists():
-        fail(f"worktree path does not exist: {target_path}")
+    input_path = Path(args.target_worktree).resolve()
+    if not input_path.exists():
+        fail(f"worktree path does not exist: {input_path}")
 
     script_dir = Path(__file__).resolve().parent
 
-    check_git_worktree(target_path)
+    check_git_worktree(input_path)
+
+    # By default, use Dedicated Preview Harness Mode (preview-test) to reuse the fixed database and ports,
+    # unless --isolated-db is explicitly requested.
+    if not args.isolated_db and not args.sync_from:
+        repo_root = find_repo_root(input_path)
+        if repo_root:
+            preview_test_path = (repo_root / ".worktrees" / "preview-test").resolve()
+            if input_path != preview_test_path:
+                if not preview_test_path.exists():
+                    print(f"==> Creating dedicated preview harness worktree at {preview_test_path}...")
+                    preview_test_path.parent.mkdir(parents=True, exist_ok=True)
+                    subprocess.run(
+                        ["git", "worktree", "add", str(preview_test_path), "main", "-B", "preview-test"],
+                        cwd=str(repo_root),
+                        check=False,
+                    )
+                if preview_test_path.exists():
+                    print(f"==> Dedicated Preview Harness Mode: syncing from {input_path.name} to preview-test (reusing database mopheus_wt_preview_test)...")
+                    args.sync_from = str(input_path)
+                    target_path = preview_test_path
+                    if not args.no_watch:
+                        args.watch = True
+                else:
+                    target_path = input_path
+            else:
+                target_path = input_path
+        else:
+            target_path = input_path
+    else:
+        target_path = input_path
 
     go_mod = target_path / "server" / "go.mod"
     if not go_mod.is_file() or "module mopheus" not in go_mod.read_text(encoding="utf-8"):
@@ -562,6 +652,18 @@ def main() -> int:
     # Run migrations
     run_env = os.environ.copy()
     run_env.update(env_vars)
+
+    # Ensure common CLI paths are present in PATH for provider probing
+    home = os.path.expanduser("~")
+    path_sep = ";" if sys.platform == "win32" else ":"
+    extra_paths = [
+        os.path.join(home, ".local", "bin"),
+        os.path.join(home, "bin"),
+        os.path.join(home, ".mimocode", "bin"),
+    ]
+    cur_path = run_env.get("PATH", "")
+    run_env["PATH"] = path_sep.join([p for p in extra_paths if os.path.isdir(p)] + [cur_path])
+
     migrate_res = subprocess.run(
         ["go", "run", "./cmd/migrate", "up"],
         cwd=str(target_path / "server"),
@@ -725,50 +827,53 @@ def main() -> int:
     daemon_state = "reused"
     daemon_log_display = "existing process"
 
-    if not is_daemon_running(target_path, profile):
-        print("==> Starting daemon and registering runtimes...")
-        start_detached = script_dir / "start_detached.py"
-        if sys.platform != "win32" and shutil.which("make"):
-            daemon_cwd = target_path
-            daemon_command = [
-                "make", "daemon-worktree",
-                f"DEFAULT_EMAIL={preview_email}",
-                f"DEFAULT_PASSWORD={preview_password}",
-            ]
-        else:
-            login_res = subprocess.run(
-                ["go", "run", "./cmd/mopheus", "--profile", profile, "login",
-                 "--email", preview_email, "--password", preview_password],
-                cwd=str(target_path / "server"),
-                env=run_env,
-                input="y\n",
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if login_res.returncode != 0:
-                fail(f"daemon profile login failed:\n{login_res.stderr}\n{login_res.stdout}")
-            daemon_cwd = target_path / "server"
-            daemon_command = [
-                "go", "run", "./cmd/mopheus", "--profile", profile,
-                "daemon", "start", "--foreground",
-            ]
-        subprocess.run([
-            sys.executable, str(start_detached),
-            "--cwd", str(daemon_cwd),
-            "--log", str(daemon_log),
-            "--pid-file", str(daemon_pid),
-            *daemon_command,
-        ], check=True, env=run_env)
-        daemon_state = "started"
-        daemon_log_display = str(daemon_log)
+    if sys.platform != "win32":
+        if not is_daemon_running(target_path, profile):
+            print("==> Starting daemon and registering runtimes...")
+            start_detached = script_dir / "start_detached.py"
+            if shutil.which("make"):
+                daemon_cwd = target_path
+                daemon_command = [
+                    "make", "daemon-worktree",
+                    f"DEFAULT_EMAIL={preview_email}",
+                    f"DEFAULT_PASSWORD={preview_password}",
+                ]
+            else:
+                login_res = subprocess.run(
+                    ["go", "run", "./cmd/mopheus", "--profile", profile, "login",
+                     "--email", preview_email, "--password", preview_password],
+                    cwd=str(target_path / "server"),
+                    env=run_env,
+                    input="y\n",
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if login_res.returncode != 0:
+                    fail(f"daemon profile login failed:\n{login_res.stderr}\n{login_res.stdout}")
+                daemon_cwd = target_path / "server"
+                daemon_command = [
+                    "go", "run", "./cmd/mopheus", "--profile", profile,
+                    "daemon", "start",
+                ]
+            subprocess.run([
+                sys.executable, str(start_detached),
+                "--cwd", str(daemon_cwd),
+                "--log", str(daemon_log),
+                "--pid-file", str(daemon_pid),
+                *daemon_command,
+            ], check=True, env=run_env)
+            daemon_state = "started"
+            daemon_log_display = str(daemon_log)
 
-    daemon_timeout = int(os.environ.get("MOPHEUS_PREVIEW_DAEMON_TIMEOUT", "120"))
-    if not wait_for_runtimes(api_base, preview_token, workspace_slug, daemon_timeout):
-        if daemon_log.is_file():
-            tail = daemon_log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
-            sys.stderr.write("Daemon log tail:\n" + "\n".join(tail) + "\n")
-        fail(f"daemon did not register any runtime for workspace '{workspace_slug}' within {daemon_timeout}s")
+        daemon_timeout = int(os.environ.get("MOPHEUS_PREVIEW_DAEMON_TIMEOUT", "120"))
+        if not wait_for_runtimes(api_base, preview_token, workspace_slug, daemon_timeout):
+            if daemon_log.is_file():
+                tail = daemon_log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
+                sys.stderr.write("Daemon log tail:\n" + "\n".join(tail) + "\n")
+            fail(f"daemon did not register any runtime for workspace '{workspace_slug}' within {daemon_timeout}s")
+    else:
+        daemon_state = "skipped (windows host: run preview in WSL for agent daemon)"
 
     print("\n" + "=" * 50)
     print("Mopheus integration preview is ready.")
