@@ -196,21 +196,15 @@ def discover_previews(script_dir: Path, target_worktree: Path) -> list[dict]:
 
 
 def check_git_worktree(worktree_path: Path) -> tuple[Path, Path]:
+    if not (worktree_path / "server" / "go.mod").is_file():
+        fail(f"not a Mopheus worktree (server/go.mod missing): {worktree_path}")
     try:
-        res = subprocess.run(["git", "-C", str(worktree_path), "rev-parse", "--is-inside-work-tree"], capture_output=True, text=True, check=True)
+        git_dir_str = subprocess.run(["git", "-C", str(worktree_path), "rev-parse", "--absolute-git-dir"], capture_output=True, text=True, check=False).stdout.strip()
+        common_dir_str = subprocess.run(["git", "-C", str(worktree_path), "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, check=False).stdout.strip()
+        if git_dir_str and common_dir_str:
+            return Path(git_dir_str).resolve(), Path(common_dir_str).resolve()
     except Exception:
-        fail(f"not a Git worktree: {worktree_path}")
-
-    try:
-        git_dir_str = subprocess.run(["git", "-C", str(worktree_path), "rev-parse", "--absolute-git-dir"], capture_output=True, text=True, check=True).stdout.strip()
-        common_dir_str = subprocess.run(["git", "-C", str(worktree_path), "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, check=True).stdout.strip()
-        git_dir = Path(git_dir_str).resolve()
-        common_dir = Path(common_dir_str).resolve()
-        if git_dir == common_dir:
-            fail("primary checkout is not accepted; provide an existing linked Mopheus worktree")
-        return git_dir, common_dir
-    except Exception as e:
-        fail(f"failed resolving git paths: {e}")
+        pass
     return Path(), Path()
 
 
@@ -303,73 +297,84 @@ def sync_code_from_source(source_path: Path, target_path: Path) -> dict[str, boo
     check_git_worktree(source_path)
     check_git_worktree(target_path)
 
-    # Record target HEAD before sync to compute diff
-    target_old_head = ""
-    try:
-        target_old_head = subprocess.run(
-            ["git", "-C", str(target_path), "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=True
-        ).stdout.strip()
-    except Exception:
-        pass
+EXCLUDE_MIRROR_DIRS = {
+    ".git", "node_modules", ".next", ".turbo", ".worktrees",
+    "uploads", "dist", "bin", "__pycache__", ".vscode", ".idea", "coverage"
+}
+EXCLUDE_MIRROR_FILES = {
+    ".env.worktree", ".env.local", "backend.pid", "frontend.pid",
+    "daemon.pid", "backend.log", "frontend.log", "daemon.log"
+}
+EXCLUDE_MIRROR_EXTS = {
+    ".log", ".pid", ".tmp"
+}
 
-    # Get source HEAD
-    src_head = subprocess.run(
-        ["git", "-C", str(source_path), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True
-    ).stdout.strip()
 
-    print(f"==> Syncing code from {source_path} (commit {src_head[:8]}) to {target_path}...")
+def _python_mirror_dir(source_dir: Path, target_dir: Path) -> None:
+    """Pure Python recursive directory mirror preserving exclusions."""
+    target_dir.mkdir(parents=True, exist_ok=True)
+    src_entries: dict[str, Path] = {}
+    for entry in source_dir.iterdir():
+        if entry.name in EXCLUDE_MIRROR_DIRS or entry.name in EXCLUDE_MIRROR_FILES:
+            continue
+        if any(entry.name.endswith(ext) for ext in EXCLUDE_MIRROR_EXTS):
+            continue
+        src_entries[entry.name] = entry
 
-    # Fast reset target to source commit (preserves untracked/ignored files like .env.worktree)
-    subprocess.run(["git", "-C", str(target_path), "reset", "--hard", src_head], capture_output=True, check=True)
+    for entry in target_dir.iterdir():
+        if entry.name in EXCLUDE_MIRROR_DIRS or entry.name in EXCLUDE_MIRROR_FILES:
+            continue
+        if any(entry.name.endswith(ext) for ext in EXCLUDE_MIRROR_EXTS):
+            continue
+        if entry.name not in src_entries:
+            if entry.is_dir():
+                shutil.rmtree(entry, ignore_errors=True)
+            else:
+                entry.unlink(missing_ok=True)
 
-    # Check for uncommitted working-tree modifications in source
-    status_res = subprocess.run(
-        ["git", "-C", str(source_path), "status", "--porcelain"],
-        capture_output=True, text=True, check=True
-    )
-    if status_res.stdout.strip():
-        print("==> Applying uncommitted working-tree changes from source...")
-        diff_res = subprocess.run(
-            ["git", "-C", str(source_path), "diff", "HEAD"],
-            capture_output=True, check=True
-        )
-        if diff_res.stdout:
-            subprocess.run(
-                ["git", "-C", str(target_path), "apply", "--whitespace=nowarn"],
-                input=diff_res.stdout,
-                capture_output=True,
-                check=False
-            )
+    for name, src_entry in src_entries.items():
+        dst_entry = target_dir / name
+        if src_entry.is_dir():
+            _python_mirror_dir(src_entry, dst_entry)
+        else:
+            shutil.copy2(src_entry, dst_entry)
 
-    # Detect modified paths
-    changed_files: list[str] = []
-    if target_old_head:
-        diff_res = subprocess.run(
-            ["git", "-C", str(target_path), "diff", "--name-only", target_old_head],
+
+def sync_code_from_source(source_path: Path, target_path: Path) -> dict[str, bool]:
+    """Mirror source worktree to target worktree while preserving environment, git pointer, and dependencies."""
+    print(f"==> Mirroring code from {source_path} to {target_path}...")
+
+    if sys.platform == "win32" and shutil.which("robocopy"):
+        xd_args = ["/XD", *EXCLUDE_MIRROR_DIRS]
+        xf_args = ["/XF", *EXCLUDE_MIRROR_FILES, "*.log", "*.pid", "*.tmp"]
+        # Robocopy exit codes < 8 indicate success
+        subprocess.run(
+            ["robocopy", str(source_path), str(target_path), "/MIR", "/NFL", "/NDL", "/NJH", "/NJS", "/nc", "/ns", "/np", *xd_args, *xf_args],
             capture_output=True, text=True, check=False
         )
-        changed_files = diff_res.stdout.splitlines()
+    elif shutil.which("rsync"):
+        exclude_args = []
+        for d in EXCLUDE_MIRROR_DIRS:
+            exclude_args.extend(["--exclude", f"**/{d}/**", "--exclude", d])
+        for f in EXCLUDE_MIRROR_FILES:
+            exclude_args.extend(["--exclude", f"**/{f}", "--exclude", f])
+        for ext in EXCLUDE_MIRROR_EXTS:
+            exclude_args.extend(["--exclude", f"*{ext}"])
+        subprocess.run(
+            ["rsync", "-a", "--delete", *exclude_args, f"{source_path}/", f"{target_path}/"],
+            capture_output=True, text=True, check=False
+        )
+    else:
+        _python_mirror_dir(source_path, target_path)
 
-    go_changed = any(f.startswith("server/") and f.endswith(".go") for f in changed_files)
-    pkg_changed = any("package.json" in f or "pnpm-lock.yaml" in f for f in changed_files)
-    migrations_changed = any("migrations/" in f for f in changed_files)
+    # Sync root package.json / pnpm lockfile if needed
+    pkg_changed = (source_path / "package.json").is_file() and (target_path / "package.json").is_file()
 
     return {
-        "go_changed": go_changed,
+        "go_changed": True,
         "pkg_changed": pkg_changed,
-        "migrations_changed": migrations_changed,
+        "migrations_changed": True,
     }
-
-
-IGNORED_WATCH_DIRS = {
-    ".git", "node_modules", ".next", ".turbo", "dist", "bin",
-    "__pycache__", ".vscode", ".idea", "coverage", ".worktrees"
-}
-IGNORED_WATCH_EXTS = {
-    ".log", ".tmp", ".pid", ".swp", ".swo", ".pyc"
-}
 
 
 def get_source_mtimes(root_dir: Path) -> dict[str, float]:
@@ -380,10 +385,10 @@ def get_source_mtimes(root_dir: Path) -> dict[str, float]:
         if not top_path.exists():
             continue
         for parent, dirs, files in os.walk(top_path):
-            dirs[:] = [d for d in dirs if d not in IGNORED_WATCH_DIRS and not d.startswith(".")]
+            dirs[:] = [d for d in dirs if d not in EXCLUDE_MIRROR_DIRS and not d.startswith(".")]
             for f in files:
                 ext = os.path.splitext(f)[1].lower()
-                if ext in IGNORED_WATCH_EXTS or f.startswith("."):
+                if ext in EXCLUDE_MIRROR_EXTS or f.startswith("."):
                     continue
                 full_path = Path(parent) / f
                 try:
@@ -392,17 +397,6 @@ def get_source_mtimes(root_dir: Path) -> dict[str, float]:
                 except OSError:
                     pass
     return mtimes
-
-
-def sync_single_file(source_path: Path, target_path: Path, rel_file: str) -> None:
-    """Copy or remove a single file from source worktree to target worktree."""
-    src_file = source_path / rel_file
-    dst_file = target_path / rel_file
-    if src_file.exists():
-        dst_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_file, dst_file)
-    elif dst_file.exists():
-        dst_file.unlink(missing_ok=True)
 
 
 def watch_and_sync(
@@ -414,7 +408,7 @@ def watch_and_sync(
     script_dir: Path,
     run_env: dict[str, str],
 ) -> None:
-    """Continuously watch for file changes in source worktree and sync in real time."""
+    """Continuously watch for file changes in source worktree and mirror in real time."""
     print(f"\n==> Watching for file changes in {source_path}...")
     print("    (Press Ctrl+C to stop watcher; preview services will remain running)")
 
@@ -426,7 +420,6 @@ def watch_and_sync(
             time.sleep(0.5)
             current_mtimes = get_source_mtimes(source_path)
 
-            # Detect added, modified, deleted files
             changed: list[str] = []
             for rel_file, mtime in current_mtimes.items():
                 if rel_file not in last_mtimes or mtime > last_mtimes[rel_file]:
@@ -438,23 +431,15 @@ def watch_and_sync(
             if not changed:
                 continue
 
-            # Small debounce sleep for batch editor saves
             time.sleep(0.15)
-            current_mtimes = get_source_mtimes(source_path)
-            last_mtimes = current_mtimes
+            last_mtimes = get_source_mtimes(source_path)
 
             now_str = time.strftime("%H:%M:%S")
-            go_changed = False
-            migrations_changed = False
+            print(f"[{now_str}] Detected changes in {len(changed)} file(s), mirroring to preview...")
+            sync_code_from_source(source_path, target_path)
 
-            for rel_file in changed:
-                sync_single_file(source_path, target_path, rel_file)
-                if rel_file.startswith("server/") and rel_file.endswith(".go"):
-                    go_changed = True
-                if "migrations/" in rel_file:
-                    migrations_changed = True
-
-            print(f"[{now_str}] Synced {len(changed)} file(s): {', '.join(changed[:3])}{'...' if len(changed) > 3 else ''}")
+            go_changed = any(f.startswith("server/") and f.endswith(".go") for f in changed)
+            migrations_changed = any("migrations/" in f for f in changed)
 
             if migrations_changed:
                 print(f"[{now_str}] Migrations changed, running db migrate...")
@@ -685,6 +670,14 @@ def main() -> int:
     run_env["REMOTE_API_URL"] = backend_url
     run_env["BACKEND_URL"] = backend_url
     run_env["FRONTEND_PORT"] = str(fe_port)
+
+    # Ensure apps/web/.env.local exists so Next.js runtime proxy and rewrites always use preview backend port
+    web_env_local = target_path / "apps" / "web" / ".env.local"
+    write_env_file(web_env_local, {
+        "NEXT_PUBLIC_API_URL": backend_url,
+        "REMOTE_API_URL": backend_url,
+        "BACKEND_URL": backend_url,
+    })
 
     runtime_hash = hashlib.md5(str(target_path).encode("utf-8")).hexdigest()[:8]
     runtime_dir = Path(tempfile.gettempdir()) / f"mopheus-preview-{runtime_hash}"

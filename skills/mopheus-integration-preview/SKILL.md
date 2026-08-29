@@ -12,35 +12,40 @@ Discover and start a disposable local preview from an existing Mopheus linked wo
 
 At the very beginning of execution, determine the host environment and required execution mode:
 
-- **Windows (Native)**: Use native `python` (or `py`) in PowerShell/CMD when running lightweight web/frontend/backend previews directly on Windows where full POSIX Daemon/ACP agent runtime is not required. **Never use `/mnt/c` paths inside WSL** for preview execution due to severe cross-filesystem I/O performance degradation.
-- **Windows (Full-Stack in WSL)**: When the user requests running the preview in WSL (or when full Agent daemon, ACP providers like Claude/Codex/Kimi/Mimo, and Linux process/bash tool runtimes are needed), run the entire stack (Backend + Frontend + Daemon) **inside WSL using a native Linux repository path** (e.g., `/home/<user>/CascadeProjects/mopheus/...`). Follow [Running Full-Stack Preview in WSL on Windows](#running-full-stack-preview-in-wsl-on-windows-wsl-mode).
-- **Linux / macOS**: Use `python3` (or `bash`).
+- **Windows Host (Default: Full-Stack in WSL)**:
+  - Because Mopheus Agent Daemon and ACP tool runtimes require POSIX PTY/process namespaces (not supported natively on Windows), **the default preview execution mode on Windows is WSL Full-Stack Mode** (Backend + Frontend + Daemon all running inside WSL native Linux).
+  - **Code Synchronization**: Always push code from Windows into WSL using Windows native `robocopy` over UNC path `\\wsl.localhost\Ubuntu-24.04\home\<user>\CascadeProjects\mopheus\.worktrees\preview-test` (using the default WSL distro, e.g. `Ubuntu-24.04`). **NEVER use `--sync-from /mnt/c/...` from inside WSL** (which causes severe 9P file system degradation and git ownership errors).
+  - **Port Protection**: Before starting in WSL, check and terminate any lingering Windows host processes holding ports 3230 or 8230.
+- **Windows (Native Lightweight Web-Only, Opt-in)**:
+  - Only when the user explicitly requests Windows-native execution (no Agent daemon / offline runtimes): run `python <skill-directory>/scripts/start_preview.py <dev-worktree>`.
+- **Linux / macOS**:
+  - Run natively with `python3 <skill-directory>/scripts/start_preview.py <preview-test-worktree>`.
 
 ## Worktree and Harness Resolution (Default: Dedicated Preview Harness)
 
 By default, Mopheus integration preview runs in **Dedicated Preview Harness Mode** to reuse the existing preview database (`mopheus_wt_preview_test`), test credentials, and fixed ports (`3230`/`8230`):
 
 1. **Identify Current Development Worktree (`<dev-worktree>`)**:
-   - If the conversation/agent is in a feature worktree (e.g., `.worktrees/issue-xxx`), treat it as `<dev-worktree>`.
-   - If in the main repository, use the active worktree or ask for confirmation if ambiguous.
+   - If the conversation/agent is in a feature worktree (e.g., `C:\Users\<user>\CascadeProjects\mopheus\.worktrees\<name>`), treat it as `<dev-worktree>`.
 2. **Locate Dedicated Preview Harness (`<preview-test>`)**:
-   - Target the dedicated preview worktree at `.worktrees/preview-test` within the repository (e.g., `/home/<user>/CascadeProjects/mopheus/.worktrees/preview-test` in WSL/Linux, or `.worktrees/preview-test` on Windows).
-   - If `.worktrees/preview-test` does not exist yet, create it automatically from `main` (`git worktree add .worktrees/preview-test main -B preview-test`).
-3. **Default Action: Sync & Watch Target Harness (Reuses Database)**:
-   - Automatically executes against `.worktrees/preview-test` with `--sync-from <dev-worktree>` and `--watch`:
-     - **Windows (WSL Mode)**:
-       ```bash
-       wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py --sync-from <wsl-dev-worktree> <wsl-preview-test-worktree> --watch"
-       ```
-     - **Linux / macOS**:
-       ```bash
-       python3 <skill-directory>/scripts/start_preview.py --sync-from <dev-worktree> <preview-test-worktree> --watch
-       ```
-     - **Windows (Native)**:
-       ```powershell
-       python <skill-directory>/scripts/start_preview.py <dev-worktree>
-       ```
-   - This provides a seamless, zero-config developer experience: code is instantly synced, live hot reload is active, and the fixed access URL and database are reused.
+   - On Windows $\to$ WSL: Target `\\wsl.localhost\Ubuntu-24.04\home\<user>\CascadeProjects\mopheus\.worktrees\preview-test` (native Linux path: `/home/<user>/CascadeProjects/mopheus/.worktrees/preview-test`).
+3. **Execution Steps on Windows**:
+   - **Step 1: Clean Windows listeners**: Stop any Windows host process on ports 3230 / 8230:
+     ```powershell
+     Get-NetTCPConnection -LocalPort 3230, 8230 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+     ```
+   - **Step 2: Clean WSL stale processes**:
+     ```bash
+     wsl bash -c "killall -9 mopheusd node mopheus next-server 2>/dev/null || true"
+     ```
+   - **Step 3: Push code from Windows into WSL (preserving uploads & build caches)**:
+     ```powershell
+     robocopy <win-dev-worktree> \\wsl.localhost\Ubuntu-24.04\home\<user>\CascadeProjects\mopheus\.worktrees\preview-test /MIR /NFL /NDL /NJH /NJS /nc /ns /np /XD .git node_modules .next .turbo .worktrees uploads dist bin __pycache__ /XF .env.worktree .env.local *.log *.pid *.tmp
+     ```
+   - **Step 4: Launch Preview inside WSL with login shell**:
+     ```bash
+     wsl bash -i -c "python3 ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.py /home/<user>/CascadeProjects/mopheus/.worktrees/preview-test"
+     ```
 
 ## Opt-in: Worktree-Specific Isolated Database (`--isolated-db`)
 

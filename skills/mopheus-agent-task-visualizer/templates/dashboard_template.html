@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mopheus — Agent Task 数据可视化看板 ({{workspace_slug}})</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #FFFBEB;
+      --white: #FFFFFF;
+      --border: #000000;
+      --gold: #FEF3C7;
+      --text: #0A0A0A;
+      --muted: #525252;
+      --font-sans: 'Sora', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .channel-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 54px;
+      gap: 16px;
+    }
+
+    .channel-name {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .channel-name .hash { color: var(--muted); font-size: 17px; font-weight: 800; }
+
+    .header-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      background: var(--gold);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22C55E;
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.2);
+      display: inline-block;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--white);
+      color: var(--text);
+      text-decoration: none;
+      transition: transform 100ms, box-shadow 100ms;
+    }
+
+    .btn:hover {
+      transform: translate(2px, 2px);
+      box-shadow: -3px -3px 0 0 var(--border);
+    }
+
+    .btn-primary { background: var(--text); color: var(--white); }
+    .btn-primary:hover { box-shadow: -3px -3px 0 0 #555; }
+
+    /* ── TABS ── */
+    .tabs-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tabs-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+    }
+
+    .tab {
+      padding: 12px 18px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      user-select: none;
+      transition: color 100ms;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab.active { color: var(--text); border-bottom-color: var(--text); }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    /* ── LAYOUT ── */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .hero-eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .eyebrow-text {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    .hero h1 {
+      font-size: clamp(24px, 3.2vw, 38px);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+
+    .hero-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 18px;
+    }
+
+    .hero-meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      background: var(--gold);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+    }
+
+    /* Hero sidebar stat card */
+    .hero-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 18px;
+      box-shadow: 2px 2px 0 0 var(--border);
+      transition: transform 100ms, box-shadow 100ms;
+    }
+
+    .hero-card:hover {
+      transform: translate(2px, 2px);
+      box-shadow: -3px -3px 0 0 var(--border);
+    }
+
+    .card-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .stat-cell {
+      padding: 10px 12px;
+      background: var(--bg);
+      border-right: 1px solid rgba(0,0,0,0.12);
+      border-bottom: 1px solid rgba(0,0,0,0.12);
+    }
+
+    .stat-cell:nth-child(even) { border-right: none; }
+    .stat-cell:nth-last-child(-n+2) { border-bottom: none; }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+
+    .stat-value { font-size: 14px; font-weight: 800; margin-top: 3px; font-family: var(--font-mono); }
+
+    /* ── SCORECARDS GRID ── */
+    .scorecard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .scorecard {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 2px 2px 0 0 var(--border);
+      transition: transform 100ms, box-shadow 100ms;
+    }
+
+    .scorecard:hover {
+      transform: translate(2px, 2px);
+      box-shadow: -3px -3px 0 0 var(--border);
+    }
+
+    .sc-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .sc-value {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 800;
+      margin: 8px 0 4px;
+      color: var(--text);
+    }
+
+    .sc-sub {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      padding-bottom: 8px;
+    }
+
+    .section-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+
+    .section-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    /* ── CHARTS ── */
+    .chart-grid-2x2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .chart-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 18px;
+      box-shadow: 2px 2px 0 0 var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 380px;
+    }
+
+    .chart-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .chart-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chart-card-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .chart-box {
+      flex: 1;
+      width: 100%;
+      height: 300px;
+    }
+
+    /* ── FILTER & SEARCH BAR ── */
+    .filter-bar {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      box-shadow: 2px 2px 0 0 var(--border);
+    }
+
+    .search-input {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--bg);
+      color: var(--text);
+      min-width: 260px;
+      outline: none;
+    }
+
+    .search-input:focus { border-color: #000; background: #FFF; }
+
+    .filter-select {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* ── TASK TABLE & ACCORDION ── */
+    .table-container {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow-x: auto;
+      box-shadow: 2px 2px 0 0 var(--border);
+    }
+
+    table.task-table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    table.task-table th {
+      background: var(--bg);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    table.task-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    table.task-table tr.task-row {
+      cursor: pointer;
+    }
+
+    table.task-table tr.task-row:hover {
+      background: #FEF3C7;
+    }
+
+    table.task-table tr.task-detail-row {
+      display: none;
+      background: #FFFDF5;
+    }
+
+    table.task-table tr.task-detail-row.open {
+      display: table-row;
+    }
+
+    /* ── PAGINATION BAR ── */
+    .pagination-bar {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 2px;
+    }
+
+    .pagination-info {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .page-btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      box-shadow: 1px 1px 0 0 var(--border);
+      outline: none;
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: var(--gold);
+      transform: translate(1px, 1px);
+      box-shadow: 0 0 0 0 var(--border);
+    }
+
+    .page-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .page-indicator {
+      font-weight: 700;
+      padding: 0 8px;
+    }
+
+    /* Status Badges */
+    .badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .badge-success { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.5); color: #166534; }
+    .badge-failed  { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.5); color: #991B1B; }
+    .badge-cancel  { background: rgba(107,114,128,0.12); border-color: rgba(107,114,128,0.5); color: #374151; }
+    .badge-running { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.5); color: #92400E; }
+    .badge-guard-kill { background: rgba(239,68,68,0.2); border-color: #DC2626; color: #7F1D1D; font-weight: 800; }
+    .badge-guard-alarm { background: rgba(245,158,11,0.2); border-color: #D97706; color: #78350F; font-weight: 800; }
+
+    .tool-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      background: var(--white);
+      border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 3px;
+      margin-right: 4px;
+      margin-bottom: 2px;
+      display: inline-block;
+    }
+
+    .detail-drawer {
+      padding: 16px 20px;
+      margin: 8px 12px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 1px 1px 0 0 var(--border);
+    }
+
+    /* Forensic box */
+    .forensic-box {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #FEF2F2;
+      border: 1px solid #EF4444;
+      border-radius: 4px;
+    }
+
+    .forensic-header {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      color: #991B1B;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .forensic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .forensic-item {
+      background: #FFF;
+      border: 1px solid rgba(239,68,68,0.3);
+      padding: 6px 10px;
+      border-radius: 3px;
+    }
+
+    .forensic-item-label {
+      color: #7F1D1D;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .forensic-item-val {
+      font-weight: 800;
+      color: #0A0A0A;
+      margin-top: 2px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      background: var(--white);
+      padding: 20px 24px;
+      margin-top: 40px;
+    }
+
+    .footer-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-brand {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-links { display: flex; gap: 16px; }
+
+    .footer-link {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .footer-link:hover { color: var(--text); }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .hero { grid-template-columns: 1fr; }
+      .chart-grid-2x2 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .scorecard-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════ CHANNEL HEADER ═══════════════════════ -->
+<header class="channel-header">
+  <div class="nav-inner">
+    <div class="channel-name">
+      <span class="hash">#</span>
+      <span>mopheus-agent-task-visualizer</span>
+      <span class="header-badge">{{workspace_slug}}</span>
+      <span class="header-badge">{{time_window}}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+        <span class="status-dot"></span> SYSTEM READY
+      </span>
+      <a href="https://www.mopheus.ai" target="_blank" class="btn btn-primary">Mopheus 官网 ↗</a>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════ TABS ═══════════════════════ -->
+<div class="tabs-bar">
+  <div class="tabs-inner">
+    <div class="tab active" onclick="switchTab('overview', this)">OVERVIEW & CHARTS</div>
+    <div class="tab" onclick="switchTab('guard', this)">🛡️ RUNTIME GUARD & SAFETY</div>
+    <div class="tab" onclick="switchTab('tasks', this)">TASK EXPLORER & TRANSCRIPTS</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ TAB 1: OVERVIEW & CHARTS ═══════════════════════ -->
+<div id="tab-overview" class="tab-content active">
+  <div class="main">
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+      <div>
+        <div class="hero-eyebrow">
+          <span class="eyebrow-text">// MULTI-AGENT OBSERVABILITY ENGINE · {{workspace_slug}}</span>
+        </div>
+        <h1>Agent Task 数据深度洞察看板</h1>
+        <p class="hero-desc">
+          本看板由 <code>mopheus-agent-task-visualizer</code> 技能基于增量状态记录与确定性转录解析引擎自动生成。深度萃取多智能体运行中的思维耗时（Thinking）、工具调用链路（tool:*）、健康度、Token 消耗及 <strong>Runtime Guard 资源守卫</strong> 指标。
+        </p>
+        <div class="hero-meta-chips">
+          <span class="chip">工作区: {{workspace_slug}}</span>
+          <span class="chip">统计区间: {{time_window}}</span>
+          <span class="chip">生成时间: {{generated_at}}</span>
+          <span class="chip">任务量: {{total_tasks}} 条</span>
+          <span class="chip" style="background:#FEE2E2;border-color:#EF4444;color:#991B1B;">Guard 熔断: {{guard_kills}}</span>
+        </div>
+      </div>
+
+      <div class="hero-card">
+        <div class="card-label">// EXECUTION SUMMARY</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">全工作区自动化质量基线</div>
+        <div style="font-size:12px;color:var(--muted);">当前窗口内所有 Agent Task 的宏观产出指标</div>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <div class="stat-label">SUCCESS RATE</div>
+            <div class="stat-value" style="color:#166534;">{{overall_success_rate}}%</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">TOTAL TOKENS</div>
+            <div class="stat-value">{{total_tokens_m}}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">TOTAL TOOL CALLS</div>
+            <div class="stat-value">{{total_tool_calls}}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">THINKING DURATION</div>
+            <div class="stat-value">{{total_thinking_min}}m</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI SCORECARDS -->
+    <section class="scorecard-grid">
+      <div class="scorecard">
+        <span class="sc-label">任务调度总量</span>
+        <div class="sc-value">{{total_tasks}}</div>
+        <span class="sc-sub" style="color:#166534;">成功率: {{overall_success_rate}}%</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">成功 / 失败 / 取消</span>
+        <div class="sc-value">{{success_count}} / {{failure_count}} / {{cancelled_count}}</div>
+        <span class="sc-sub">终态率: {{completion_rate}}%</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">平均任务持续时长</span>
+        <div class="sc-value">{{avg_duration_seconds}}s</div>
+        <span class="sc-sub">总耗时: {{total_duration_hours}}h</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">总思维(Thinking)耗时</span>
+        <div class="sc-value">{{total_thinking_min}}min</div>
+        <span class="sc-sub">均值: {{avg_thinking_seconds}}s/任务</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">工具调用总数</span>
+        <div class="sc-value">{{total_tool_calls}}</div>
+        <span class="sc-sub">{{distinct_tools_count}} 种工具覆盖</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">总 Token 消耗</span>
+        <div class="sc-value">{{total_tokens_m}}</div>
+        <span class="sc-sub">入: {{total_input_tokens_m}} | 出: {{total_output_tokens_m}} | 缓存: {{total_cache_tokens_m}}</span>
+      </div>
+      <div class="scorecard" onclick="switchTab('guard', document.querySelectorAll('.tab')[1])" style="cursor:pointer;background:#FFFDF5;">
+        <span class="sc-label">🛡️ 运行时守卫 (Guard)</span>
+        <div class="sc-value" style="color:#DC2626;">{{guard_kills}} / {{guard_alarms}}</div>
+        <span class="sc-sub">熔断: {{guard_kills}} | 告警: {{guard_alarms}} ↗</span>
+      </div>
+    </section>
+
+    <!-- CHARTS GRID -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">多维指标可视化图表</h2>
+        <span class="section-meta">// ECharts 交互式多维度下钻</span>
+      </div>
+      <div class="chart-grid-2x2">
+        
+        <!-- Chart 1: Tool Invocations & Health -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title"><span>⬡</span> 工具调用分布与健康度</div>
+            <span class="chart-card-meta">tool:Bash, tool:TaskCreate, tool:WebFetch 等</span>
+          </div>
+          <div id="chart-tools" class="chart-box"></div>
+        </div>
+
+        <!-- Chart 2: Agent Leaderboard -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title"><span>◈</span> 智能体任务负荷与成功率</div>
+            <span class="chart-card-meta">按任务调度量排序</span>
+          </div>
+          <div id="chart-agents" class="chart-box"></div>
+        </div>
+
+        <!-- Chart 3: Thinking vs Execution Duration by Agent -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title"><span>∿</span> 智能体耗时结构剖析 (Thinking vs Execution)</div>
+            <span class="chart-card-meta">各智能体平均思考耗时与工具执行耗时对比</span>
+          </div>
+          <div id="chart-thinking" class="chart-box"></div>
+        </div>
+
+        <!-- Chart 4: Daily Volume Trend -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title"><span>⟳</span> 任务调度趋势</div>
+            <span class="chart-card-meta">时序吞吐量</span>
+          </div>
+          <div id="chart-trend" class="chart-box"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════ TAB 2: RUNTIME GUARD & SAFETY ═══════════════════════ -->
+<div id="tab-guard" class="tab-content">
+  <div class="main">
+    
+    <!-- GUARD HERO -->
+    <section class="hero">
+      <div>
+        <div class="hero-eyebrow">
+          <span class="eyebrow-text">// RUNTIME WATCHDOG & RESOURCE SAFETY AUDIT · {{workspace_slug}}</span>
+        </div>
+        <h1>🛡️ Runtime Guard 资源守护与安全审计看板</h1>
+        <p class="hero-desc">
+          对智能体任务执行过程中的物理内存开销（RSS Budget）、进程派生数量（Process Limit / Fork Bomb 防护）及空闲挂死超时（Idle Timeout）进行全周期安全监控与硬熔断取证审计。精准定位高耗资与潜在失控的智能体任务。
+        </p>
+        <div class="hero-meta-chips">
+          <span class="chip">工作区: {{workspace_slug}}</span>
+          <span class="chip">Guard 审计事件: {{guard_events_count}} 条</span>
+          <span class="chip" style="background:#FEE2E2;border-color:#EF4444;color:#991B1B;">熔断终止 (Kill): {{guard_kills}} 次</span>
+          <span class="chip" style="background:#FEF3C7;border-color:#F59E0B;color:#92400E;">高水位告警 (Alarm): {{guard_alarms}} 次</span>
+          <span class="chip">受影响任务: {{tasks_killed_count}} 个</span>
+        </div>
+      </div>
+
+      <div class="hero-card">
+        <div class="card-label">// GUARD PROTECTION SUMMARY</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">运行态熔断与防护状态</div>
+        <div style="font-size:12px;color:var(--muted);">守护插件: Memory / Process / Idle</div>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <div class="stat-label">CIRCUIT BREAKER KILLS</div>
+            <div class="stat-value" style="color:#DC2626;">{{guard_kills}}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">ALARM BREACHES</div>
+            <div class="stat-value" style="color:#D97706;">{{guard_alarms}}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">KILLED TASKS</div>
+            <div class="stat-value">{{tasks_killed_count}}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">TOTAL AUDIT EVENTS</div>
+            <div class="stat-value">{{guard_events_count}}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GUARD SCORECARDS -->
+    <section class="scorecard-grid">
+      <div class="scorecard" style="background:#FFF5F5;border-color:#EF4444;">
+        <span class="sc-label" style="color:#991B1B;">熔断终止 (Hard Kills)</span>
+        <div class="sc-value" style="color:#DC2626;">{{guard_kills}}</div>
+        <span class="sc-sub" style="color:#991B1B;">强制熔断任务数: {{tasks_killed_count}}</span>
+      </div>
+      <div class="scorecard" style="background:#FFFDF0;border-color:#F59E0B;">
+        <span class="sc-label" style="color:#92400E;">警戒告警 (Alarm Breaches)</span>
+        <div class="sc-value" style="color:#D97706;">{{guard_alarms}}</div>
+        <span class="sc-sub" style="color:#92400E;">触发告警任务数: {{tasks_alarmed_count}}</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">内存守卫 (Memory Watcher)</span>
+        <div class="sc-value" id="guard-mem-count">0</div>
+        <span class="sc-sub">RSS 超限检测与熔断</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">进程数守卫 (Process Watcher)</span>
+        <div class="sc-value" id="guard-proc-count">0</div>
+        <span class="sc-sub">Fork Bomb / 僵尸进程防护</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">空闲超时 (Idle Watcher)</span>
+        <div class="sc-value" id="guard-idle-count">0</div>
+        <span class="sc-sub">挂起/无响应任务清理</span>
+      </div>
+      <div class="scorecard">
+        <span class="sc-label">高危 Agent 识别</span>
+        <div class="sc-value" id="guard-risk-agents-count">0</div>
+        <span class="sc-sub">存在违规记录的智能体</span>
+      </div>
+    </section>
+
+    <!-- GUARD CHARTS -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">资源守卫多维下钻与风险画像</h2>
+        <span class="section-meta">// Watcher 分类与 Agent 风险排行</span>
+      </div>
+      <div class="chart-grid-2x2">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title"><span>🛡️</span> Watcher 守卫维度告警与熔断分布</div>
+            <span class="chart-card-meta">Memory / Process / Idle 统计</span>
+          </div>
+          <div id="chart-guard-watchers" class="chart-box"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title"><span>⚠️</span> 智能体资源风险排行榜 (Agent Risk Ranking)</div>
+            <span class="chart-card-meta">按 (熔断×3 + 告警) 综合加权排序</span>
+          </div>
+          <div id="chart-guard-agents" class="chart-box"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GUARD AUDIT EVENTS TABLE -->
+    <section>
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Runtime Guard 审计事件日志与事后取证 (Forensics)</h2>
+          <p style="font-size:13px;color:var(--muted);margin-top:2px;">实时记录每一次 80% 警戒线告警（Alarm）与超时硬杀死（Kill）的诊断日志。支持按事件类型与 Watcher 筛选。</p>
+        </div>
+        <span class="section-meta">// {{guard_events_count}} AUDIT EVENTS</span>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <input type="text" id="guard-search-input" class="search-input" placeholder="搜索 Task ID / Watcher / 原因..." oninput="filterGuardEvents()" />
+          
+          <select id="guard-type-filter" class="filter-select" onchange="filterGuardEvents()">
+            <option value="">全部事件类型 (All Event Types)</option>
+            <option value="guard_kill">Guard Kill (熔断终止)</option>
+            <option value="guard_alarm">Guard Alarm (警戒告警)</option>
+          </select>
+
+          <select id="guard-watcher-filter" class="filter-select" onchange="filterGuardEvents()">
+            <option value="">全部 Watcher 插件</option>
+            <option value="memory">Memory (内存守卫)</option>
+            <option value="process_count">Process Count (进程数守卫)</option>
+            <option value="idle">Idle (空闲超时守卫)</option>
+          </select>
+        </div>
+
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);" id="guard-filtered-count-label">
+          Showing events
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th style="width:140px;">时间戳</th>
+              <th style="width:120px;">事件类型</th>
+              <th style="width:130px;">Watcher 插件</th>
+              <th style="width:140px;">关联 Task ID</th>
+              <th>诊断与事后取证 (Diagnostics & Forensic Payload)</th>
+            </tr>
+          </thead>
+          <tbody id="guard-table-body">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════ TAB 3: TASK EXPLORER ═══════════════════════ -->
+<div id="tab-tasks" class="tab-content">
+  <div class="main">
+    
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">全量 Agent Task 明细与转录洞察</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:2px;">支持搜索、筛选状态与智能体。点击任务行可直接展开查看每一步的具体 Tool 调用入参、出参、Thinking 及 <strong>Runtime Guard 事后取证</strong> 明细。</p>
+      </div>
+      <span class="section-meta">// {{total_tasks}} TOTAL TASKS</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input type="text" id="task-search-input" class="search-input" placeholder="搜索 Task ID / 智能体 / 工单..." oninput="filterTasks()" />
+        
+        <select id="status-filter" class="filter-select" onchange="filterTasks()">
+          <option value="">全部状态 (All Status)</option>
+          <option value="completed">Completed (成功)</option>
+          <option value="failed">Failed (失败)</option>
+          <option value="cancelled">Cancelled (取消)</option>
+          <option value="running">Running (运行中)</option>
+          <option value="guard_kill">🛡️ Guard 熔断 (Killed)</option>
+          <option value="guard_alarm">⚠️ Guard 告警 (Alarmed)</option>
+        </select>
+
+        <select id="agent-filter" class="filter-select" onchange="filterTasks()">
+          <option value="">全部智能体 (All Agents)</option>
+          {{agent_filter_options}}
+        </select>
+      </div>
+
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);" id="filtered-count-label">
+        Showing {{total_tasks}} tasks
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table class="task-table" style="table-layout: fixed;">
+        <thead>
+          <tr>
+            <th style="width:110px;">Task ID</th>
+            <th style="width:170px;">执行 Agent</th>
+            <th style="width:130px;">状态 / 守卫</th>
+            <th style="width:85px;">持续时长</th>
+            <th style="width:85px;">Thinking</th>
+            <th style="width:80px;">Tool 次数</th>
+            <th style="width:95px;">Token 用量</th>
+            <th>开始时间</th>
+          </tr>
+        </thead>
+        <tbody id="task-table-body">
+          <!-- Populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Toolbar -->
+    <div class="pagination-bar">
+      <div class="pagination-info" id="pagination-info">Showing 0 - 0 of 0 tasks</div>
+      <div class="pagination-controls">
+        <button class="page-btn" id="btn-first-page" onclick="goToTaskPage(1)">«</button>
+        <button class="page-btn" id="btn-prev-page" onclick="goToTaskPage(currentTaskPage - 1)">‹ 上一页</button>
+        <span class="page-indicator" id="page-indicator">第 1 / 1 页</span>
+        <button class="page-btn" id="btn-next-page" onclick="goToTaskPage(currentTaskPage + 1)">下一页 ›</button>
+        <button class="page-btn" id="btn-last-page" onclick="goToTaskPage(totalTaskPages)">»</button>
+        
+        <select class="filter-select" id="page-size-select" onchange="changePageSize(Number(this.value))" style="margin-left:8px;">
+          <option value="50" selected>50 条/页</option>
+          <option value="100">100 条/页</option>
+          <option value="200">200 条/页</option>
+          <option value="10000">全部显示</option>
+        </select>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="hash">#</span>
+      <span>mopheus-agent-task-visualizer</span>
+      <span style="color:var(--muted);font-weight:400;">· Generated for {{workspace_slug}}</span>
+    </div>
+    <div class="footer-links">
+      <a class="footer-link" href="https://www.mopheus.ai" target="_blank">Mopheus 官网</a>
+      <a class="footer-link" href="javascript:void(0)" onclick="switchTab('overview', document.querySelectorAll('.tab')[0])">Overview</a>
+      <a class="footer-link" href="javascript:void(0)" onclick="switchTab('guard', document.querySelectorAll('.tab')[1])">Runtime Guard</a>
+      <a class="footer-link" href="javascript:void(0)" onclick="switchTab('tasks', document.querySelectorAll('.tab')[2])">Tasks Explorer</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const STAGE_DATA = {{STAGE_DATA_JSON}};
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function switchTab(tabId, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const target = document.getElementById('tab-' + tabId);
+    if (target) target.classList.add('active');
+
+    if (tabId === 'overview' || tabId === 'guard') {
+      setTimeout(resizeCharts, 50);
+    }
+  }
+
+  /* ── ECHARTS INITIALIZATION ── */
+  let chartTools, chartAgents, chartThinking, chartTrend, chartGuardWatchers, chartGuardAgents;
+
+  const chartTheme = {
+    fontFamily: "'JetBrains Mono', 'Sora', monospace",
+    textColor: '#0A0A0A',
+    mutedColor: '#525252',
+    gridBorder: 'rgba(0,0,0,0.12)',
+    tooltipBg: '#FFFFFF',
+    tooltipBorder: '#000000'
+  };
+
+  function initCharts() {
+    const summaryByTool = STAGE_DATA.summary_by_tool || [];
+    const summaryByAgent = STAGE_DATA.summary_by_agent || [];
+    const tasks = STAGE_DATA.tasks || [];
+    const timeline = STAGE_DATA.timeline || [];
+    const guardSummary = STAGE_DATA.guard_summary || {};
+
+    // Populate Guard quick numbers in scorecard
+    const watcherBreakdown = guardSummary.watcher_breakdown || {};
+    const memEl = document.getElementById('guard-mem-count');
+    const procEl = document.getElementById('guard-proc-count');
+    const idleEl = document.getElementById('guard-idle-count');
+    const riskAgentsEl = document.getElementById('guard-risk-agents-count');
+
+    if (memEl) memEl.textContent = (watcherBreakdown.memory?.total || 0).toString();
+    if (procEl) procEl.textContent = (watcherBreakdown.process_count?.total || 0).toString();
+    if (idleEl) idleEl.textContent = (watcherBreakdown.idle?.total || 0).toString();
+    if (riskAgentsEl) {
+      const riskCount = (guardSummary.agent_risk_ranking || []).filter(a => a.risk_score > 0).length;
+      riskAgentsEl.textContent = riskCount.toString();
+    }
+
+    // 1. Tool Distribution
+    const toolElem = document.getElementById('chart-tools');
+    if (toolElem) {
+      chartTools = echarts.init(toolElem);
+      const toolNames = summaryByTool.map(t => t.tool_name);
+      const successCalls = summaryByTool.map(t => t.success_calls);
+      const failedCalls = summaryByTool.map(t => t.failed_calls);
+
+      chartTools.setOption({
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          backgroundColor: chartTheme.tooltipBg,
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          textStyle: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          extraCssText: 'box-shadow: 3px 3px 0 0 #000; border-radius: 4px;'
+        },
+        legend: {
+          data: ['成功调用', '失败调用'],
+          textStyle: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          top: 0
+        },
+        grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: toolNames.length ? toolNames : ['No Tools'],
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          axisLabel: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 10, rotate: 20 }
+        },
+        yAxis: {
+          type: 'value',
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          splitLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+          axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+        },
+        series: [
+          {
+            name: '成功调用',
+            type: 'bar',
+            stack: 'total',
+            data: successCalls,
+            itemStyle: { color: '#22C55E' }
+          },
+          {
+            name: '失败调用',
+            type: 'bar',
+            stack: 'total',
+            data: failedCalls,
+            itemStyle: { color: '#EF4444', borderRadius: [3, 3, 0, 0] }
+          }
+        ]
+      });
+    }
+
+    // 2. Agent Leaderboard
+    const agentElem = document.getElementById('chart-agents');
+    if (agentElem) {
+      chartAgents = echarts.init(agentElem);
+      const agentNames = summaryByAgent.map(a => a.agent_name);
+      const taskCounts = summaryByAgent.map(a => a.task_count);
+      const successRates = summaryByAgent.map(a => a.success_rate);
+
+      chartAgents.setOption({
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: chartTheme.tooltipBg,
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          textStyle: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          extraCssText: 'box-shadow: 3px 3px 0 0 #000; border-radius: 4px;'
+        },
+        legend: {
+          data: ['任务数', '成功率 (%)'],
+          textStyle: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          top: 0
+        },
+        grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: agentNames.length ? agentNames : ['No Agents'],
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          axisLabel: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 10, rotate: 20 }
+        },
+        yAxis: [
+          {
+            type: 'value',
+            name: '任务数',
+            axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+            splitLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+            axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+          },
+          {
+            type: 'value',
+            name: '成功率 %',
+            min: 0,
+            max: 100,
+            axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+            splitLine: { show: false },
+            axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+          }
+        ],
+        series: [
+          {
+            name: '任务数',
+            type: 'bar',
+            data: taskCounts,
+            itemStyle: { color: '#0A0A0A', borderRadius: [3, 3, 0, 0] }
+          },
+          {
+            name: '成功率 (%)',
+            type: 'line',
+            yAxisIndex: 1,
+            data: successRates,
+            itemStyle: { color: '#22C55E' },
+            lineStyle: { width: 2.5 }
+          }
+        ]
+      });
+    }
+
+    // 3. Thinking vs Execution by Agent
+    const thinkingElem = document.getElementById('chart-thinking');
+    if (thinkingElem) {
+      chartThinking = echarts.init(thinkingElem);
+      const validAgents = summaryByAgent.filter(a => (a.task_count || 0) > 0);
+      const agentNames = validAgents.map(a => a.agent_name || 'Agent');
+      const avgThinkingSecs = validAgents.map(a => a.avg_thinking_seconds || 0);
+      const avgExecSecs = validAgents.map(a => a.avg_exec_seconds || (Math.max(0, (a.avg_duration_seconds || 0) - (a.avg_thinking_seconds || 0))));
+      const thinkingRatios = validAgents.map(a => a.thinking_ratio || (a.total_duration_seconds > 0 ? parseFloat((a.total_thinking_seconds / a.total_duration_seconds * 100).toFixed(1)) : 0));
+
+      chartThinking.setOption({
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          backgroundColor: chartTheme.tooltipBg,
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          textStyle: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          extraCssText: 'box-shadow: 3px 3px 0 0 #000; border-radius: 4px;',
+          formatter: function (params) {
+            if (!params || !params.length) return '';
+            const idx = params[0].dataIndex;
+            const ag = validAgents[idx];
+            if (!ag) return '';
+            const thinkSec = (ag.avg_thinking_seconds || 0).toFixed(1);
+            const execSec = (ag.avg_exec_seconds || Math.max(0, (ag.avg_duration_seconds || 0) - (ag.avg_thinking_seconds || 0))).toFixed(1);
+            const totalDur = (ag.avg_duration_seconds || 0).toFixed(1);
+            const ratio = ag.thinking_ratio || (ag.total_duration_seconds > 0 ? (ag.total_thinking_seconds / ag.total_duration_seconds * 100).toFixed(1) : 0);
+            return `
+              <div style="font-weight:700;margin-bottom:4px;">${ag.agent_name} (${ag.task_count} 次任务)</div>
+              <div><span style="color:#8B5CF6;">●</span> 平均 Thinking 耗时: <b>${thinkSec}s</b> (总计: ${ag.total_thinking_seconds}s)</div>
+              <div><span style="color:#38BDF8;">●</span> 平均实际执行耗时: <b>${execSec}s</b> (总计: ${ag.total_exec_seconds || 0}s)</div>
+              <div><span style="color:#64748B;">●</span> 平均单任务总耗时: <b>${totalDur}s</b></div>
+              <div style="margin-top:4px;border-top:1px dashed rgba(0,0,0,0.15);padding-top:2px;"><span style="color:#D97706;">●</span> 思考耗时占比: <b>${ratio}%</b></div>
+            `;
+          }
+        },
+        legend: {
+          data: ['平均 Thinking 耗时 (s)', '平均实际执行耗时 (s)', '思考占比 (%)'],
+          textStyle: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          top: 0
+        },
+        grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: agentNames.length ? agentNames : ['No Agents'],
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          axisLabel: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 10, rotate: 20 }
+        },
+        yAxis: [
+          {
+            type: 'value',
+            name: '平均耗时 (s)',
+            axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+            splitLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+            axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+          },
+          {
+            type: 'value',
+            name: '思考占比 %',
+            min: 0,
+            max: 100,
+            axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+            splitLine: { show: false },
+            axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+          }
+        ],
+        series: [
+          {
+            name: '平均 Thinking 耗时 (s)',
+            type: 'bar',
+            stack: 'dur',
+            data: avgThinkingSecs,
+            itemStyle: { color: '#8B5CF6' }
+          },
+          {
+            name: '平均实际执行耗时 (s)',
+            type: 'bar',
+            stack: 'dur',
+            data: avgExecSecs,
+            itemStyle: { color: '#38BDF8', borderRadius: [3, 3, 0, 0] }
+          },
+          {
+            name: '思考占比 (%)',
+            type: 'line',
+            yAxisIndex: 1,
+            data: thinkingRatios,
+            itemStyle: { color: '#D97706' },
+            lineStyle: { width: 2.5, type: 'dashed' }
+          }
+        ]
+      });
+    }
+
+    // 4. Trend
+    const trendElem = document.getElementById('chart-trend');
+    if (trendElem) {
+      chartTrend = echarts.init(trendElem);
+      const dates = timeline.map(item => item.date);
+      const totalSeries = timeline.map(item => item.total);
+      const successSeries = timeline.map(item => item.completed);
+
+      chartTrend.setOption({
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: chartTheme.tooltipBg,
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          textStyle: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          extraCssText: 'box-shadow: 3px 3px 0 0 #000; border-radius: 4px;'
+        },
+        legend: {
+          data: ['调度总量', '成功总量'],
+          textStyle: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          top: 0
+        },
+        grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: dates.length ? dates : ['No Data'],
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          axisLabel: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+        },
+        yAxis: {
+          type: 'value',
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          splitLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+          axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+        },
+        series: [
+          {
+            name: '调度总量',
+            type: 'line',
+            data: totalSeries,
+            itemStyle: { color: '#0A0A0A' },
+            lineStyle: { width: 2 }
+          },
+          {
+            name: '成功总量',
+            type: 'line',
+            data: successSeries,
+            itemStyle: { color: '#22C55E' },
+            lineStyle: { width: 2 }
+          }
+        ]
+      });
+    }
+
+    // 5. Guard Watchers Breakdown
+    const guardWatcherElem = document.getElementById('chart-guard-watchers');
+    if (guardWatcherElem) {
+      chartGuardWatchers = echarts.init(guardWatcherElem);
+      const watchers = ['Memory (内存)', 'Process (进程数)', 'Idle (空闲超时)'];
+      const alarmsData = [
+        watcherBreakdown.memory?.alarms || 0,
+        watcherBreakdown.process_count?.alarms || 0,
+        watcherBreakdown.idle?.alarms || 0,
+      ];
+      const killsData = [
+        watcherBreakdown.memory?.kills || 0,
+        watcherBreakdown.process_count?.kills || 0,
+        watcherBreakdown.idle?.kills || 0,
+      ];
+
+      chartGuardWatchers.setOption({
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          backgroundColor: chartTheme.tooltipBg,
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          textStyle: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          extraCssText: 'box-shadow: 3px 3px 0 0 #000; border-radius: 4px;'
+        },
+        legend: {
+          data: ['熔断终止 (Kill)', '警戒告警 (Alarm)'],
+          textStyle: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          top: 0
+        },
+        grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: watchers,
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          axisLabel: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 11 }
+        },
+        yAxis: {
+          type: 'value',
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          splitLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+          axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+        },
+        series: [
+          {
+            name: '熔断终止 (Kill)',
+            type: 'bar',
+            data: killsData,
+            itemStyle: { color: '#DC2626', borderRadius: [3, 3, 0, 0] }
+          },
+          {
+            name: '警戒告警 (Alarm)',
+            type: 'bar',
+            data: alarmsData,
+            itemStyle: { color: '#F59E0B', borderRadius: [3, 3, 0, 0] }
+          }
+        ]
+      });
+    }
+
+    // 6. Guard Agent Risk Ranking
+    const guardAgentElem = document.getElementById('chart-guard-agents');
+    if (guardAgentElem) {
+      chartGuardAgents = echarts.init(guardAgentElem);
+      const riskList = (guardSummary.agent_risk_ranking || []).slice(0, 10);
+      const riskAgentNames = riskList.map(a => a.agent_name);
+      const killsSeries = riskList.map(a => a.kills);
+      const alarmsSeries = riskList.map(a => a.alarms);
+
+      chartGuardAgents.setOption({
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          backgroundColor: chartTheme.tooltipBg,
+          borderColor: chartTheme.tooltipBorder,
+          borderWidth: 1,
+          textStyle: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          extraCssText: 'box-shadow: 3px 3px 0 0 #000; border-radius: 4px;'
+        },
+        legend: {
+          data: ['熔断次数 (Kills)', '告警次数 (Alarms)'],
+          textStyle: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 11 },
+          top: 0
+        },
+        grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: riskAgentNames.length ? riskAgentNames : ['All Safe (零违规)'],
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          axisLabel: { color: chartTheme.textColor, fontFamily: chartTheme.fontFamily, fontSize: 10, rotate: 15 }
+        },
+        yAxis: {
+          type: 'value',
+          axisLine: { lineStyle: { color: chartTheme.gridBorder } },
+          splitLine: { lineStyle: { color: 'rgba(0,0,0,0.06)' } },
+          axisLabel: { color: chartTheme.mutedColor, fontFamily: chartTheme.fontFamily, fontSize: 10 }
+        },
+        series: [
+          {
+            name: '熔断次数 (Kills)',
+            type: 'bar',
+            stack: 'risk',
+            data: killsSeries.length ? killsSeries : [0],
+            itemStyle: { color: '#EF4444' }
+          },
+          {
+            name: '告警次数 (Alarms)',
+            type: 'bar',
+            stack: 'risk',
+            data: alarmsSeries.length ? alarmsSeries : [0],
+            itemStyle: { color: '#FBBF24', borderRadius: [3, 3, 0, 0] }
+          }
+        ]
+      });
+    }
+  }
+
+  function resizeCharts() {
+    if (chartTools) chartTools.resize();
+    if (chartAgents) chartAgents.resize();
+    if (chartThinking) chartThinking.resize();
+    if (chartTrend) chartTrend.resize();
+    if (chartGuardWatchers) chartGuardWatchers.resize();
+    if (chartGuardAgents) chartGuardAgents.resize();
+  }
+
+  window.addEventListener('resize', resizeCharts);
+
+  /* ── GUARD EVENTS TABLE ── */
+  function renderGuardEventsTable(events) {
+    const tbody = document.getElementById('guard-table-body');
+    const label = document.getElementById('guard-filtered-count-label');
+    const allEvents = STAGE_DATA.guard_summary?.recent_events || [];
+    if (label) label.textContent = `Showing ${events.length} / ${allEvents.length} events`;
+
+    if (!tbody) return;
+    if (!events.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted);font-family:var(--font-mono);">No Runtime Guard events recorded. All agent executions safe!</td></tr>';
+      return;
+    }
+
+    let html = '';
+    events.forEach(ev => {
+      const timeStr = (ev.createdAt || ev.created_at || '').slice(0, 19).replace('T', ' ');
+      const rawType = (ev.eventType || ev.event_type || '').toLowerCase();
+      const isKill = rawType.includes('kill');
+      const typeBadge = isKill 
+        ? '<span class="badge badge-guard-kill">🔴 GUARD KILL</span>' 
+        : '<span class="badge badge-guard-alarm">🟡 GUARD ALARM</span>';
+      
+      const watcher = ev.watcher || 'generic';
+      const taskId = ev.agentTaskId || ev.agent_task_id || ev.taskId || '-';
+      const shortTaskId = taskId.length > 8 ? taskId.slice(0, 8) : taskId;
+      
+      const payload = ev.payload || {};
+      let diagStr = '';
+      if (typeof payload === 'object') {
+        const mem = payload.observedMemoryBytes || payload.observed_memory_bytes;
+        const limit = payload.thresholdBytes || payload.threshold_bytes;
+        const procs = payload.processCount || payload.process_count || payload.observedProcessCount;
+        const dur = payload.overBudgetDurationMs || payload.over_budget_duration_ms;
+        const pids = payload.killedPIDs || payload.killed_pids;
+
+        const parts = [];
+        if (mem) parts.push(`Observed RSS: <strong>${formatBytes(mem)}</strong>`);
+        if (limit) parts.push(`Budget: <strong>${formatBytes(limit)}</strong>`);
+        if (procs) parts.push(`Procs: <strong>${procs}</strong>`);
+        if (dur) parts.push(`OverBudget: <strong>${dur}ms</strong>`);
+        if (pids && pids.length) parts.push(`Killed PIDs: <strong>[${pids.join(', ')}]</strong>`);
+        diagStr = parts.join(' &nbsp;•&nbsp; ') || JSON.stringify(payload);
+      } else {
+        diagStr = String(payload);
+      }
+
+      html += `
+        <tr>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${timeStr}</td>
+          <td>${typeBadge}</td>
+          <td><span class="tool-pill" style="font-weight:700;">${watcher}</span></td>
+          <td style="font-family:var(--font-mono);font-weight:700;">
+            <a href="javascript:void(0)" onclick="jumpToTask('${taskId}')" style="color:inherit;text-decoration:underline;">#${shortTaskId}</a>
+          </td>
+          <td style="font-size:12px;">${diagStr}</td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+  }
+
+  function filterGuardEvents() {
+    const q = (document.getElementById('guard-search-input').value || '').toLowerCase().trim();
+    const typeVal = document.getElementById('guard-type-filter').value;
+    const watcherVal = document.getElementById('guard-watcher-filter').value;
+
+    const allEvents = STAGE_DATA.guard_summary?.recent_events || [];
+    const filtered = allEvents.filter(ev => {
+      const rawType = (ev.eventType || ev.event_type || '').toLowerCase();
+      const rawWatcher = (ev.watcher || '').toLowerCase();
+      if (typeVal && !rawType.includes(typeVal)) return false;
+      if (watcherVal && !rawWatcher.includes(watcherVal)) return false;
+      if (q) {
+        const taskId = (ev.agentTaskId || ev.agent_task_id || '').toLowerCase();
+        const payloadStr = JSON.stringify(ev.payload || {}).toLowerCase();
+        if (!taskId.includes(q) && !rawWatcher.includes(q) && !payloadStr.includes(q)) return false;
+      }
+      return true;
+    });
+
+    renderGuardEventsTable(filtered);
+  }
+
+  function jumpToTask(taskId) {
+    switchTab('tasks', document.querySelectorAll('.tab')[2]);
+    const input = document.getElementById('task-search-input');
+    if (input) {
+      input.value = taskId;
+      filterTasks();
+      setTimeout(() => {
+        const firstDetail = document.getElementById('detail-0');
+        if (firstDetail) firstDetail.classList.add('open');
+      }, 50);
+    }
+  }
+
+  /* ── TASK TABLE PAGINATION & FILTERING ── */
+  let currentFilteredTasks = [];
+  let currentTaskPage = 1;
+  let taskPageSize = 50;
+  let totalTaskPages = 1;
+
+  function changePageSize(newSize) {
+    taskPageSize = newSize;
+    currentTaskPage = 1;
+    renderCurrentTaskPage();
+  }
+
+  function goToTaskPage(page) {
+    if (page < 1) page = 1;
+    if (page > totalTaskPages) page = totalTaskPages;
+    currentTaskPage = page;
+    renderCurrentTaskPage();
+  }
+
+  function renderCurrentTaskPage() {
+    const total = currentFilteredTasks.length;
+    totalTaskPages = Math.max(1, Math.ceil(total / taskPageSize));
+    if (currentTaskPage > totalTaskPages) currentTaskPage = totalTaskPages;
+
+    const startIdx = (currentTaskPage - 1) * taskPageSize;
+    const endIdx = Math.min(startIdx + taskPageSize, total);
+    const pageTasks = currentFilteredTasks.slice(startIdx, endIdx);
+
+    const tbody = document.getElementById('task-table-body');
+    const label = document.getElementById('filtered-count-label');
+    const info = document.getElementById('pagination-info');
+    const indicator = document.getElementById('page-indicator');
+    const btnFirst = document.getElementById('btn-first-page');
+    const btnPrev = document.getElementById('btn-prev-page');
+    const btnNext = document.getElementById('btn-next-page');
+    const btnLast = document.getElementById('btn-last-page');
+
+    if (label) label.textContent = `Showing ${total} / ${(STAGE_DATA.tasks || []).length} tasks`;
+    if (info) info.textContent = total > 0 ? `显示第 ${startIdx + 1} - ${endIdx} 条，共 ${total} 条` : '共 0 条任务';
+    if (indicator) indicator.textContent = `第 ${currentTaskPage} / ${totalTaskPages} 页`;
+
+    if (btnFirst) btnFirst.disabled = currentTaskPage <= 1;
+    if (btnPrev) btnPrev.disabled = currentTaskPage <= 1;
+    if (btnNext) btnNext.disabled = currentTaskPage >= totalTaskPages;
+    if (btnLast) btnLast.disabled = currentTaskPage >= totalTaskPages;
+
+    if (!pageTasks.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted);font-family:var(--font-mono);">No tasks matching filter criteria.</td></tr>';
+      return;
+    }
+
+    let rowsHtml = '';
+    pageTasks.forEach((t, i) => {
+      const idx = startIdx + i;
+      let statusBadge = '<span class="badge badge-success">✓ COMPLETED</span>';
+      if (t.status === 'failed') statusBadge = '<span class="badge badge-failed">✕ FAILED</span>';
+      else if (t.status === 'cancelled') statusBadge = '<span class="badge badge-cancel">⊘ CANCELLED</span>';
+      else if (t.status === 'running') statusBadge = '<span class="badge badge-running">● RUNNING</span>';
+
+      let guardBadge = '';
+      if (t.guard_kills_count > 0 || (t.guard_explain && t.guard_explain.reason)) {
+        guardBadge = ' <span class="badge badge-guard-kill">🛡️ KILL</span>';
+      } else if (t.guard_alarms_count > 0) {
+        guardBadge = ' <span class="badge badge-guard-alarm">⚠️ ALARM</span>';
+      }
+
+      const shortId = (t.id || '').slice(0, 8);
+      const agentName = t.agent_name || 'Agent';
+      const durSec = typeof t.duration_seconds === 'number' ? t.duration_seconds.toFixed(1) : '0.0';
+      const thinkSec = (t.thinking ? t.thinking.duration_seconds || 0 : 0).toFixed(1);
+      const toolCalls = t.tool_calls_count || 0;
+      const tokens = (t.tokens ? t.tokens.total || 0 : 0).toLocaleString();
+      const startTime = (t.started_at || '').slice(0, 19).replace('T', ' ');
+
+      // Build tool pills
+      let toolPills = '';
+      const toolSummary = t.tool_summary || [];
+      if (Array.isArray(toolSummary)) {
+        toolSummary.forEach(ts => {
+          toolPills += `<span class="tool-pill">${ts.tool} ×${ts.calls}</span>`;
+        });
+      }
+
+      // Forensic Drawer
+      let forensicHtml = '';
+      if (t.guard_explain) {
+        const gx = t.guard_explain;
+        const killedPidsList = gx.killedPIDs || gx.killedPids || [];
+        const standardKeys = new Set(['reason', 'observedMemoryBytes', 'thresholdBytes', 'observedProcessCount', 'thresholdProcesses', 'overBudgetDurationMs', 'killedPIDs', 'killedPids', 'cgroupPath', 'firstAlarmAt', 'killedAt', 'source']);
+        let extraFieldsHtml = '';
+        Object.entries(gx).forEach(([k, v]) => {
+          if (!standardKeys.has(k) && v !== null && v !== undefined && v !== '') {
+            const displayVal = typeof v === 'object' ? JSON.stringify(v) : v;
+            extraFieldsHtml += `
+              <div class="forensic-item">
+                <div class="forensic-item-label">${k.replace(/([A-Z])/g, ' $1').toUpperCase()}</div>
+                <div class="forensic-item-val">${displayVal}</div>
+              </div>
+            `;
+          }
+        });
+
+        forensicHtml = `
+          <div class="forensic-box">
+            <div class="forensic-header">
+              <span>🛡️ RUNTIME GUARD POST-MORTEM FORENSICS (硬熔断事后取证)</span>
+            </div>
+            <div class="forensic-grid">
+              <div class="forensic-item">
+                <div class="forensic-item-label">TERMINATION REASON</div>
+                <div class="forensic-item-val" style="color:#DC2626;">${gx.reason || 'resource_over_budget'}</div>
+              </div>
+              <div class="forensic-item">
+                <div class="forensic-item-label">OBSERVED MEMORY / BUDGET</div>
+                <div class="forensic-item-val">${formatBytes(gx.observedMemoryBytes)} / ${formatBytes(gx.thresholdBytes)}</div>
+              </div>
+              <div class="forensic-item">
+                <div class="forensic-item-label">PROCESS COUNT</div>
+                <div class="forensic-item-val">${gx.observedProcessCount || 0} procs</div>
+              </div>
+              <div class="forensic-item">
+                <div class="forensic-item-label">OVER-BUDGET DURATION</div>
+                <div class="forensic-item-val">${gx.overBudgetDurationMs || 0} ms</div>
+              </div>
+              <div class="forensic-item">
+                <div class="forensic-item-label">KILLED PIDS</div>
+                <div class="forensic-item-val">[${killedPidsList.join(', ')}]</div>
+              </div>
+              <div class="forensic-item">
+                <div class="forensic-item-label">CGROUP PATH</div>
+                <div class="forensic-item-val" style="font-size:10px;word-break:break-all;">${gx.cgroupPath || 'rootless/simulated'}</div>
+              </div>
+              ${extraFieldsHtml}
+            </div>
+          </div>
+        `;
+      } else if (t.failure_reason) {
+        forensicHtml = `
+          <div style="margin-top:8px;padding:8px 12px;background:#FFF5F5;border:1px solid #FCA5A5;border-radius:4px;font-size:12px;color:#991B1B;">
+            <strong>FAILURE REASON:</strong> ${t.failure_reason}
+          </div>
+        `;
+      }
+
+      rowsHtml += `
+        <tr class="task-row" onclick="toggleTaskDetail('detail-${idx}')">
+          <td style="font-family:var(--font-mono);font-weight:700;">#${shortId}</td>
+          <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${agentName}"><strong>${agentName}</strong></td>
+          <td>${statusBadge}${guardBadge}</td>
+          <td style="font-family:var(--font-mono);">${durSec}s</td>
+          <td style="font-family:var(--font-mono);color:#6D28D9;">${thinkSec}s</td>
+          <td style="font-family:var(--font-mono);font-weight:700;">${toolCalls}</td>
+          <td style="font-family:var(--font-mono);">${tokens}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${startTime}</td>
+        </tr>
+        <tr id="detail-${idx}" class="task-detail-row">
+          <td colspan="8" style="overflow:visible;">
+            <div class="detail-drawer">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1px solid rgba(0,0,0,0.08);padding-bottom:6px;">
+                <div style="font-family:var(--font-mono);font-weight:700;font-size:12px;">
+                  TASK FULL ID: ${t.id} &nbsp;|&nbsp; AGENT: ${agentName} (${t.model || 'default'}) &nbsp;|&nbsp; STATUS: ${t.status}
+                </div>
+                <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">
+                  Thinking Blocks: ${t.thinking?.blocks_count || 0} (${t.thinking?.characters_count || 0} chars)
+                </div>
+              </div>
+              <div style="margin-bottom:8px;">
+                <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--muted);margin-right:6px;">TOOLS USED:</span>
+                ${toolPills || '<span style="font-size:11px;color:var(--muted);">None</span>'}
+              </div>
+              <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">
+                Ticket: ${t.ticket_title ? `${t.ticket_key ? `<strong style="color:var(--text);">${t.ticket_key}</strong> · ` : ''}${t.ticket_title} <span style="font-size:10px;opacity:0.7;">(${t.ticket_id})</span>` : (t.ticket_id ? `<span style="font-size:10px;">ID: ${t.ticket_id}</span>` : '<span style="opacity:0.6;">None (Direct / Ad-hoc task)</span>')} &nbsp;|&nbsp; Messages: ${t.messages_count || 0}
+              </div>
+              ${forensicHtml}
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+  }
+
+  function toggleTaskDetail(rowId) {
+    const el = document.getElementById(rowId);
+    if (el) {
+      el.classList.toggle('open');
+    }
+  }
+
+  function filterTasks() {
+    const q = (document.getElementById('task-search-input').value || '').toLowerCase().trim();
+    const statusVal = document.getElementById('status-filter').value;
+    const agentVal = document.getElementById('agent-filter').value;
+
+    const allTasks = STAGE_DATA.tasks || [];
+    currentFilteredTasks = allTasks.filter(t => {
+      if (statusVal) {
+        if (statusVal === 'guard_kill') {
+          if (!t.guard_kills_count && (!t.guard_explain || !t.guard_explain.reason)) return false;
+        } else if (statusVal === 'guard_alarm') {
+          if (!t.guard_alarms_count) return false;
+        } else if (t.status !== statusVal) {
+          return false;
+        }
+      }
+      if (agentVal && t.agent_name !== agentVal) return false;
+      if (q) {
+        const idMatch = (t.id || '').toLowerCase().includes(q);
+        const agentMatch = (t.agent_name || '').toLowerCase().includes(q);
+        const ticketMatch = (t.ticket_id || '').toLowerCase().includes(q);
+        const ticketTitleMatch = (t.ticket_title || '').toLowerCase().includes(q);
+        const reasonMatch = (t.failure_reason || '').toLowerCase().includes(q);
+        if (!idMatch && !agentMatch && !ticketMatch && !ticketTitleMatch && !reasonMatch) return false;
+      }
+      return true;
+    });
+
+    currentTaskPage = 1;
+    renderCurrentTaskPage();
+  }
+
+  // On page load
+  document.addEventListener('DOMContentLoaded', () => {
+    initCharts();
+    renderGuardEventsTable(STAGE_DATA.guard_summary?.recent_events || []);
+    currentFilteredTasks = STAGE_DATA.tasks || [];
+    renderCurrentTaskPage();
+  });
+</script>
+</body>
+</html>
