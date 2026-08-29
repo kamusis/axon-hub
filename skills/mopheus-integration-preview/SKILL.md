@@ -183,6 +183,24 @@ Preview CLI state is disposable and must remain isolated from formal Mopheus del
 - Never repoint a preview profile to `https://dev.mopheus.ai`, and never use the formal `default` profile or its credentials for preview operations.
 - These preview exceptions do not apply to release, GitHub delivery, or formal ticket-management skills; those workflows must use the host-installed CLI and formal `default` profile.
 
+### Executing mop CLI Commands in the Preview Harness (go run)
+
+When operating or testing against the preview environment (e.g., managing test jobs, tickets, agents, tokens, or verifying new CLI features):
+
+- **Always use `go run ./cmd/mopheus` with the worktree environment loaded**, rather than the globally installed `mop` binary.
+- **Why this is the most appropriate approach**:
+  1. **Immediate Source Validation**: Executes directly against the latest code in the worktree, allowing immediate testing of CLI modifications without rebuilding or reinstalling binaries.
+  2. **Isolated Environment & Configuration**: Sourcing `.env.worktree` automatically binds `MOPHEUS_SERVER_URL`, `MOPHEUS_PROFILE`, and worktree database context to the preview instance, preventing accidental interaction with host production/dev environments.
+  3. **Reproducibility**: Works consistently across Windows, WSL, Linux, and macOS without relying on global binary PATHs.
+
+- **Standard Execution Pattern in WSL / Linux**:
+  ```bash
+  cd <preview-worktree-path>
+  set -a && [ -f .env.worktree ] && . ./.env.worktree && set +a
+  cd server && go run ./cmd/mopheus <subcommand> [flags]
+  ```
+
+
 ## Credential exception
 
 The dedicated preview credential is intentionally safe to print because it is restricted to disposable local integration environments. The script prints it at the end of every successful run.
