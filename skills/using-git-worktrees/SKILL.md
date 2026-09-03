@@ -111,6 +111,15 @@ Worktree ready at <full-path>
 Branch: <branch-name>
 ```
 
+### 5. Delivery Boundaries (No Unauthorized Commit / Push / Merge)
+
+Developing code in a dedicated worktree typically indicates non-trivial or substantial feature work. Never commit, push, create a pull request, or merge a pull request automatically upon finishing code implementation.
+
+When working inside a worktree:
+- Completing code implementation and local automated tests only marks development completion inside the isolated workspace.
+- **STOP and report to the user** for manual verification, UX review, and testing in the preview environment.
+- Do NOT perform `git commit`, `git push`, PR creation, or PR merge unless the user explicitly requests or authorizes it.
+
 ## Quick Reference
 
 | Situation | Action |
@@ -159,12 +168,14 @@ Branch: feature/auth
 - Assume directory location when ambiguous
 - Skip CLAUDE.md check
 - Run dependency installation, builds, tests, containers, services, database operations, or migrations as part of worktree creation
+- Commit, push, create a PR, or merge a PR automatically after code completion without explicit user instruction and manual verification approval (developing in a worktree usually denotes significant feature work; never commit/push/PR/merge without explicit authorization)
 
 **Always:**
 - Follow directory priority: existing > CLAUDE.md > ask
 - Verify directory is ignored for project-local
 - Stop after creating the worktree and report its path and branch
 - Evaluate any later setup or verification command as a separate, scoped action
+- Require explicit user review and instruction before any commit, push, PR creation, or PR merge actions
 
 ## Integration
 

@@ -82,4 +82,6 @@ Return:
 - cleanup result and remaining isolated resources;
 - unresolved risks that require follow-up.
 
+Attach the completed integration report directly to the Mopheus ticket. **Never use `git add`, `git commit`, or track regression report artifacts in the Git repository.**
+
 Do not claim the regression passed when any scenario failed, remained unaccounted for, used evidence from another revision, or lacked required cleanup.

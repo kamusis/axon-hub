@@ -17,6 +17,7 @@ Explicit invocation authorizes the writes in this workflow: squash merge, remote
 - The GitHub repository is fixed to `enmotech/mopheus`; its canonical repository URL is `https://github.com/enmotech/mopheus.git`. Pass `--repo enmotech/mopheus` to every GitHub CLI command. Never derive or override the target from local Git state, PR input, an active GitHub repository, or conversation context.
 - Resume idempotently from partial success. Query external state before retrying a write.
 - Never force-push, bypass GitHub checks or branch protection, guess an ambiguous issue or ticket, clean a dirty worktree, or touch unrelated branches and worktrees.
+- Never execute destructive git commands (such as `git reset --hard`, `git checkout -f`, or `git clean -fd`) on the main worktree or any workspace containing uncommitted changes. Always protect dirty files and uncommitted user edits.
 - Keep GitHub and commit content in English. Match the Mopheus ticket language in comments.
 
 ## 1. Resolve the delivery context
@@ -83,7 +84,12 @@ Stop ticket closure if merge verification is incomplete.
 
 ## 4. Update main and clean only the delivered branch
 
-Fast-forward the registered main worktree to the remote default branch. Do not merge or reset a divergent or dirty main worktree.
+Fast-forward the registered main worktree safely to the remote default branch:
+- Inspect the main worktree with `git status --porcelain`.
+- If dirty (uncommitted or untracked changes exist): safely stash first with `git stash push -u -m "mopheus-delivery-auto-stash"`.
+- Run safe fast-forward: `git fetch origin main && git merge --ff-only FETCH_HEAD` (or `git pull --ff-only origin main`).
+- If changes were stashed, restore them immediately with `git stash pop`.
+- **SAFETY RED LINE**: NEVER execute `git reset --hard` or `git checkout -f` on the main worktree. If fast-forward or stash pop encounters merge conflicts, preserve all user edits, STOP immediately, and report the state.
 
 Delete the remote feature branch if GitHub did not remove it. For local cleanup:
 
@@ -92,7 +98,7 @@ Delete the remote feature branch if GitHub did not remove it. For local cleanup:
 3. Remove only a clean worktree classified as merged with no review items.
 4. Delete only the corresponding local feature branch. Use forced local deletion solely when the detector confirms a squash merge.
 5. Prune stale remote tracking and worktree metadata.
-6. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update and reset it to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
+6. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update this disposable test harness to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
 
 If no local worktree can be resolved, report cleanup as not applicable. If it is dirty or uncertain, preserve it and report the blocker; the verified remote merge remains successful.
 

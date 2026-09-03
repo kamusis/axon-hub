@@ -13,6 +13,7 @@ Treat explicit invocation as authorization for every write in this workflow: com
 - Use `gh-wrapper` when available, otherwise `gh`.
 - The GitHub repository is fixed to `enmotech/mopheus`; its canonical repository URL is `https://github.com/enmotech/mopheus.git`. Pass `--repo enmotech/mopheus` to every GitHub CLI command. Never derive the operation target from the current directory, `origin`, an active GitHub repository, or conversation context.
 - Never force-push, merge failing checks, guess an ambiguous ticket, clean a dirty worktree, or touch unrelated branches/worktrees.
+- Never execute destructive git commands (such as `git reset --hard`, `git checkout -f`, or `git clean -fd`) on the main worktree or any workspace containing uncommitted changes. Always protect dirty files and uncommitted user edits.
 - Keep GitHub content and commit messages in English. Match the Mopheus ticket's language in comments.
 - Preserve partial success on failure. Verify whether an external write succeeded before retrying it.
 
@@ -51,7 +52,7 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 ## 2. Verify and commit
 
 1. Fetch the default branch and inspect status, untracked files, diff, and diff check. Confirm every intended file belongs to this change.
-2. Run the repository's complete required verification command fresh. Do not commit if it fails.
+2. Run the repository's complete required verification command (`make check`) fresh. On Windows hosts, execute `make check` in the WSL/Linux environment where the Linux toolchain, daemon, claimkey, and race detectors reside. Never commit if `make check` fails, and never substitute partial subpackage tests (`go test ./...` without `make check-web`, single package test, etc.) for the full `make check` pipeline.
 3. If the intended change is uncommitted, stage only its files, inspect the complete staged diff, and create one accurate Conventional Commit without a co-author trailer.
 4. If a suitable commit already exists, reuse it. Never duplicate or amend an unrelated commit.
 5. Push the feature branch without force and verify local and remote tips match.
@@ -74,13 +75,18 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 
 ## 5. Update main and clean only this worktree
 
-1. Fast-forward the main worktree from `origin`.
+1. Fast-forward the main worktree safely from `origin`:
+   - Inspect the main worktree with `git status --porcelain`.
+   - If dirty (uncommitted or untracked changes exist): safely stash first with `git stash push -u -m "mopheus-delivery-auto-stash"`.
+   - Run safe fast-forward: `git fetch origin main && git merge --ff-only FETCH_HEAD` (or `git pull --ff-only origin main`).
+   - If changes were stashed, restore them immediately with `git stash pop`.
+   - **SAFETY RED LINE**: NEVER execute `git reset --hard` or `git checkout -f` on the main worktree. If fast-forward or stash pop encounters merge conflicts, preserve all user edits, STOP immediately, and report the state.
 2. Delete the remote feature branch if the merge left it behind.
 3. Read [cleaning-merged-worktrees](../cleaning-merged-worktrees/SKILL.md) and run its detector for the target worktree.
 4. Remove only the target worktree when it is clean and classified merged with no review items.
 5. Delete only its local feature branch; use `-D` solely for a detector-confirmed squash merge. Prune remote tracking and stale worktree metadata.
 6. Verify the path, local branch, and remote branch are absent and `main` is clean and synchronized.
-7. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update and reset it to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
+7. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update this disposable test harness to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
 
 ## 6. Close the Mopheus ticket when both records exist
 

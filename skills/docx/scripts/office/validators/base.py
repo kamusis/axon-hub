@@ -663,7 +663,7 @@ class BaseSchemaValidator:
                                            base_url=str(schema_path))
                 schema = lxml.etree.XMLSchema(xsd_doc)
 
-            with open(fp, "r") as fh:
+            with open(fp, "rb") as fh:
                 xml_tree = lxml.etree.parse(fh)
 
             xml_tree, _ = self._scrub_template_placeholders(xml_tree)

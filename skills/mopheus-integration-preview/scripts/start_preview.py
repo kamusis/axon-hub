@@ -730,6 +730,7 @@ def main() -> int:
                 shutil.rmtree(next_cache, ignore_errors=True)
 
             print("==> Starting frontend...")
+            subprocess.run(["pnpm", "--filter=@mopheus/web", "exec", "fumadocs-mdx"], cwd=str(target_path), check=False, env=run_env)
             pnpm_cmd = ["pnpm", "--filter=@mopheus/web", "exec", "next", "dev", "--turbo", "-p", str(fe_port)]
             if sys.platform == "win32":
                 pnpm_cmd[0] = shutil.which("pnpm") or "pnpm"
@@ -774,6 +775,10 @@ def main() -> int:
     print("==> Creating or reusing the regular preview user and workspace...")
     preview_auth = api_request("POST", f"{api_base}/auth/login", payload={"email": preview_email, "password": preview_password})
     if not preview_auth.get("success"):
+        del_sql = f"DELETE FROM mopheus.\"user\" WHERE email = '{preview_email}';\n"
+        subprocess.run([
+            "docker", "exec", "-i", "mopheus-postgres-1", "psql", "-U", "mopheus", "-d", db_name,
+        ], input=del_sql.encode("utf-8"), check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         reg_resp = api_request("POST", f"{api_base}/auth/register", payload={"name": "Mopheus Preview", "email": preview_email, "password": preview_password})
         if not reg_resp.get("success"):
             fail("preview user login failed and registration did not succeed")
@@ -795,9 +800,22 @@ def main() -> int:
             "description": "Local integration preview workspace",
             "identifierPrefix": "DEV",
         })
-        if not ws_create.get("success"):
-            fail(f"failed to create preview workspace '{workspace_slug}'")
-        workspace_id = ws_create["data"]["id"]
+        if ws_create.get("success"):
+            workspace_id = ws_create["data"]["id"]
+        else:
+            user_id = preview_auth.get("data", {}).get("user", {}).get("id")
+            if user_id:
+                add_sql = f"INSERT INTO mopheus.workspace_member (id, workspace_id, user_id, role, created_at) SELECT gen_random_uuid(), id, '{user_id}', 0, NOW() FROM mopheus.workspace WHERE slug = '{workspace_slug}' ON CONFLICT (workspace_id, user_id) DO NOTHING;\n"
+                subprocess.run([
+                    "docker", "exec", "-i", "mopheus-postgres-1", "psql", "-U", "mopheus", "-d", db_name,
+                ], input=add_sql.encode("utf-8"), check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ws_retry = api_request("GET", f"{api_base}/workspaces", token=preview_token)
+            for ws in ws_retry.get("data", []):
+                if ws.get("slug") == workspace_slug:
+                    workspace_id = ws["id"]
+                    break
+            if not workspace_id:
+                fail(f"failed to create or bind preview workspace '{workspace_slug}'")
 
     api_request("POST", f"{api_base}/auth/onboarding/complete", token=preview_token, payload={
         "workspaceName": workspace_name,
@@ -824,16 +842,23 @@ def main() -> int:
         if not is_daemon_running(target_path, profile):
             print("==> Starting daemon and registering runtimes...")
             start_detached = script_dir / "start_detached.py"
+            systemd_prefix: list[str] = []
+            if shutil.which("systemd-run"):
+                chk = subprocess.run(["systemd-run", "--user", "--scope", "true"], capture_output=True, check=False)
+                if chk.returncode == 0:
+                    systemd_prefix = ["systemd-run", "--user", "--scope"]
+
             if shutil.which("make"):
                 daemon_cwd = target_path
                 daemon_command = [
+                    *systemd_prefix,
                     "make", "daemon-worktree",
                     f"DEFAULT_EMAIL={preview_email}",
                     f"DEFAULT_PASSWORD={preview_password}",
                 ]
             else:
                 login_res = subprocess.run(
-                    ["go", "run", "./cmd/mopheus", "--profile", profile, "login",
+                    [*systemd_prefix, "go", "run", "./cmd/mopheus", "--profile", profile, "login",
                      "--email", preview_email, "--password", preview_password],
                     cwd=str(target_path / "server"),
                     env=run_env,
@@ -846,6 +871,7 @@ def main() -> int:
                     fail(f"daemon profile login failed:\n{login_res.stderr}\n{login_res.stdout}")
                 daemon_cwd = target_path / "server"
                 daemon_command = [
+                    *systemd_prefix,
                     "go", "run", "./cmd/mopheus", "--profile", profile,
                     "daemon", "start",
                 ]
