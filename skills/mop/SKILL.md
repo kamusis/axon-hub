@@ -43,15 +43,13 @@ When the user invokes `/mop` without exact CLI syntax:
 - **Direct CLI Invocation (`/mop ticket list --status open`)**: Directly execute the command.
 
 ### Mode B: Claude Code Slash Command Aliases (`/mop:ticket`, `/mop:agent`, etc.)
-In Claude Code (or clients supporting custom slash command files), pre-packaged command aliases are provided in `adapters/claude-code/commands/mop/`:
-- `/mop:ticket`: Direct ticket inspection, assignment, comments, and rerun.
+When installed via the Claude Code plugin (`/plugin install mop@enmotech`), granular command aliases are automatically namespaced and available:
+- `/mop:ticket`: Direct ticket inspection, assignment, comments, rerun, and `list-mine`.
 - `/mop:agent`: Inspect agents, view system prompts, bind skills, and view task runs.
 - `/mop:search`: Workspace-wide search across tickets, agents, skills, and projects.
 - `/mop:workspace`: Workspace listing and switching.
 - `/mop:job`: Scheduled jobs and event trigger configurations.
 - `/mop:task`: Agent task transcript and tool step debugging.
-
-Run `python <skill-dir>/scripts/install_claude_commands.py` to link them into `~/.claude/commands/`.
 
 ## 3. Quick Reference & Core Commands
 
@@ -71,7 +69,68 @@ Always prefer `--output json` (or `-o json`) when parsing programmatically.
 | **Runtimes & Daemon** | `mop runtime list`<br>`mop daemon status`<br>`mop daemon start / stop` | Inspect runtime nodes and local daemon status |
 | **Auth & Profiles** | `mop auth status`<br>`mop login`<br>`mop token list` | Inspect session, authenticate, and manage user API tokens |
 
-## 4. Handling Long Inputs & Markdown (Native First)
+## 4. The Universal "Mine" (我的) Resolution Standard
+
+Whenever the user asks for resources belonging to "me" (e.g. "我的工单", "我创建的 Agent", "我的 Job", "my tasks", "分配给我的"):
+
+### 1. Identity Resolution (Who is "Me"?)
+Always resolve the current authenticated user identity first:
+- **API Call**: `mop user profile get -o json` returns `{ "id": "<user-uuid>", "name": "<name>", "email": "<email>" }`.
+- **Session Check**: `mop auth status` displays the active User, Token, and Workspace.
+- Python helper scripts automatically use `mop_client.get_current_user_id()`.
+
+### 2. Universal Entity Mapping Rules
+Match the resolved `userId` to each domain's ownership and assignment schema:
+
+| Domain | User Intent | Filter Logic & CLI Command |
+| :--- | :--- | :--- |
+| **Tickets (工单)** | "分给我的" / "我负责的" | `assigneeId == <userId>`<br>Native: `mop ticket list --assignee-id <userId>`<br>Helper: `python <skill-dir>/scripts/mop_ticket.py list-mine` |
+| **Tickets (工单)** | "我创建的" | `creatorId == <userId>`<br>Filter `mop ticket list -o json` |
+| **Tickets (工单)** | "未完成的" / "活跃工单" | `status ∈ [0(Backlog), 1(Todo), 2(In Progress), 3(In Review), 5(Blocked)]`<br>Strictly excludes `4(Done)`, `6(Cancelled)`, `7(Archived)` |
+| **Agents (智能体)** | "我的 Agent" / "我建的" | `ownerId == <userId>`<br>Filter `mop agent list -o json` |
+| **Jobs (定时/事件任务)** | "我的 Job" / "我建的任务" | `ownerId == <userId>`<br>Filter `mop job list -o json` |
+| **Teams (团队)** | "我的团队" / "我建的团队" | `ownerId == <userId>`<br>Filter `mop team list -o json` |
+
+### 3. Agent Execution Directive
+- For tickets, prefer `python <skill-dir>/scripts/mop_ticket.py list-mine` which combines identity resolution, uncompleted status filtering, priority sorting, and formatted Markdown tables.
+- For Agents, Jobs, and Teams, run `mop <entity> list -o json`, filter objects matching `t["ownerId"] == userId`, and present results in a clear Markdown table. Never guess a user's ID or hardcode assumptions.
+
+## 5. Multi-Profile & Environment Disambiguation Standard
+
+Users frequently work across multiple Mopheus deployments (e.g. cloud SaaS, on-prem staging, private demo instances, or local Git worktree previews) using Mopheus configuration profiles.
+
+### 1. Synonym Recognition (What counts as a Profile?)
+When users mention:
+- **"环境" / "Env"** (e.g. "在 mop-demo 环境中", "切换到 preview 环境", "在测试环境")
+- **"Profile" / "配置"** (e.g. "在 wt-preview profile 下", "使用 default profile")
+- **"服务器" / "Server" / "实例"** (e.g. "在 demo 服务器上", "连接本地 8230 预览服务器")
+$\to$ The agent must immediately recognize that these correspond to Mopheus **profiles** located under `~/.mopheus/profiles/<name>/`.
+
+### 2. Available Profiles Discovery
+To identify configured profiles on the host:
+- List directories in `~/.mopheus/profiles/` (e.g. `wt-preview-test`, `mop-demo`).
+- Inspect target profile configuration: `mop config show --profile <name>`.
+- Default profile lives directly under `~/.mopheus/config.json`.
+
+### 3. Execution & Context Isolation Rules
+- **Explicit Flag Passing**: Whenever the user specifies an environment/profile, ALWAYS pass `--profile <name>` to all subsequent `mop` commands:
+  ```bash
+  # Check configuration for a specific profile
+  mop config show --profile mop-demo
+
+  # List tickets in a specific profile
+  mop ticket list --profile mop-demo
+
+  # Python helpers support --profile directly
+  python <skill-dir>/scripts/mop_ticket.py --profile mop-demo list-mine
+  ```
+- **Compound Contexts ("在 <profile> 环境的 <workspace> 工作区里...")**:
+  When both environment and workspace are mentioned, bind both explicitly:
+  `mop <command> --profile <profile-name> --workspace-id <ws-id>` (or use `mop workspace switch <workspace-slug> --profile <profile-name>`).
+- **Strict Non-Pollution Rule**:
+  Never run mutating config commands (e.g. `mop config set server-url ...` or `mop login ...`) without `--profile` when targeting an environment. Doing so would corrupt the user's primary default configuration.
+
+## 6. Handling Long Inputs & Markdown (Native First)
 
 Avoid passing long multi-line strings, Markdown specs, or JSON filters directly via command line arguments (`--description "..."`). Shell quotes frequently corrupt formatting and newlines.
 
@@ -87,7 +146,7 @@ Always use native `--*-file` or `--*-stdin` flags:
 | **`memory`** | Memory Body | `--content-file <file>`<br>`--content-stdin` | `mop memory store --type <type> --content-file note.md` |
 | **`skill`** | Entire Directory | `import --path <dir>` | `mop skill import --path ./my-skill/ --update` |
 
-## 5. Capability Gating & Automatic Version Detection
+## 7. Capability Gating & Automatic Version Detection
 
 External environments (non-Mopheus daemon on Windows/Linux) run diverse `mop` / `mopheus` binary versions.
 
@@ -108,36 +167,79 @@ When a capability check indicates the user's CLI version is insufficient or miss
 3. **Execute the documented fallback** immediately so the user's task makes progress.
 4. **Daemon Separation**: If an action requires `daemon.local_management`, notify the user that current execution is in non-daemon pure client mode and provide the remote API alternative.
 
-## 6. Helper Utilities (`scripts/`)
+## 8. Helper Utilities (`scripts/`)
 
-For specialized tasks that exceed basic CLI ergonomics, use the bundled scripts:
+For specialized tasks that exceed basic CLI ergonomics, use the bundled scripts (all scripts support `--profile <name>` and enforce UTF-8 safety):
 
-- **Capability Matrix Detector (`check_version.py`)**:
-  Probes installed CLI version, tests capability support, and provides formatted warning alerts and fallback actions.
-- **Agent Task Transcript Reconstruction (`mop_task.py`)**:
-  Reconstructs streaming, fragmented agent task transcripts into structured dialogue and tool steps without terminal truncation:
+- **Ticket Operations (`mop_ticket.py`)**:
+  Handles compound queries ("my uncompleted tickets") with automatic user profile resolution, status aggregation, and Markdown tables:
   ```bash
-  # View clean compact transcript
-  python <skill-dir>/scripts/mop_task.py transcript <task-id>
-  
-  # Filter tool calls only (e.g. Bash executions)
-  python <skill-dir>/scripts/mop_task.py transcript <task-id> --tools-only
-  
-  # Grep for specific errors or keywords
-  python <skill-dir>/scripts/mop_task.py transcript <task-id> --grep "error"
+  # List current user's uncompleted tickets (ordered by in_progress -> in_review -> todo -> backlog)
+  python <skill-dir>/scripts/mop_ticket.py list-mine [--profile <p>]
+
+  # Advanced ticket filtering with Markdown table output
+  python <skill-dir>/scripts/mop_ticket.py list --mine --priority urgent --uncompleted
+
+  # Update large description or add comment without shell escaping issues
+  python <skill-dir>/scripts/mop_ticket.py update-desc <ticket-id> path/to/spec.md
+  python <skill-dir>/scripts/mop_ticket.py add-comment <ticket-id> --file path/to/comment.md
   ```
 
-- **Complex Job & Event Filter Assembly (`mop_job.py`)**:
-  Facilitates validating and creating multi-branch event triggers from JSON files:
+- **Agent Inspection & Prompts (`mop_agent.py`)**:
+  Filter owned agents, view full system prompts, and inspect bound skills with fuzzy name resolution:
   ```bash
+  # List agents created/owned by current user
+  python <skill-dir>/scripts/mop_agent.py list-mine [--profile <p>]
+
+  # Print an agent's full system instructions/prompt directly (by UUID or exact name)
+  python <skill-dir>/scripts/mop_agent.py prompt "Code Reviewer"
+
+  # Inspect bound skills for an agent
+  python <skill-dir>/scripts/mop_agent.py skills "Code Reviewer"
+  ```
+
+- **Job Workflow & Event Triggers (`mop_job.py`)**:
+  Manage jobs, list owned jobs, and configure multi-branch event filters from files:
+  ```bash
+  # List jobs created/owned by current user
+  python <skill-dir>/scripts/mop_job.py list-mine [--profile <p>]
+
+  # Add event trigger from filter JSON file
   python <skill-dir>/scripts/mop_job.py add-trigger <job-id> \
     --kind event \
     --filter-file path/to/event_filter.json \
     --label "Production Incident Filter"
   ```
 
-## 7. Progressive References
+- **Agent Task Transcript Reconstruction (`mop_task.py`)**:
+  Reconstructs streaming, fragmented agent task transcripts into structured dialogue and tool steps without terminal truncation:
+  ```bash
+  # View clean compact transcript
+  python <skill-dir>/scripts/mop_task.py transcript <task-id> [--profile <p>]
 
+  # Filter tool calls only (e.g. Bash executions)
+  python <skill-dir>/scripts/mop_task.py transcript <task-id> --tools-only
+
+  # Grep for specific errors or keywords
+  python <skill-dir>/scripts/mop_task.py transcript <task-id> --grep "error"
+  ```
+
+- **Capability Matrix Detector (`check_version.py`)**:
+  Probes installed CLI version, tests capability support, and provides formatted warning alerts and fallback actions:
+  ```bash
+  python <skill-dir>/scripts/check_version.py --check <capability_id>
+  ```
+
+### Status & Assignee Invariants:
+- **Uncompleted Tickets**: Cover `status ∈ [0(Backlog), 1(Todo), 2(In Progress), 3(In Review), 5(Blocked)]`, strictly excluding `4(Done)`, `6(Cancelled)`, and `7(Archived)`.
+- **Current User Resolution**: Resolve the current user via `mop user profile get -o json` to retrieve the `id` string (automatically handled by `get_current_user_id()`).
+- **Cross-Platform UTF-8 & Profiles**: All Python helpers enforce `sys.stdout.reconfigure(encoding="utf-8")` and propagate `--profile` to child `mop` executions. Avoid assembling dynamic `python -c` scripts with nested quotes on Windows terminals.
+
+## 9. Progressive References
+
+- **Official Live Product Documentation**: [Mopheus Documentation](https://mopheus.enmotech.com/docs)
+  A fully accessible public documentation portal. Agents can directly fetch and read pages from this site via `read_url_content` or HTTP requests for in-depth architectural guides, API/CLI references, and bilingual manuals (English: `/docs/en/...`, Chinese: `/docs/zh-Hans/...`).
 - **Comprehensive Command Reference**: Read [`references/commands_reference.md`](references/commands_reference.md) for full subcommands, flags, and workflow examples across all Mopheus domains.
 - **Capability Matrix & Version Mapping**: Read [`references/capabilities.json`](references/capabilities.json) for the complete list of capabilities, minimum CLI versions, daemon requirements, and fallbacks.
 - **Event-Type Jobs & JSON Filters**: Read [`references/event_jobs.md`](references/event_jobs.md) for full JSON schema, matching semantics (scalars, OR arrays, tag containment), domain event types (`ticket`, `comment`, `agent_task`, `runtime`), and template variables.
+- **Enums & Model Attributes Reference**: Read [`references/enums.md`](references/enums.md) for authoritative integer enum mappings, string representations, and self-describing companion `*Name` fields (`statusName`, `priorityName`, `assigneeTypeName`, `typeName`) across tickets, comments, tasks, jobs, and runtimes.

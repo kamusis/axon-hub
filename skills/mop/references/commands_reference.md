@@ -130,9 +130,11 @@ Automation jobs, schedules, and event-driven triggers.
 - `mop repo pr sync --number <n> --ticket <id>` - Associate pull request with ticket.
 
 ### `mop memory`
-- `mop memory list` - List stored memories.
-- `mop memory search "<query>"` - Semantic vector search across memory database.
-- `mop memory store --type error_resolution --content-file note.md` - Store new memory item.
+- `mop memory list [--per-page <n>]` - List stored memories.
+- `mop memory retrieve "<query>"` - Semantic vector / full-text search across memories.
+- `mop memory get <memory-id>` - Inspect specific memory details.
+- `mop memory store --type <type> --content-file note.md` - Store new memory item.
+
 
 ---
 

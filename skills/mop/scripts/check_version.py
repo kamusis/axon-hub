@@ -18,8 +18,12 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from mop_client import create_base_parser, apply_global_args
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CAPABILITIES_PATH = os.path.join(SCRIPT_DIR, "..", "references", "capabilities.json")
+
 
 
 def parse_semver(version_str: str) -> Tuple[int, int, int, str]:
@@ -130,10 +134,16 @@ def check_single_capability(cap_key: str, cur_version: Optional[str], matrix: Di
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Mopheus CLI Capability & Version Checker")
+    base_parser = create_base_parser()
+    parser = argparse.ArgumentParser(
+        description="Mopheus CLI Capability & Version Checker",
+        parents=[base_parser],
+    )
     parser.add_argument("--check", help="Check if a specific capability key is supported")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     args = parser.parse_args()
+    apply_global_args(args)
+
 
     matrix = load_capabilities()
     cur_version, bin_path, has_daemon = probe_local_cli()

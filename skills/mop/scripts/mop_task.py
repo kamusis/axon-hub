@@ -10,9 +10,17 @@ import os
 import re
 import sys
 
+# Ensure UTF-8 stdout on Windows
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mop_client import run_mop_json, run_mop_raw
+from mop_client import run_mop_json, run_mop_raw, create_base_parser, apply_global_args
+
+
 
 
 def cmd_get(args):
@@ -160,16 +168,17 @@ def cmd_transcript(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Mopheus Agent Task Helper")
+    base_parser = create_base_parser()
+    parser = argparse.ArgumentParser(description="Mopheus Agent Task Helper", parents=[base_parser])
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # get
-    p_get = subparsers.add_parser("get", help="Get agent task details")
+    p_get = subparsers.add_parser("get", help="Get agent task details", parents=[base_parser])
     p_get.add_argument("task_id", help="Agent Task UUID")
     p_get.set_defaults(func=cmd_get)
 
     # transcript
-    p_tr = subparsers.add_parser("transcript", help="Reconstruct cleaned transcript and tool actions")
+    p_tr = subparsers.add_parser("transcript", help="Reconstruct cleaned transcript and tool actions", parents=[base_parser])
     p_tr.add_argument("task_id", help="Agent Task UUID")
     p_tr.add_argument("--thinking", action="store_true", help="Include internal thinking/reasoning blocks")
     p_tr.add_argument("--tools-only", action="store_true", help="Show only tool invocations and results")
@@ -180,7 +189,11 @@ def main():
     p_tr.set_defaults(func=cmd_transcript)
 
     args = parser.parse_args()
+    apply_global_args(args)
+
     args.func(args)
+
+
 
 
 if __name__ == "__main__":

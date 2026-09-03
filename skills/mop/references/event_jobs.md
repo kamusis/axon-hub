@@ -56,7 +56,7 @@ The Mopheus Job Engine evaluates `conditions` against the incoming event payload
 2. **Multi-Value (OR) Match (Slice values)**:
    - Provide an array of acceptable scalar values. Matches if the payload value equals **any** item in the array.
    - Example: `"status": [1, 2, 3]` matches if payload `status` is `1`, `2`, or `3`.
-   - Example: `"priority": [3, 4]` matches High (`3`) or Urgent (`4`) tickets.
+   - Example: `"priority": [1, 2]` matches High (`1`) or Urgent (`2`) tickets.
 3. **Array / Tag Containment**:
    - When matching against array fields (like `ticket.labels` or `comment.ticketLabels`), matches if there is any intersection between filter tags and payload tags.
    - Example: `"labels": ["bug", "urgent"]` matches if the ticket has either `"bug"` or `"urgent"` label.
@@ -81,14 +81,19 @@ Use `mop job event-schema [event]` for live CLI introspection.
 | `title` | `string` | Ticket title | |
 | `description` | `string` | Ticket description body | |
 | `status` | `int` | Ticket lifecycle status | `0`=backlog, `1`=todo, `2`=in_progress, `3`=in_review, `4`=done, `5`=blocked, `6`=cancelled, `7`=archived |
-| `priority` | `int` | Ticket priority | `0`=none, `1`=low, `2`=normal, `3`=high, `4`=urgent |
+| `statusName` | `string` | Human-readable status string | `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`, `archived` |
+| `priority` | `int` | Ticket priority | `-1`=low, `0`=normal, `1`=high, `2`=urgent |
+| `priorityName` | `string` | Human-readable priority string | `low`, `normal`, `high`, `urgent` |
 | `assigneeType` | `int` | Assignee entity type | `0`=member, `1`=agent, `3`=team |
+| `assigneeTypeName` | `string` | Assignee entity string | `member`, `agent`, `team` |
 | `assigneeId` | `uuid` | Assignee UUID | |
 | `creatorType` | `int` | Creator entity type | `0`=member, `1`=agent |
+| `creatorTypeName` | `string` | Creator entity string | `member`, `agent`, `system` |
 | `creatorId` | `uuid` | Creator UUID | |
 | `projectId` | `uuid` | Associated project UUID | |
 | `parentTicketId`| `uuid` | Parent ticket UUID (if sub-ticket) | |
 | `labels` | `[]string`| Array of label names | e.g. `["bug", "backend"]` |
+
 
 ### 4.2 `comment` (Ticket Comments & Activity)
 - **Supported Actions**: `created`, `updated`, `deleted`
@@ -187,7 +192,7 @@ cat << 'EOF' | mop job create --name "Urgent Review" --trigger-type event --acti
     "event": "ticket",
     "actions": ["created", "updated"],
     "conditions": {
-      "priority": [3, 4],
+      "priority": [1, 2],
       "status": 1
     }
   }
@@ -206,7 +211,7 @@ mop job trigger-add <job-id> \
 
 # Update trigger filter
 mop job trigger-update <job-id> <trigger-id> \
-  --event-filter '[{"event":"ticket","actions":["created"],"conditions":{"priority":[3,4]}}]' \
+  --event-filter '[{"event":"ticket","actions":["created"],"conditions":{"priority":[1,2]}}]' \
   --enabled true
 ```
 
@@ -234,10 +239,11 @@ mop job event-schema runtime
   "actions": ["created"],
   "conditions": {
     "labels": ["bug", "regression"],
-    "priority": [3, 4]
+    "priority": [1, 2]
   }
 }
 ```
+
 
 ### Recipe 2: AI Responder for Human Comments on Active Tickets
 ```json
