@@ -1,0 +1,244 @@
+{
+  "$schema": "https://mopheus.ai/schemas/capabilities.json",
+  "version": "1.0.0",
+  "latestRelease": "v2.2.4",
+  "latestReleaseDate": "2026-09-03",
+  "upgradeCommand": "mop upgrade",
+  "capabilities": {
+    "workspace.management": {
+      "name": "Workspace Management",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop workspace list",
+        "mop workspace switch <id>",
+        "mop workspace get <id>"
+      ],
+      "description": "Query, inspect, and switch active workspace.",
+      "fallback": "Cannot manage workspaces via CLI. Use Mopheus Web UI."
+    },
+    "ticket.basic": {
+      "name": "Ticket Basic CRUD",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop ticket list",
+        "mop ticket get <id>",
+        "mop ticket create --title <t>",
+        "mop ticket status <id> <status>"
+      ],
+      "description": "Basic ticket querying, creation, and status updates.",
+      "fallback": "Cannot manage tickets via CLI. Use Mopheus Web UI."
+    },
+    "ticket.file_input": {
+      "name": "Ticket File / Stdin Input",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop ticket create --description-file <file>",
+        "mop ticket comment add --content-file <file>"
+      ],
+      "description": "Pass large Markdown documents and multi-line comments via --description-file and --content-file without shell escaping issues.",
+      "fallback": "Pass inline strings using --description '...' or --content '...', keeping text within 500 characters to prevent buffer errors."
+    },
+    "ticket.metadata": {
+      "name": "Ticket Custom Metadata & Tags",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop ticket update <id> --priority <p> --tags <t1,t2>"
+      ],
+      "description": "Update structured ticket priority, tags, positions, and estimates.",
+      "fallback": "Update tags and metadata directly in Mopheus Web UI."
+    },
+    "ticket.lifecycle": {
+      "name": "Ticket Advanced Workflow & Lifecycle",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop ticket assign <id> --assignee <id>",
+        "mop ticket rerun <id>",
+        "mop ticket transcript <id> --out <dir>"
+      ],
+      "description": "Assign tickets, re-enqueue agent task execution, and export transcripts.",
+      "fallback": "Re-run or assign tickets through the ticket detail page in Web UI."
+    },
+    "ticket.grill": {
+      "name": "Ticket Review Grill",
+      "minCliVersion": "v2.2.4",
+      "requiresDaemon": false,
+      "commands": [
+        "mop ticket grill <id>"
+      ],
+      "description": "Trigger self-Q&A review on a ticket.",
+      "fallback": "Conduct ticket reviews manually or via ticket comments."
+    },
+    "project.management": {
+      "name": "Project Inspection",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop project list",
+        "mop project get <id>"
+      ],
+      "description": "List and inspect workspace projects.",
+      "fallback": "Query project details from Mopheus Web UI."
+    },
+    "agent.management": {
+      "name": "Agent Inspection & Configuration",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop agent list",
+        "mop agent get <id>",
+        "mop agent create",
+        "mop agent update",
+        "mop agent tasks <id>"
+      ],
+      "description": "Inspect agents, view system prompts, configure workspace agents, and view agent task history.",
+      "fallback": "Manage agents from the Agent configuration tab in Web UI."
+    },
+    "agent.skills": {
+      "name": "Agent Skill Assignment & Roster",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop agent skills list <agent-id>",
+        "mop agent skills add <agent-id> --skill <skill-id>",
+        "mop agent skills remove <agent-id> --skill <skill-id>"
+      ],
+      "description": "Inspect and manage skills assigned to specific workspace agents.",
+      "fallback": "Configure agent skills in the Agent Settings tab in Mopheus Web UI."
+    },
+    "team.management": {
+      "name": "Team Roster & Leader Instructions",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop team list",
+        "mop team get <id>",
+        "mop team update --instructions-file <file>"
+      ],
+      "description": "Manage multi-agent team hierarchies and leader instructions.",
+      "fallback": "Manage teams and roles from the Team settings in Web UI."
+    },
+    "skill.import_export": {
+      "name": "Skill Import / Export & Sync",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop skill import --path <dir> --update",
+        "mop skill export --all --output-dir <dir>"
+      ],
+      "description": "Import local SKILL.md folders into workspace or export workspace skills.",
+      "fallback": "Upload or copy skill markdown files manually via Web UI."
+    },
+    "job.basic": {
+      "name": "Job & Schedule Trigger Management",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop job list",
+        "mop job get <id>",
+        "mop job runs <id>",
+        "mop job trigger <id>"
+      ],
+      "description": "Manage scheduled jobs, view run history, and trigger manual job runs.",
+      "fallback": "View job runs and manual triggers from Job management in Web UI."
+    },
+    "job.event_filters": {
+      "name": "Event-Driven Job Triggers & Condition Filters",
+      "minCliVersion": "v2.2.5",
+      "requiresDaemon": false,
+      "commands": [
+        "mop job trigger-add <id> --kind event --event-filter-file <file.json>",
+        "mop job event-list",
+        "mop job event-schema [type]"
+      ],
+      "description": "Configure real-time event-driven triggers responding to ticket, comment, or runtime domain events with condition matching.",
+      "fallback": "Event trigger CLI flags are unavailable in your version. Please configure event triggers and conditions via Mopheus Web UI."
+    },
+    "memory.search": {
+      "name": "Memory Distillation & Vector Search",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop memory list",
+        "mop memory search '<query>'",
+        "mop memory store --type <type> --content-file <file>"
+      ],
+      "description": "Semantic search and retrieval across workspace knowledge and error resolution memories.",
+      "fallback": "Search workspace knowledge base via Web UI search bar."
+    },
+    "task.transcript_stream": {
+      "name": "Agent Task Transcript & Tool Step Parsing",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop agent-task messages <id>",
+        "python <skill-dir>/scripts/mop_task.py transcript <id>"
+      ],
+      "description": "Inspect and stream detailed agent thinking steps, dialogue messages, and tool call executions.",
+      "fallback": "Use mop agent-task get <id> to inspect task status and summary without full step transcript."
+    },
+    "search.global": {
+      "name": "Global Workspace Search",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop search '<query>'",
+        "mop search '<query>' --type ticket,agent,skill,project"
+      ],
+      "description": "Full-text search across tickets, agents, skills, and projects in the active workspace.",
+      "fallback": "Search individual resources with mop ticket list / mop agent list or use the Web UI search bar."
+    },
+    "repo.management": {
+      "name": "Repository Links & Issue/PR Sync",
+      "minCliVersion": "v2.1.2",
+      "requiresDaemon": false,
+      "commands": [
+        "mop repo links --ticket <id>",
+        "mop repo issue sync --number <n> --ticket <id>",
+        "mop repo pr sync --number <n> --ticket <id>"
+      ],
+      "description": "Manage GitHub/GitLab repository links and issue/PR synchronization on tickets.",
+      "fallback": "Manage repository links through the ticket detail page in Web UI."
+    },
+    "chat.history": {
+      "name": "Chat & Channel History Inspection",
+      "minCliVersion": "v2.2.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop chat history",
+        "mop chat message <session-id>",
+        "mop chat thread <thread-id>"
+      ],
+      "description": "Read chat session messages and bound channel conversation history.",
+      "fallback": "View chat history directly in the Mopheus Web UI chat interface."
+    },
+    "shortcut.execution": {
+      "name": "Skill Shortcut Execution on Tickets",
+      "minCliVersion": "v2.2.3",
+      "requiresDaemon": false,
+      "commands": [
+        "mop shortcut list",
+        "mop shortcut run <shortcut-name> -t <ticket-id>"
+      ],
+      "description": "List and trigger skill shortcuts directly on tickets with agent execution.",
+      "fallback": "Assign the ticket to the agent with instructions or trigger the skill manually."
+    },
+    "daemon.local_management": {
+      "name": "Daemon Service Control & Local Runtime",
+      "minCliVersion": "v2.1.0",
+      "requiresDaemon": true,
+      "commands": [
+        "mop daemon status",
+        "mop daemon start",
+        "mop daemon stop",
+        "mop daemon install"
+      ],
+      "description": "Start, stop, install, and check local Mopheus daemon background service.",
+      "fallback": "You are running in non-daemon pure CLI client mode. Daemon management requires a local Mopheus Node. Use remote API commands instead."
+    }
+  }
+}

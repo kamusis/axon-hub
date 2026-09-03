@@ -19,24 +19,27 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 
 
 def find_mop_binary() -> str:
-    """Find mop or mopheus binary, prioritizing newest local Go bin."""
+    """Find mop or mopheus binary across system PATH and standard user bin directories."""
+    # 1. Check system PATH first
+    for bin_name in ["mopheus", "mop"]:
+        path = shutil.which(bin_name)
+        if path:
+            return path
+
+    # 2. Check standard user go/bin paths
+    home = os.path.expanduser("~")
     common_paths = [
-        os.path.expanduser("~/go/bin/mopheus.exe"),
-        os.path.expanduser("~/go/bin/mopheus"),
-        os.path.expanduser("~/go/bin/mop.exe"),
-        os.path.expanduser("~/go/bin/mop"),
-        "C:\\Users\\kamus\\go\\bin\\mopheus.exe",
-        "C:\\Users\\kamus\\go\\bin\\mop.exe",
+        os.path.join(home, "go", "bin", "mopheus.exe"),
+        os.path.join(home, "go", "bin", "mopheus"),
+        os.path.join(home, "go", "bin", "mop.exe"),
+        os.path.join(home, "go", "bin", "mop"),
+        os.path.join(home, ".local", "bin", "mopheus"),
+        os.path.join(home, ".local", "bin", "mop"),
     ]
     for p in common_paths:
         if os.path.isfile(p):
             return p
 
-    for bin_name in ["mopheus", "mop"]:
-        path = shutil.which(bin_name)
-        if path:
-            return path
-            
     return "mop"
 
 

@@ -1,6 +1,6 @@
 ---
 name: using-git-worktrees
-description: Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification
+description: Create and switch to an isolated git worktree for feature development. Selects local .worktrees or global storage, verifies .gitignore isolation, and halts before environment setup or commits.
 ---
 
 # Using Git Worktrees
@@ -10,8 +10,6 @@ description: Use when starting feature work that needs isolation from current wo
 Git worktrees create isolated workspaces sharing the same repository, allowing work on multiple branches simultaneously without switching.
 
 **Core principle:** Systematic directory selection + safety verification = reliable isolation.
-
-**Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
 
 ## Directory Selection Process
 
@@ -27,17 +25,17 @@ ls -d worktrees 2>/dev/null      # Alternative
 
 **If found:** Use that directory. If both exist, `.worktrees` wins.
 
-### 2. Check CLAUDE.md
+### 2. Check CLAUDE.md / AGENTS.md
 
 ```bash
-grep -i "worktree.*director" CLAUDE.md 2>/dev/null
+grep -i "worktree.*director" CLAUDE.md AGENTS.md 2>/dev/null
 ```
 
 **If preference specified:** Use it without asking.
 
 ### 3. Ask User
 
-If no directory exists and no CLAUDE.md preference:
+If no directory exists and no configuration preference:
 
 ```
 No worktree directory found. Where should I create worktrees?
@@ -61,10 +59,9 @@ git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/d
 
 **If NOT ignored:**
 
-Per Jesse's rule "Fix broken things immediately":
-1. Add appropriate line to .gitignore
-2. Commit the change
-3. Proceed with worktree creation
+1. Add the worktree directory (`.worktrees/` or `worktrees/`) to `.gitignore`.
+2. Commit the `.gitignore` update immediately.
+3. Proceed with worktree creation.
 
 **Why critical:** Prevents accidentally committing worktree contents to repository.
 

@@ -1,6 +1,6 @@
 ---
 name: github-mopheus-dev-delivery
-description: "Deliver a completed enmotech/mopheus code change end to end in one authorized run: verify, commit, push, create or reuse a GitHub PR, wait for checks, squash merge, clean the feature worktree, and update the available Mopheus ticket and GitHub issue/PR links when they exist. If no corresponding GitHub issue or Mopheus ticket can be found, skip that integration and continue delivery. Use after implementation is finished when the user wants the entire delivery workflow without repeated approvals. Always target the fixed enmotech/mopheus GitHub repository."
+description: "Deliver a completed enmotech/mopheus code change end-to-end: run verification, commit, push, create/reuse PR, wait for checks, squash-merge, safely clean feature worktree, and sync Mopheus ticket and GitHub issue when present."
 ---
 
 # GitHub Mopheus Dev Delivery
@@ -19,23 +19,11 @@ Treat explicit invocation as authorization for every write in this workflow: com
 
 ## Formal Mopheus CLI boundary
 
-Delivery updates durable records in the formal Mopheus deployment, so it must never inherit a disposable preview identity or execute CLI code from the branch being delivered.
-
-1. Resolve `mopheus` with the host PATH before any Mopheus lookup. Require the installed executable returned by `command -v mopheus` (or the platform equivalent). Stop if it is missing.
-2. Never substitute `mop`, `go run ./cmd/mopheus`, `make mopheus`, a repository/worktree `server/bin/mopheus`, or a temporarily compiled binary. Those paths are valid for local development or previews, not formal delivery.
-3. Use the formal `default` profile exclusively. Never use or repoint `local`, `wt-*`, or any other preview/test profile.
-4. Do not source `.env.worktree`. Remove preview overrides such as `MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, `MOPHEUS_TOKEN`, `MOPHEUS_AGENT_ID`, and `MOPHEUS_DAEMON_ID` from the formal CLI command environment; pass `--profile default` explicitly on every command.
-5. Before resolving a workspace or ticket, bind the installed CLI's default profile to the formal deployment. Use `connect` when the installed version supports it:
-   ```bash
-   mopheus --profile default connect --server_url https://dev.mopheus.ai
-   ```
-   Current releases without `connect` must use the supported configuration command instead:
-   ```bash
-   mopheus --profile default config set server-url https://dev.mopheus.ai
-   ```
-   Then validate the existing login with `auth status`; if authentication cannot complete, run the installed CLI's formal `login --server_url https://dev.mopheus.ai` flow. Stop rather than falling back to a preview profile or repository-built CLI.
-6. Verify the resulting profile with `mopheus --profile default config show --output json`, `mopheus --profile default auth status`, and `mopheus --profile default workspace list --output json`. Require the configured server URL to be exactly `https://dev.mopheus.ai` before any Mopheus write.
-7. After resolving the workspace, pass both `--profile default` and `--workspace-id <id>` to every workspace-scoped Mopheus command.
+Delivery updates durable records in `https://dev.mopheus.ai`. Never inherit disposable preview identities or execute unreleased repository CLI binaries:
+- Require the installed host `mopheus` executable (`command -v mopheus`); never substitute `mop`, `go run ./cmd/mopheus`, `make mopheus`, or `server/bin/mopheus`.
+- Exclusively use the formal `--profile default`; unset preview environment variables (`MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, etc.).
+- Ensure configured server URL is `https://dev.mopheus.ai` (via `mopheus --profile default connect --server_url https://dev.mopheus.ai` or `config set server-url https://dev.mopheus.ai`) and verify with `auth status`.
+- Pass `--profile default --workspace-id <id>` explicitly to every Mopheus command.
 
 ## 1. Resolve delivery context
 
@@ -52,7 +40,7 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 ## 2. Verify and commit
 
 1. Fetch the default branch and inspect status, untracked files, diff, and diff check. Confirm every intended file belongs to this change.
-2. Run the repository's complete required verification command (`make check`) fresh. On Windows hosts, execute `make check` in the WSL/Linux environment where the Linux toolchain, daemon, claimkey, and race detectors reside. Never commit if `make check` fails, and never substitute partial subpackage tests (`go test ./...` without `make check-web`, single package test, etc.) for the full `make check` pipeline.
+2. Run the repository's complete required verification command (`make check`) fresh. On Windows hosts, execute `make check` in the WSL/Linux environment where the Linux toolchain, daemon, claimkey, and race detectors reside. Require exit code 0 and confirm zero failure markers in both frontend and Go test outputs. Never commit if `make check` fails, and never substitute partial subpackage tests (`go test ./...` without `make check-web`, single package test, etc.) for the full `make check` pipeline.
 3. If the intended change is uncommitted, stage only its files, inspect the complete staged diff, and create one accurate Conventional Commit without a co-author trailer.
 4. If a suitable commit already exists, reuse it. Never duplicate or amend an unrelated commit.
 5. Push the feature branch without force and verify local and remote tips match.

@@ -1,0 +1,17 @@
+{
+  "skill_name": "ai-tech-briefing",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "运行 AI 与科技资讯早报任务，从配置的 28 个信源拉取过去 24 小时的更新并生成结构化中文 Markdown 早报",
+      "expected_output": "执行 fetch_news.py 脚本并在 10 秒内完成全网拉取，输出包含一手厂商动态、IDE/Agent 工具、产品策略与 GitHub Trending 的 Markdown 晨报",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "早报内容超长时推送到企业微信 Webhook",
+      "expected_output": "通过 post_webhook.py 自动分片，确保单条消息不超过企业微信 4096 字节限制，并验证 errcode==0",
+      "files": []
+    }
+  ]
+}

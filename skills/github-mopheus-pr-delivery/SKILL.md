@@ -1,6 +1,6 @@
 ---
 name: github-mopheus-pr-delivery
-description: "Complete delivery of an already-created and reviewed enmotech/mopheus pull request: validate the existing PR and any available linked issue/ticket, wait for GitHub checks, squash merge, verify the merge, safely clean the feature worktree and branches, and synchronize available Mopheus repository links. If no corresponding GitHub issue or Mopheus ticket can be found, skip that integration and continue delivery. Use when the Dev Team leader explicitly hands an approved PR to the Mopheus Release Agent for merge and closure. Always target the fixed enmotech/mopheus GitHub repository. This skill starts at PR delivery and never implements code, commits, pushes feature changes, creates a PR, performs review, or publishes a version."
+description: "Squash-merge, verify, and close an existing approved enmotech/mopheus PR. Validates PR readiness, awaits checks, squash-merges, cleans local feature worktree/branch, safely fast-forwards main, and syncs Mopheus ticket. Never creates code, commits, or PRs."
 ---
 
 # GitHub Mopheus PR Delivery
@@ -43,7 +43,7 @@ Stop when:
 - the PR includes unexpected commits or files outside the delegated change;
 - local repository identity does not match the GitHub repository.
 
-Do not create missing issues, tickets, commits, branches, or PRs. A missing Issue, workspace, ticket, or Issue/ticket link is not a blocker; report it as `SKIPPED` and continue. Return only genuine delivery blockers to Team Leader.
+Return only genuine delivery blockers to Team Leader; continue when optional integration records are missing.
 
 ## 2. Validate merge readiness
 
