@@ -19,6 +19,7 @@ SCENARIO_PATTERN = re.compile(r"^## (?P<group>\d+)\.(?P<number>\d+) (?P<title>.+
 REVISION_PATTERN = re.compile(r"^\*\*Revision:\*\* (?P<revision>.+)$", re.MULTILINE)
 VALID_STATUSES = {"PASS", "FAIL", "SKIP"}
 VALID_SOURCES = {"SHELL", "PLAYWRIGHT", "AGENT"}
+E2E_TEST_PATTERN = re.compile(r'test(?:\.only|\.skip)?\s*\(\s*["\'](?P<title>[^"\']+)["\']')
 
 
 class ContractError(RuntimeError):
@@ -97,8 +98,12 @@ def build_contract(repository: Path) -> dict[str, Any]:
 
     repository = resolve_repository(repository)
     guide_paths = [
-        repository / "tests" / "integration-testing-guide.md",
-        repository / "tests" / "TEST-EXECUTION-GUIDE.md",
+        repository / "tests" / "integration" / "integration-testing-guide.md"
+        if (repository / "tests" / "integration" / "integration-testing-guide.md").is_file()
+        else repository / "tests" / "integration-testing-guide.md",
+        repository / "tests" / "integration" / "TEST-EXECUTION-GUIDE.md"
+        if (repository / "tests" / "integration" / "TEST-EXECUTION-GUIDE.md").is_file()
+        else repository / "tests" / "TEST-EXECUTION-GUIDE.md",
     ]
     for guide_path in guide_paths:
         if not guide_path.is_file():
@@ -225,6 +230,168 @@ def verify_report(repository: Path, report_path: Path) -> dict[str, Any]:
     }
 
 
+def build_e2e_contract(repository: Path) -> dict[str, Any]:
+    """Build the current revision-bound E2E contract inventory."""
+
+    repository = resolve_repository(repository)
+    guide_path = repository / "tests" / "e2e" / "README.md"
+    config_path = repository / "playwright.full.config.ts"
+    if not guide_path.is_file():
+        raise ContractError(f"Required E2E guide is missing: {guide_path}")
+    if not config_path.is_file():
+        raise ContractError(f"Required Playwright config is missing: {config_path}")
+
+    e2e_dir = repository / "tests" / "e2e"
+    spec_paths = sorted(
+        list((e2e_dir / "bootstrap").glob("**/*.spec.ts"))
+        + list((e2e_dir / "services").glob("**/*.spec.ts"))
+    )
+    if not spec_paths:
+        raise ContractError(f"No E2E spec files found under {e2e_dir}")
+
+    specs: list[dict[str, Any]] = []
+    for spec_path in spec_paths:
+        rel_path = spec_path.relative_to(repository).as_posix()
+        content = spec_path.read_text(encoding="utf-8")
+        test_titles = [m.group("title").strip() for m in E2E_TEST_PATTERN.finditer(content)]
+        project = spec_path.parent.relative_to(e2e_dir).as_posix()
+        specs.append(
+            {
+                "file": rel_path,
+                "name": spec_path.name,
+                "project": project,
+                "testCount": len(test_titles),
+                "tests": test_titles,
+            }
+        )
+
+    revision = run_git(repository, "rev-parse", "HEAD")
+    branch = run_git(repository, "symbolic-ref", "--short", "-q", "HEAD", allow_empty=True)
+    dirty_entries = run_git(repository, "status", "--porcelain", "--untracked-files=all")
+    return {
+        "repositoryRoot": str(repository),
+        "testedRevision": revision,
+        "branch": branch or None,
+        "dirty": bool(dirty_entries),
+        "dirtyEntries": dirty_entries.splitlines(),
+        "guide": str(guide_path),
+        "config": str(config_path),
+        "specCount": len(specs),
+        "specs": specs,
+    }
+
+
+def parse_e2e_report_rows(report_path: Path) -> tuple[str, list[dict[str, str]]]:
+    """Read the tested revision and spec coverage rows from an E2E report."""
+
+    if not report_path.is_file():
+        raise ContractError(f"E2E report does not exist: {report_path}")
+    content = report_path.read_text(encoding="utf-8")
+    revision_match = REVISION_PATTERN.search(content)
+    if not revision_match:
+        raise ContractError("E2E report is missing the Revision field")
+
+    rows: list[dict[str, str]] = []
+    in_coverage_section = False
+    for line in content.splitlines():
+        if line.startswith("## ") and any(
+            term in line.lower()
+            for term in ["spec coverage", "e2e spec", "scenario coverage", "test results"]
+        ):
+            in_coverage_section = True
+            continue
+        if in_coverage_section and line.startswith("## "):
+            break
+        if not in_coverage_section or not line.startswith("|"):
+            continue
+        columns = [column.strip() for column in line.strip().strip("|").split("|")]
+        if not columns or columns[0] in {"Spec", "Scenario", "Test"} or set(columns[0]) == {"-"}:
+            continue
+        if len(columns) < 3:
+            raise ContractError(f"Invalid E2E report row: {line}")
+        spec_id = columns[0]
+        if len(columns) == 3:
+            status = columns[1]
+            evidence = columns[2]
+            project = ""
+        elif len(columns) == 4:
+            project = columns[1]
+            status = columns[2]
+            evidence = columns[3]
+        else:
+            project = columns[1]
+            status = columns[3]
+            evidence = columns[4]
+        rows.append(
+            {
+                "id": spec_id,
+                "project": project,
+                "status": status,
+                "evidence": evidence,
+            }
+        )
+    if not rows:
+        raise ContractError("E2E report contains no spec coverage rows")
+    return revision_match.group("revision").strip(), rows
+
+
+def verify_e2e_report(repository: Path, report_path: Path) -> dict[str, Any]:
+    """Verify E2E report coverage against the current repository contract."""
+
+    contract = build_e2e_contract(repository)
+    report_revision, rows = parse_e2e_report_rows(report_path.expanduser().resolve())
+    expected_files = {spec["file"] for spec in contract["specs"]}
+    expected_names = {spec["name"]: spec["file"] for spec in contract["specs"]}
+    errors: list[str] = []
+    if report_revision != contract["testedRevision"]:
+        errors.append(
+            f"Report revision {report_revision} does not match checkout revision {contract['testedRevision']}"
+        )
+
+    seen: dict[str, dict[str, str]] = {}
+    for row in rows:
+        raw_id = row["id"]
+        norm_id = raw_id.replace("\\", "/")
+        matched_file = None
+        if norm_id in expected_files:
+            matched_file = norm_id
+        elif norm_id in expected_names:
+            matched_file = expected_names[norm_id]
+        else:
+            basename = Path(norm_id).name
+            if basename in expected_names:
+                matched_file = expected_names[basename]
+
+        if not matched_file:
+            errors.append(f"Unexpected report spec {raw_id}")
+            continue
+
+        if matched_file in seen:
+            errors.append(f"Duplicate report row for spec {matched_file}")
+            continue
+        seen[matched_file] = row
+
+        if row["status"] not in VALID_STATUSES:
+            errors.append(f"Spec {matched_file} has incomplete or invalid status {row['status']}")
+        if not row["evidence"] or row["evidence"] in {"-", "NOT RECORDED"}:
+            errors.append(f"Spec {matched_file} has no evidence")
+
+    missing = sorted(expected_files - set(seen))
+    if missing:
+        errors.append(f"Missing report specs: {', '.join(missing)}")
+
+    status_counts = Counter(row["status"] for row in rows if row["status"] in VALID_STATUSES)
+    return {
+        "complete": not errors,
+        "testedRevision": contract["testedRevision"],
+        "expectedSpecCount": len(expected_files),
+        "reportedSpecCount": len(seen),
+        "statusCounts": {status: status_counts.get(status, 0) for status in sorted(VALID_STATUSES)},
+        "outcome": "FAIL" if status_counts.get("FAIL", 0) else "PASS",
+        "errors": errors,
+    }
+
+
 def emit_json(payload: dict[str, Any], output_path: Path | None) -> None:
     """Print a JSON payload and optionally persist it to a UTF-8 file."""
 
@@ -242,14 +409,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    inspect_parser = subparsers.add_parser("inspect", help="Inspect the current integration contract")
+    inspect_parser = subparsers.add_parser("inspect", help="Inspect the legacy integration contract")
     inspect_parser.add_argument("repository", type=Path)
     inspect_parser.add_argument("--output", type=Path)
 
-    verify_parser = subparsers.add_parser("verify-report", help="Verify a completed integration report")
+    inspect_e2e_parser = subparsers.add_parser("inspect-e2e", help="Inspect the current E2E contract")
+    inspect_e2e_parser.add_argument("repository", type=Path)
+    inspect_e2e_parser.add_argument("--output", type=Path)
+
+    verify_parser = subparsers.add_parser("verify-report", help="Verify a completed legacy integration report")
     verify_parser.add_argument("repository", type=Path)
     verify_parser.add_argument("report", type=Path)
     verify_parser.add_argument("--output", type=Path)
+
+    verify_e2e_parser = subparsers.add_parser("verify-e2e-report", help="Verify a completed E2E report")
+    verify_e2e_parser.add_argument("repository", type=Path)
+    verify_e2e_parser.add_argument("report", type=Path)
+    verify_e2e_parser.add_argument("--output", type=Path)
     return parser
 
 
@@ -264,10 +440,18 @@ def main() -> int:
                 raise ContractError(
                     "Repository checkout is dirty; the regression cannot be bound to a commit SHA"
                 )
-        else:
+        elif arguments.command == "inspect-e2e":
+            payload = build_e2e_contract(arguments.repository)
+            if payload["dirty"]:
+                raise ContractError(
+                    "Repository checkout is dirty; the regression cannot be bound to a commit SHA"
+                )
+        elif arguments.command == "verify-report":
             payload = verify_report(arguments.repository, arguments.report)
+        elif arguments.command == "verify-e2e-report":
+            payload = verify_e2e_report(arguments.repository, arguments.report)
         emit_json(payload, arguments.output)
-        if arguments.command == "verify-report" and not payload["complete"]:
+        if arguments.command.startswith("verify-") and not payload["complete"]:
             return 1
         return 0
     except ContractError as error:

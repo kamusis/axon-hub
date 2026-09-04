@@ -1,12 +1,15 @@
 ---
 name: mopheus-full-integration-regression
-description: Run, resume, or validate a complete Mopheus integration regression against a clean, revision-bound repository checkout from remote main. Use this for the Weekly full integration regression, requests to execute the entire Mopheus integration suite, or audits of whether a full regression report covers every current repository scenario. Read the repository guides as the sole test procedure, execute all required automation, reconcile every Markdown scenario, preserve revision-bound evidence, and enforce cleanup and report completeness. Do not use this for reusable previews, a single scenario, unit tests, code coverage, or ordinary development environment startup.
-compatibility: Requires a clean Mopheus Git checkout from remote main, Python 3, Bash, Docker, Go, Node.js, pnpm, Playwright dependencies, and any external capability explicitly required by the repository integration guides.
+description: Run, resume, or validate a complete Mopheus full-stack E2E regression against a clean, revision-bound repository checkout from remote main. Use this for the Weekly full E2E regression, requests to execute the entire Mopheus E2E test suite (tests/e2e/), or audits of full-stack test results. Read tests/e2e/README.md as the authoritative guide, execute isolated full-stack Playwright E2E (pnpm test:e2e), collect test results, traces, and logs from test-results/e2e-full/<runId>/, preserve revision-bound evidence, and enforce cleanup and report completeness. Do not use this for reusable previews, a single scenario, unit tests, code coverage, or ordinary development environment startup.
+compatibility: Requires a clean Mopheus Git checkout from remote main, Docker, Go, Node.js, pnpm, Playwright dependencies / Chromium, and Claude CLI for daemon runtime testing.
 ---
 
-# Mopheus Full Integration Regression
+# Mopheus Full E2E Regression
 
-Coordinate a long-running, revision-bound regression without copying the test procedure out of the repository. The current checkout owns commands, scenarios, capability gates, evidence rules, and cleanup rules; this Skill supplies discovery and completion checks around that contract.
+Coordinate a long-running, revision-bound full-stack E2E regression without copying the test procedure out of the repository. The tested checkout owns commands, specs, isolation lifecycles, and evidence rules; this Skill supplies discovery, execution, and completion checks around that contract.
+
+> [!NOTE]
+> The legacy `tests/integration/` directory is **deprecated**. All unified integration journeys and end-to-end user workflows are consolidated into the modern Playwright test suite under `tests/e2e/`.
 
 ## Inputs & Repository Checkout
 
@@ -16,56 +19,78 @@ Coordinate a long-running, revision-bound regression without copying the test pr
    ```
    Or use the isolated task worktree provided by the runtime.
 2. **Never test unmanaged, dirty, or stale host development directories** (e.g., `/home/*/*`).
-3. Record the exact commit SHA of the isolated worktree as `TESTED_REVISION`. All assignments, commands, browser runs, evidence, and the final report must be bound to this revision.
+3. Record the exact commit SHA of the isolated worktree as `TESTED_REVISION`. All assignments, test runs, Playwright artifacts, server logs, and the final report must be strictly bound to this revision.
 
 ## Establish the contract
 
 From this Skill directory, run:
 
 ```bash
-python3 scripts/regression_contract.py inspect <isolated-repository-path>
+python3 scripts/regression_contract.py inspect-e2e <isolated-repository-path>
 ```
 
-The command verifies that the checkout is clean, resolves the exact revision, and dynamically inventories the current numbered specifications and scenarios. Treat any failure as a blocker; a dirty checkout cannot be represented by a commit SHA alone.
+The command verifies that the checkout is clean, resolves the exact revision, and dynamically inventories all active E2E spec files across `bootstrap/admin/`, `bootstrap/user/`, and `services/*/`. Treat any failure as a blocker; a dirty checkout cannot be represented by a commit SHA alone.
 
-Read these files completely from the tested checkout before executing anything:
+Read this file completely from the tested checkout before executing anything:
 
-- `tests/integration-testing-guide.md`
-- `tests/TEST-EXECUTION-GUIDE.md`
+- `tests/e2e/README.md`
 
-They are the sole source of test procedure. If this Skill conflicts with either guide, follow the guide and report the Skill defect.
+It is the authoritative guide for full-stack E2E test execution, isolation boundaries, and ordered dependencies.
 
-## Execute the regression
+## Execute the E2E regression
 
-Follow the mandatory full-regression protocol in the execution guide exactly. This includes its report generator, every automated shell runner, the complete Playwright phase, direct intelligent execution of uncovered Markdown behavior, capability-gate evidence, and cleanup.
+Execute the isolated full-stack Playwright E2E suite:
 
-An automated runner name or successful exit does not cover a Markdown scenario by itself. Credit automation only when its assertions satisfy the complete user-observable scenario. Execute partially covered or uncovered assertions through the public boundary specified by the repository.
+```bash
+pnpm test:e2e
+```
 
-Continue independent phases after an assertion failure when the guide permits it. Preserve the original failure rather than replacing it with a later success. Stop when isolation, revision identity, or infrastructure ownership cannot be proven.
+(or `pnpm test:e2e:full` / `make test-e2e-full`)
 
-## Coordinate long-running work
+### Execution Pipeline & Ordered Stages
 
-Use the generated integration report as the durable run ledger. Update scenario rows as evidence arrives so interruption does not erase progress.
+The run follows the strict dependency sequence configured in `playwright.full.config.ts`:
 
-When resuming, rerun the contract inspection and require the same `TESTED_REVISION`. Reuse existing evidence only when its command output, environment, and scenario identity remain attributable to that revision. Never reuse results from another checkout or a persistent preview.
+1. **globalSetup**: Spins up an isolated PostgreSQL container, dedicated backend, frontend, and daemon processes on dynamic ports, and generates an isolated `E2E_RUN_ID` state directory.
+2. **admin-license** (`bootstrap/admin/01-license.spec.ts`): Admin UI license request export, generator execution, and UI license import.
+3. **admin** (`bootstrap/admin/02-admin.spec.ts`): Admin configuration and management tests.
+4. **user-bootstrap** (`bootstrap/user/`): Regular user account registration, workspace creation, CLI login, provider registration, daemon runtime startup, and online status verification.
+5. **services-workspace** (`services/workspace/`): Completes initial workspace onboarding.
+6. **services-***: Parallel/independent service suites including `user`, `ticket`, `skill`, `agent`, `memory`, `inbox`, and `jobs`.
+7. **globalTeardown**: Gracefully shuts down daemon, backend, frontend, and PostgreSQL container, and captures capped logs (default 512 KiB) into `test-results/e2e-full/<runId>/`.
 
-Follow Team and Agent instructions for assignment and aggregation. This Skill does not redefine QA Leader or Integration Tester responsibilities.
+Never skip the global setup and teardown unless explicitly testing against pre-existing external services via `E2E_SKIP_SETUP=1`.
+
+## Coordinate long-running work & evidence
+
+Use Playwright test outputs and process logs under `test-results/e2e-full/<runId>/` as durable run evidence.
+
+- Check test logs and output in `test-results/` for failure traces and assertions.
+- When an individual spec or assertion fails, record the exact stack trace, screenshot, and console logs.
+- Continue running remaining service projects when possible, preserving failure details rather than erasing them.
+- If resuming or re-running, rerun contract inspection and require the same `TESTED_REVISION`. Never reuse test results from another checkout or a persistent preview.
+
+Follow Team and Agent instructions for assignment and aggregation. QA Leader coordinates and aggregates; E2E Tester executes assigned projects and returns spec-level evidence.
 
 ## Enforce completion
 
-After scenario reconciliation and cleanup, run:
+After test execution and cleanup, verify the report with:
 
 ```bash
-python3 scripts/regression_contract.py verify-report <isolated-repository-path> <integration-report-path>
+python3 scripts/regression_contract.py verify-e2e-report <isolated-repository-path> <e2e-report-path>
 ```
 
-The report is complete only when it contains exactly the scenarios discovered from the tested checkout, records the same revision, has no `NOT RUN` row, uses a valid execution source, and includes evidence for every outcome. `FAIL` and evidence-backed `SKIP` are complete outcomes; they must not be converted to `PASS`.
+The report is complete only when:
+- It records the same revision as the checked-out repository (`TESTED_REVISION`).
+- It contains test outcomes for all discovered E2E spec files.
+- Every row has a valid status (`PASS`, `FAIL`, `SKIP`) and evidence (runId, timing, trace).
+- No rows have `NOT RUN` or missing evidence.
 
-Report verification proves coverage-accounting completeness, not that the product passed.
+Report verification proves coverage completeness, not that all tests passed.
 
 ## Environment boundary
 
-Never use `mopheus-integration-preview` for this workflow. That Skill intentionally reuses persistent databases, accounts, feature overrides, and application processes, which violates the fresh isolation and cleanup contract of full regression.
+Never use `mopheus-integration-preview` for this workflow. That Skill intentionally reuses persistent databases, accounts, feature overrides, and application processes, which violates the fresh isolation contract of full E2E regression.
 
 Never target production, a remote development deployment, a personal CLI profile, or a shared preview database.
 
@@ -73,15 +98,14 @@ Never target production, a remote development deployment, a personal CLI profile
 
 Return:
 
-- tested revision and checkout identity;
-- automation and Playwright outcomes;
-- scenario totals by `PASS`, `FAIL`, and `SKIP`;
-- failures with reproducible redacted evidence;
-- unavailable capability gates and their evidence;
-- report verification result;
-- cleanup result and remaining isolated resources;
-- unresolved risks that require follow-up.
+- Tested revision (`TESTED_REVISION`) and checkout identity;
+- Full E2E runId and execution duration;
+- Spec and test totals by `PASS`, `FAIL`, and `SKIP`;
+- Project-by-project breakdown (`bootstrap/admin`, `bootstrap/user`, `services-workspace`, `services-*`);
+- Failure details with reproducible stack traces, screenshots, and server log excerpts;
+- Container, process, and temporary profile cleanup verification;
+- Unresolved risks or flaky tests that require follow-up.
 
-Attach the completed integration report directly to the Mopheus ticket. **Never use `git add`, `git commit`, or track regression report artifacts in the Git repository.**
+Attach the completed E2E regression report directly to the Mopheus ticket. **Never use `git add`, `git commit`, or track test report artifacts in the Git repository.**
 
-Do not claim the regression passed when any scenario failed, remained unaccounted for, used evidence from another revision, or lacked required cleanup.
+Do not claim the regression passed when any test spec failed, remained unaccounted for, used evidence from another revision, or lacked required cleanup.

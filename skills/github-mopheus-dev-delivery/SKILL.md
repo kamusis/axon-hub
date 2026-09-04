@@ -14,6 +14,7 @@ Treat explicit invocation as authorization for every write in this workflow: com
 - The GitHub repository is fixed to `enmotech/mopheus`; its canonical repository URL is `https://github.com/enmotech/mopheus.git`. Pass `--repo enmotech/mopheus` to every GitHub CLI command. Never derive the operation target from the current directory, `origin`, an active GitHub repository, or conversation context.
 - Never force-push, merge failing checks, guess an ambiguous ticket, clean a dirty worktree, or touch unrelated branches/worktrees.
 - Never execute destructive git commands (such as `git reset --hard`, `git checkout -f`, or `git clean -fd`) on the main worktree or any workspace containing uncommitted changes. Always protect dirty files and uncommitted user edits.
+- **CRITICAL WSL PATH RULE**: When running in WSL on Windows hosts, NEVER execute git, builds, `make check`, or npm/pnpm commands under `/mnt/c/...` or Windows NTFS paths. Cross-OS 9P filesystem translation causes extreme I/O degradation, EACCES permission errors, file locking, and platform binary mismatch (`@esbuild/win32-x64` vs `@esbuild/linux-x64`). ALWAYS use the native Linux ext4 workspace (e.g. `/home/<user>/CascadeProjects/mopheus` or `\\wsl.localhost\Ubuntu-24.04\...`).
 - Keep GitHub content and commit messages in English. Match the Mopheus ticket's language in comments.
 - Preserve partial success on failure. Verify whether an external write succeeded before retrying it.
 
@@ -40,7 +41,7 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 ## 2. Verify and commit
 
 1. Fetch the default branch and inspect status, untracked files, diff, and diff check. Confirm every intended file belongs to this change.
-2. Run the repository's complete required verification command (`make check`) fresh. On Windows hosts, execute `make check` in the WSL/Linux environment where the Linux toolchain, daemon, claimkey, and race detectors reside. Require exit code 0 and confirm zero failure markers in both frontend and Go test outputs. Never commit if `make check` fails, and never substitute partial subpackage tests (`go test ./...` without `make check-web`, single package test, etc.) for the full `make check` pipeline.
+2. Run the repository's complete required verification command (`make check`) fresh. On Windows hosts, execute `make check` in the WSL/Linux environment where the Linux toolchain, daemon, claimkey, and race detectors reside. **CRITICAL**: The execution directory MUST be in native Linux ext4 (e.g. `/home/<user>/CascadeProjects/mopheus`); NEVER execute in `/mnt/c/...`. Require exit code 0 and confirm zero failure markers in both frontend and Go test outputs. Never commit if `make check` fails, and never substitute partial subpackage tests (`go test ./...` without `make check-web`, single package test, etc.) for the full `make check` pipeline.
 3. If the intended change is uncommitted, stage only its files, inspect the complete staged diff, and create one accurate Conventional Commit without a co-author trailer.
 4. If a suitable commit already exists, reuse it. Never duplicate or amend an unrelated commit.
 5. Push the feature branch without force and verify local and remote tips match.

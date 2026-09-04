@@ -160,8 +160,7 @@ EOF
 2. [业务功能要求 2]
 3. **全层级质量与测试交付要求**:
    - **单元测试 (Unit Tests)**: 覆盖后端 Repo、Service 逻辑/权限/错误码、HTTP Handler、CLI 参数解析与 Frontend Hooks/Components/Stores。
-   - **集成测试 (Integration Tests)**: 明确更新或新增 `tests/integration/` 场景说明规范（Markdown）及 `tests/integration/scripts/` 自动化测试脚本。
-   - **E2E / Playwright 测试**: 对所有用户可见功能及交互行为，明确更新或新增 `tests/e2e/*.spec.ts` 浏览器端到端交互用例。
+   - **集成与端到端测试 (Integration & E2E Tests)**: `tests/integration/` 已逐步废弃 (Deprecated)，新用例无需且严禁两边重复编写。所有集成测试与端到端业务交互，统一在 `tests/e2e/**/*.spec.ts` 中新增或更新 Playwright E2E 测试用例。
 ```
 
 > **Note**: Capture the created `ticket.id` (UUID, e.g. `16c95e02-ba4b-4e86-a06b-0de4b8bb4c5a`) and `ticket.number` (e.g. `608`).
@@ -205,8 +204,7 @@ EOF
 2. [Core capability requirement 2]
 3. **Testing & QA Deliverables**:
    - Unit tests covering backend and frontend modules.
-   - Integration tests in `tests/integration/`.
-   - E2E Playwright tests in `tests/e2e/` for user-visible interactions.
+   - Integration & E2E tests: `tests/integration/` is deprecated; all new integration and end-to-end test journeys must be authored directly in `tests/e2e/**/*.spec.ts`.
 ```
 
 > [!CAUTION]
