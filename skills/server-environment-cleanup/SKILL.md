@@ -92,10 +92,78 @@ Format detection findings in a structured Markdown summary:
    git worktree prune
    ```
 
-### Step 4: Output Summary Report
+---
 
-Produce a complete Markdown summary containing:
-- Deleted Docker images and reclaimed disk space.
-- Removed worktrees and deleted merged local branches.
-- Protected images and active/preserved worktrees kept (with reasons).
-- Post-cleanup `docker images` and `git worktree list` verification.
+## 4. Standard Report Specification (Mandatory)
+
+Every cleanup run must produce a strictly standardized Markdown report posted to the ticket comment.
+
+**Section 1 MUST be the `Overall Status` table followed by the `Outcome` summary:**
+
+```markdown
+# Daily Server Environment Cleanup Report — YYYY-MM-DD
+
+**Run Date**: YYYY-MM-DD (Asia/Shanghai)  
+**Agent**: Zhongkui  
+**Ticket**: [MOC-XXX](mention://ticket/<ticket-id>)  
+
+---
+
+### 1. Overall Status
+
+| Area | Status |
+| :--- | :--- |
+| Docker image cleanup | <Status, e.g. "No obsolete versions (all within keep=3 buffer)" or "N removed (~XMB reclaimed)"> |
+| Dangling images | <Status, e.g. "0 (prune ran, nothing to free)" or "N pruned (~XMB reclaimed)"> |
+| Stale builder cache | <Status, e.g. "Pruned (nothing older than 168h)" or "~XMB reclaimed"> |
+| Merged Git worktrees | <Status, e.g. "0 candidates across all detected repos" or "N removed across detected repos"> |
+| Stale local branches | <Status, e.g. "0 candidates across all detected repos" or "N deleted"> |
+| `/tmp` test residue | <Status, e.g. "0 stale items (>3 days)" or "N stale items cleaned"> |
+| Disk usage (root fs) | <e.g. "65G / 99G (69%) — stable"> |
+
+**Outcome**: <Concise summary sentence, e.g. "No destructive actions required this run. System already within retention policy. All protected resources preserved." or "Cleanup completed safely. Reclaimed ~X MB of disk space. All active and rollback resources preserved.">
+
+---
+
+### 2. Docker Images & Cache Breakdown
+
+#### Outdated Images Removed
+| Image | ID | Size | Reason |
+|---|---|---|---|
+| `<image:tag>` | `<id>` | `<size>` | Exceeds rollback buffer (keep=3) |
+*(Or "None — all images are in-use or within rollback buffer")*
+
+#### Protected & Rollback Images Preserved
+| Image | ID | Size | Protection Reason |
+|---|---|---|---|
+| `<image:tag>` | `<id>` | `<size>` | Current active container / Rollback buffer (keep=3) / Base infra |
+
+#### Dangling Images & Builder Cache
+- Dangling images: `<count> pruned, <size> reclaimed`
+- Builder cache: `<status/reclaimed space>`
+
+---
+
+### 3. Git Worktrees & Branches
+
+#### Repositories Checked
+- `<repo path 1>`
+- `<repo path 2>`
+
+#### Removed Worktrees & Branches
+| Repo | Item | Type | Commit / Branch | Merge Status |
+|---|---|---|---|---|
+| `<repo>` | `<path>` | worktree | `<sha>` | Conclusively merged |
+*(Or "None — 0 merged worktrees or stale branches detected")*
+
+#### Active / Protected Worktrees
+| Repo | Worktree Path | Branch / HEAD | Reason Preserved |
+|---|---|---|---|
+| `<repo>` | `<path>` | `<branch>` | Main worktree / Active feature branch |
+
+---
+
+### 4. System Disk & Environment Health
+- Root filesystem (`df -h /`): `<Used> / <Total> (<Percent>)`
+- Post-cleanup verification: `docker images` and `git worktree list` verified clean.
+```

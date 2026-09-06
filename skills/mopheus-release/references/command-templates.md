@@ -143,6 +143,5 @@ Do not use these in this skill:
 gh release create
 git push --force
 git tag --force
-git push origin main
 git push origin release
 ```
