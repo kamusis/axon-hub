@@ -10,6 +10,7 @@ description: Fetch and report GitHub trending repositories across three dimensio
 - `gh` CLI authenticated (`gh auth status`)
 - `jq` installed
 - `python3` installed
+- `scrapling` installed (optional, for monthly trending web scrape)
 
 ## When to Use
 
@@ -24,8 +25,10 @@ Trigger when the user asks for GitHub trending information, such as:
 
 ### Step 1 — Run the script
 
+Run the packaged script within the skill directory:
+
 ```bash
-/home/kamus/.openclaw/workspace/scripts/github_trends.sh
+bash scripts/github_trends.sh
 ```
 
 ### Step 2 — Report to user
@@ -36,8 +39,6 @@ The report contains three sections:
 1. **新锐榜** (Rising Stars) — Top 5 repos created in the last 30 days by stars
 2. **动能榜** (AI/Agent Momentum) — Top 10 AI/Agent repos created in the last year, updated in last 30 days
 3. **全球热度榜** (Global Trending) — Top 10 from GitHub's official monthly trending page
-
-The underlying script lives at `/home/kamus/.openclaw/workspace/scripts/github_trends.sh` — do not copy it. Call it in place via the absolute path.
 
 ## Notes
 
