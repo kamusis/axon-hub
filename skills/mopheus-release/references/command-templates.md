@@ -135,6 +135,21 @@ Verify that the returned body contains:
 <!-- mopheus-release-notes:<version> -->
 ```
 
+## Bump development version on main
+
+After GitHub Release verification succeeds:
+
+```bash
+git fetch origin main
+git checkout main
+git merge --ff-only origin/main
+# Update server/pkg/version/version.go to <next-version>
+git add server/pkg/version/version.go
+git diff --cached --check
+git commit -m "chore(release): bump development version to <next-version>"
+git push origin main
+```
+
 ## Commands intentionally excluded
 
 Do not use these in this skill:

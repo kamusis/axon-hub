@@ -1,6 +1,6 @@
 ---
 name: mopheus-release
-description: Release Mopheus from the fixed enmotech/mopheus GitHub repository and its long-lived release branch by validating a user-supplied SemVer tag, compiling complete release notes, updating the source version and bilingual documentation changelog in one verified preparation commit, tagging that commit, monitoring the release workflow, and replacing workflow-generated GitHub notes. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release.
+description: Release Mopheus from the fixed enmotech/mopheus GitHub repository and its long-lived release branch by validating a user-supplied SemVer tag, compiling complete release notes, updating the source version and bilingual documentation changelog in one verified preparation commit, tagging that commit, monitoring the release workflow, replacing workflow-generated GitHub notes, and bumping the development version on main to the next patch version. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release.
 compatibility: Requires git, Python 3, GitHub CLI access, and a repository with origin/main, origin/release, and .github/workflows/release.yml.
 ---
 
@@ -25,7 +25,8 @@ This skill owns only:
 - creating and pushing the annotated tag on the verified release commit;
 - waiting for the tag-triggered workflow to finish;
 - replacing the workflow-generated GitHub Release notes after the workflow succeeds;
-- verifying that the final GitHub Release contains the prepared notes.
+- verifying that the final GitHub Release contains the prepared notes;
+- bumping the development version on `main` to the next patch version (or explicit target) after release completion and pushing to `origin/main`.
 
 Do not run `gh release create`; the workflow creates the GitHub Release.
 
@@ -215,6 +216,27 @@ This ordering prevents GoReleaser's initial simple notes from overwriting the cu
 
 If final verification does not find the marker, retry `gh release edit` only after confirming all matching workflow attempts are complete. If the marker is still absent, stop and report the mismatch rather than claiming success.
 
+### 6. Bump development version on main
+
+After GitHub Release creation and notes verification succeed (the release is completely finalized):
+
+1. Fetch latest remote state and switch to `main`:
+   ```bash
+   git fetch origin main
+   git checkout main
+   git merge --ff-only origin/main
+   ```
+2. Compute the next development version. By default, increment the patch component of the released SemVer (e.g. `v2.2.5` -> `v2.2.6`). If the user explicitly supplied a next development target, use that instead.
+3. Update `server/pkg/version/version.go` so `var Version = "<next-version>"`. Do not modify `install/env.example` (it remains pinned to the released stable image tag).
+4. Verify diff: confirm only `server/pkg/version/version.go` changed.
+5. Create and push the bump commit:
+   ```bash
+   git add server/pkg/version/version.go
+   git commit -m "chore(release): bump development version to <next-version>"
+   git push origin main
+   ```
+6. Verify local `main` and `origin/main` match.
+
 ## Completion report
 
 Report:
@@ -225,6 +247,7 @@ Report:
 - workflow run URL and successful conclusion;
 - GitHub Release URL;
 - confirmation that the curated-notes marker was verified;
+- next development version bumped on `main`;
 - the release note text or a concise section summary.
 
 Do not report release success merely because the tag push succeeded.
