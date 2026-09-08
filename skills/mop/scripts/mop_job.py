@@ -115,43 +115,43 @@ def cmd_create(args):
         cmd.extend(["--instruction", args.instruction])
     if args.action_config:
         cmd.extend(["--action-config", args.action_config])
-
+    
     if args.filter_file:
         with open(args.filter_file, "r", encoding="utf-8") as f:
             content = f.read().strip()
         cmd.extend(["--event-filter", content])
     elif args.filter_json:
         cmd.extend(["--event-filter", args.filter_json])
-
+        
     out = run_mop_raw(cmd)
     print(out)
 
 
 def cmd_update_trigger(args):
     cmd = ["job", "trigger-update", args.job_id, args.trigger_id]
-
+    
     if args.enabled is not None:
         cmd.append(f"--enabled={'true' if args.enabled else 'false'}")
-
+        
     if args.filter_file:
         with open(args.filter_file, "r", encoding="utf-8") as f:
             content = f.read().strip()
         cmd.extend(["--event-filter", content])
     elif args.filter_json:
         cmd.extend(["--event-filter", args.filter_json])
-
+        
     if args.cron:
         cmd.extend(["--cron", args.cron])
     if args.label:
         cmd.extend(["--label", args.label])
-
+        
     out = run_mop_raw(cmd)
     print(out)
 
 
 def cmd_add_trigger(args):
     cmd = ["job", "trigger-add", args.job_id, "--kind", args.kind]
-
+    
     if args.kind == "schedule":
         if not args.cron:
             print("Error: --cron is required for schedule triggers", file=sys.stderr)
@@ -159,7 +159,7 @@ def cmd_add_trigger(args):
         cmd.extend(["--cron", args.cron])
         if args.timezone:
             cmd.extend(["--timezone", args.timezone])
-
+            
     elif args.kind == "event":
         if args.filter_file:
             with open(args.filter_file, "r", encoding="utf-8") as f:
@@ -170,10 +170,10 @@ def cmd_add_trigger(args):
         else:
             print("Error: --filter-json or --filter-file is required for event triggers", file=sys.stderr)
             sys.exit(1)
-
+            
     if args.label:
         cmd.extend(["--label", args.label])
-
+        
     out = run_mop_raw(cmd)
     print(out)
 

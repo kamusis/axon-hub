@@ -21,8 +21,8 @@ if (-not (Test-Path $SourcePath)) {
     Write-Error "Source path does not exist: $SourcePath"
 }
 
-Write-Host "==> [2/3] Syncing code to WSL ($wslDistro) preview harness..." -ForegroundColor Cyan
-robocopy $SourcePath $wslHarnessUnc /MIR /NFL /NDL /NJH /NJS /nc /ns /np /XD .git node_modules .next .turbo .worktrees uploads dist bin __pycache__ /XF .env.worktree .env.local *.log *.pid *.tmp
+$xdWorktrees = if ($SourcePath -like "*\.worktrees\*") { "$SourcePath\.worktrees" } else { ".worktrees" }
+robocopy $SourcePath $wslHarnessUnc /MIR /NFL /NDL /NJH /NJS /nc /ns /np /XD .git node_modules .next .turbo $xdWorktrees uploads dist bin __pycache__ /XF .env.worktree .env.local *.log *.pid *.tmp
 if ($LASTEXITCODE -ge 8) {
     Write-Error "Robocopy failed with exit code $LASTEXITCODE"
 }

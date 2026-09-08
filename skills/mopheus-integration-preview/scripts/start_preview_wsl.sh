@@ -13,6 +13,8 @@ if [ -x "$PREVIEW_DIR/server/bin/mopheus" ]; then
 fi
 fuser -k 8230/tcp 2>/dev/null || true
 fuser -k 3230/tcp 2>/dev/null || true
+pkill -9 -f "next dev" 2>/dev/null || true
+pkill -9 -f "next-server" 2>/dev/null || true
 sleep 1
 
 echo "==> [2/6] Starting PostgreSQL container..."

@@ -130,7 +130,7 @@ def cmd_update_desc(args):
     if not os.path.isfile(args.file):
         print(f"Error: File not found: {args.file}", file=sys.stderr)
         sys.exit(1)
-
+        
     with open(args.file, "r", encoding="utf-8") as f:
         desc_content = f.read()
 

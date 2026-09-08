@@ -107,10 +107,10 @@ When users mention:
 $\to$ The agent must immediately recognize that these correspond to Mopheus **profiles** located under `~/.mopheus/profiles/<name>/`.
 
 ### 2. Available Profiles Discovery
-To discover and inspect configured profiles on the host:
-- Run `mop profile list` (or `mop profile ls`) to list all configured profiles with server URLs, active workspaces, and auth status.
-- Run `mop profile show [name]` (or `mop profile get [name]`) to inspect specific profile configuration details.
-- Profiles are stored under `~/.mopheus/config.json` (`default`) and `~/.mopheus/profiles/<name>/config.json`.
+To identify configured profiles on the host:
+- List directories in `~/.mopheus/profiles/` (e.g. `wt-preview-test`, `mop-demo`).
+- Inspect target profile configuration: `mop config show --profile <name>`.
+- Default profile lives directly under `~/.mopheus/config.json`.
 
 ### 3. Execution & Context Isolation Rules
 - **Explicit Flag Passing**: Whenever the user specifies an environment/profile, ALWAYS pass `--profile <name>` to all subsequent `mop` commands:

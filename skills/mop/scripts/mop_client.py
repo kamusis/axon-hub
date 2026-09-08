@@ -200,3 +200,4 @@ def apply_global_args(args: Any) -> None:
         ws_id = resolve_workspace_id(args.workspace)
         if ws_id:
             os.environ["MOPHEUS_WORKSPACE_ID"] = ws_id
+
