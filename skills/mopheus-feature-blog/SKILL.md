@@ -14,23 +14,33 @@ Write compelling, grounded, and technically rigorous blog posts for Mopheus, tar
 - **Objective & Grounded (客观务实，数据说话)**: Maintain an engineering-first, professional tone. Strictly eliminate boastful, exaggerated adjectives and adverbs. Let the architectural elegance, concrete code, and hard benchmark numbers speak for themselves. Let readers draw their own conclusions without model self-praise.
 - **Value-Oriented Presentation (聚焦用户与产品价值，严禁内部汇报式罗列)**: Blog posts are written for external engineers and users. Outcomes and capabilities should be demonstrated through the **diagnostic value, architectural insights, and interactive layers** the feature delivers, rather than dumping internal 24-hour work logs, specific internal agent names, or mechanical task counts like an internal company report.
 - **Strict Technical Rigor**: Maintain 100% precision for code, architectures, CLI syntax, configuration keys, and database models. Never confuse speculative ideas with implemented reality.
-- **Positive & Speed-Focused Motivation**: Never frame features as solving "human exhaustion or laziness". Engineering rigor is essential; Mopheus exists to achieve continuous, high-speed, automated quality exposure and eliminate workflow roadblocks.
-- **Highlight the AI-Native Paradigm**: Clearly articulate why traditional tools (scripts, isolated web chat boxes, fragmented SaaS) fail, and how Mopheus's "People, Agents, Teams (PAT)" unified workspace, real-world execution sandboxes (Daemon/Worktrees), and long-term memory solve the problem natively.
+- **Objective Comparison over Dismissal (客观对比，严禁贬低传统实践)**: Highlight how Mopheus's unified workspace ("People, Agents, Teams"), execution sandboxes, and event/chat primitives simplify integration. When comparing with traditional tools (custom scripts, isolated webhooks, external bots), objectively discuss real-world maintenance overhead and rule-based limitations (e.g. hardcoded rules cannot easily leverage LLM reasoning). Never dismiss or demean traditional scripts as "broken", "fragile", or "inferior".
 
 ---
 
 ## Tone & Phrasing Standards (用词与语言风格规范)
 
-### 1. 严禁主观夸大修饰
-- **禁用词汇**：严禁在正文和标题中使用“瞬间”、“极速”、“毫秒级”、“秒级”、“彻底打破/颠覆”、“重磅”、“极其/巨额”等主观自吹或夸大的修饰词。
-- **客观陈述**：
+### 1. 严禁主观夸大与空洞大词 (No Grandiose Hype & Buzzwords)
+- **禁用自吹/夸张修饰词**：严禁在正文和标题中使用“瞬间”、“极速”、“毫秒级”、“秒级”、“彻底打破/颠覆”、“重磅”、“极其/巨额”等主观夸张修饰词。
+- **禁用大而满的 AI 流行语**：严禁使用“范式/新范式”、“跃迁”、“第一公民”、“动力引擎”、“全链路重塑”、“赋能”等空洞宏大的行话。聚焦具体的技术组件、CLI 原语、架构交互与数据流，文字内敛务实。
+- **客观陈述事实与度量**：
   - 若有真实记录的量化执行时间/指标，**按实记录精确数字**（例如：“耗时 2.1 秒”、“消耗 1,140,135 Tokens”）；
   - 若没有留存精确运行耗时，**直接客观陈述事实**（例如：“首次运行同步了全量数据”），严禁擅自脑补“瞬间完成”、“极速同步”。
 
-### 2. 经典正反面对照表 (Good vs Bad Examples)
+### 2. 尊重工程现实，严禁贬低传统实践 (Respect Existing Engineering Practices)
+- **禁止情绪化贬损**：严禁把工程师现有的技术实践或传统脚本/配置描述为“充斥着脆弱割裂的胶水代码”、“消息轰炸”、“常年硬编码”、“落后低效”、“无能为力”。
+- **客观陈述工程权衡与演进动机**：
+  - 传统脚本（Shell、Python）和 Webhook 同样可以编写得极其优雅、健壮。
+  - 新特性的价值在于**减少跨系统外围适配的开销**，以及**让自动化流程能原生借力 LLM 的语义理解、推理研判与多轮交互能力**，这是确定性硬编码脚本天然不具备的特性。
+  - 阐述问题时，聚焦于“随着业务和通知规模扩大带来的长期维护成本”和“规则维护的复杂度”，而不是“旧方案一无是处”。
 
-| 场景 | ❌ 错误示范（浮夸吹捧） | ✅ 正确规范（客观务实） |
+### 3. 经典正反面对照表 (Good vs Bad Examples)
+
+| 场景 | ❌ 错误示范（浮夸/贬损/大词） | ✅ 正确规范（客观务实、内敛） |
 | :--- | :--- | :--- |
+| **传统方案对比** | “充斥着**脆弱且割裂的胶水代码**，常年进行**消息轰炸**” | “随着通知场景增加，团队往往面临**中转脚本累积与协议适配的维护开销**” |
+| **脚本局限分析** | “传统脚本**机械僵硬、落后**，根本搞不定复杂的告警” | “脚本适合确定性规则；但面对非结构化诊断与动态推理，**纯脚本通常无法直接借力 LLM 的语义理解能力**” |
+| **宏大流行语** | “开启研发协作的**全新范式**，实现效率的**质的跃迁**” | “通过统一的 Chat 路由与事件监听，**减少外围适配代码，打通跨系统协同链路**” |
 | **数据同步** | “首次运行**瞬间同步**了全量 1,087 条数据” | “首次运行**同步了**全量 1,087 条数据”（如有记录则写“耗时 X 秒同步了...”） |
 | **增量查询** | “二次运行实现了**极速/毫秒级**响应” | “二次运行比对状态并跳过已终态任务，**仅需 2 秒完成**检查与渲染” |
 | **标题拟定** | “从黑盒运行到**毫秒级洞察**：**重磅**发布...” | “从黑盒运行到**结构化洞察**：我们是如何为 Mopheus 智能体任务构建数据可视化技能的？” |
@@ -63,7 +73,7 @@ Best for: Three-tier Git virtualization, Daemon execution engine, Worktree isola
 4. **End-to-End SOP & Standard Lifecycle**: Step-by-step lifecycle flow from task claim to verification, commit, PR, and ticket closure.
 5. **Platform Compatibility & Roadmap**: Neutrality (GitHub/GitLab/Gitea), SDK abstractions, and future evolution.
 
-### Archetype C: Vision & Paradigm Exploration (宏观范式与框架构想)
+### Archetype C: Architectural Vision & System Design (前瞻架构与系统构想)
 Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-Agent Arena, Autonomous Self-Healing.
 1. **Industry Status Quo & The "Tool Island" Dilemma**: Friction across Jira, GitLab, Grafana, ITSM, and disconnected chat tools.
 2. **Why Agentic AI Ends Fragmentation**: Cross-domain semantic penetration from natural language to AST, PR diffs, and production APM logs.
