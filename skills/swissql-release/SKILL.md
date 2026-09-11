@@ -1,33 +1,37 @@
 ---
 name: swissql-release
-description: Prepare and execute SwissQL Core releases with paired CLI/backend tags, capability-oriented release notes, and GitHub Actions handoff. Use whenever releasing SwissQL Core, creating cli-v*/backend-v* tags, updating SwissQL release notes, or preparing release notes for the automated GitHub release workflow.
+description: Prepare and execute SwissQL Core releases with single-component (cli-v* or backend-v*) or paired (cli-v*/backend-v*) tags, capability-oriented release notes, and GitHub Actions handoff. Use whenever releasing SwissQL Core, creating release tags, updating SwissQL release notes, or preparing release notes for the automated GitHub release workflow.
 ---
 
 # SwissQL Release
 
-Prepare a SwissQL Core release with paired component tags:
+Prepare and execute SwissQL Core releases with component-specific tags:
 
-- `cli-vX.Y.Z`
-- `backend-vX.Y.Z`
+- `cli-vX.Y.Z` (CLI release)
+- `backend-vX.Y.Z` (Backend container image & API release)
 
-This skill is project-specific. Prefer it over the generic `github-release` skill for this repository.
+This skill is project-specific to `enmotech/swissql-core`. Prefer it over the generic `github-release` skill for this repository.
 
 ## Core Principle
 
 GitHub Actions is the release executor. The agent is the release editor.
 
-Do not rely on GitHub auto-generated release notes as the preferred final release body. They often list internal commit titles and miss the user-facing capabilities. Prepare component-specific notes before tags are pushed whenever possible. If prepared notes are missing, do not block artifact publication: let GitHub Actions publish with generated notes, then replace the release body afterward.
+- `release-cli.yml` executes on `cli-v*` tags: compiles cross-platform CLI binaries, uploads archives to OSS, and creates the GitHub Release with attachments.
+- `release-backend-image.yml` executes on `backend-v*` tags: builds multi-architecture Docker images, pushes to Huawei Cloud SWR and GHCR, and creates the GitHub Release.
 
-## Required Release Shape
+Do not rely on GitHub auto-generated release notes as the preferred final release body. They often list internal commit titles and miss user-facing capabilities. Prepare component-specific notes before tags are pushed whenever possible. If prepared notes are missing, do not block artifact publication: let GitHub Actions publish with generated notes, then replace the release body afterward.
 
-SwissQL uses paired release tags for the same version:
+## Supported Release Shapes
 
-```text
-cli-vX.Y.Z
-backend-vX.Y.Z
-```
+SwissQL components are decoupled and support both single-component and paired releases:
 
-Both tags normally point to the same `main` commit, but each GitHub Release must describe only its own component.
+### 1. Single Component Release (Recommended for targeted changes)
+- **CLI-only (`cli-vX.Y.Z`)**: When changes affect only `swissql-cli/` (e.g. AI-actionable error hints, table rendering, new subcommands). Backend tag is NOT created and backend version remains unchanged.
+- **Backend-only (`backend-vX.Y.Z`)**: When changes affect only `swissql-backend/` (e.g. SQL rule engine, JDBC driver loader, security filters). CLI tag is NOT created and CLI version remains unchanged.
+
+### 2. Paired Release (Recommended for cross-cutting milestones)
+- Both `cli-vX.Y.Z` and `backend-vX.Y.Z` pointing to the same `main` commit when releasing joint features (e.g. new protocol headers, isolation domain integration).
+- Each GitHub Release must describe only its own component.
 
 ## Non-Negotiable Notes Separation
 
@@ -36,16 +40,14 @@ Write separate release notes for CLI and backend.
 ### CLI notes must include only CLI-facing content
 
 Include:
-
-- CLI commands, flags, output, config, rendering, validation, and client behavior
+- CLI commands, flags, output formatting, config (`~/.swissql/config.json`), rendering, error hints, and client behavior
 - CLI fixes and user-visible CLI behavior
 - CLI tests only when useful as confidence notes
-- CLI changelog link
+- CLI full changelog link
 
-Do not include backend-only implementation details in CLI notes. If a feature spans backend and CLI, explain only the CLI side in the CLI release.
+Do not include backend-only implementation details in CLI notes (no servlet filters, Spring configuration, MDC keys, controller audit logs, or Docker images).
 
 Example:
-
 ```markdown
 ## Highlights
 
@@ -53,23 +55,22 @@ Example:
 - Added `--executor` to identify the caller in audit-aware requests.
 ```
 
-Do not write backend details such as servlet filters, MDC keys, controller audit logs, or Docker images in CLI notes.
-
 ### Backend notes must include only backend-facing content
 
 Include:
-
-- REST/API behavior, request headers, audit logs, config, Docker image, validation, persistence, SQL/rules behavior, driver behavior
-- Backend fixes and operator-visible backend behavior
+- Docker image paths (Huawei Cloud SWR & GHCR)
+- REST/API behavior, request headers, audit logs, configuration properties, persistence, SQL rules, driver management
+- Backend fixes and operator-visible behavior
 - Backend tests only when useful as confidence notes
-- Backend changelog link
+- Backend full changelog link
 
-Do not include CLI-only implementation details in backend notes. If a feature spans backend and CLI, explain only the backend side in the backend release.
+Do not include CLI-only implementation details in backend notes. Prefer pointing to the CLI release for CLI usage.
 
 Example:
-
 ```markdown
-Docker image: `ghcr.io/kamusis/swissql-core:X.Y.Z`
+Docker images:
+- Huawei Cloud SWR: `swr.cn-north-4.myhuaweicloud.com/mopheus/swissql-core:X.Y.Z`
+- GitHub Packages (GHCR): `ghcr.io/enmotech/swissql-core:X.Y.Z`
 
 ## Highlights
 
@@ -77,7 +78,7 @@ Docker image: `ghcr.io/kamusis/swissql-core:X.Y.Z`
 - SQL execution audit logs now include `ticket_id=...`.
 ```
 
-Do not write CLI flags or CLI command examples in backend notes unless they are necessary operator context. Prefer pointing to the CLI release for CLI usage.
+---
 
 ## Workflow
 
@@ -94,46 +95,54 @@ git rev-parse origin/main
 ```
 
 Proceed only if:
-
 - Current branch is `main`
 - Working tree is clean
 - Local `main` is aligned with `origin/main`
-- The target tags do not already exist locally or remotely
+- Target tag(s) do not already exist locally or remotely
 
 Check tags:
-
 ```bash
+# For single CLI release
 git rev-parse -q --verify refs/tags/cli-vX.Y.Z
+git ls-remote --tags origin cli-vX.Y.Z
+
+# For single Backend release
 git rev-parse -q --verify refs/tags/backend-vX.Y.Z
+git ls-remote --tags origin backend-vX.Y.Z
+
+# For paired release
+git rev-parse -q --verify refs/tags/cli-vX.Y.Z refs/tags/backend-vX.Y.Z
 git ls-remote --tags origin cli-vX.Y.Z backend-vX.Y.Z
 ```
 
 ### 2. Determine Release Range
 
-For paired releases, compare each component against its previous component tag:
+Compare each component being released against its previous component tag:
 
 ```bash
+# CLI range
 git log --oneline cli-vPREV..HEAD
+
+# Backend range
 git log --oneline backend-vPREV..HEAD
 ```
 
 Collect PR context:
 
 ```bash
-gh pr list --repo kamusis/swissql-core --state merged --limit 100 \
+gh pr list --repo enmotech/swissql-core --state merged --limit 100 \
   --json number,title,body,mergedAt,url
 ```
 
-Also inspect squash commit bodies in the range; they are usually cleaner than GitHub auto notes:
+Also inspect squash commit bodies in the range:
 
 ```bash
-git log --pretty='%h%n%s%n%b%n---END---' backend-vPREV..HEAD
+git log --pretty='%h%n%s%n%b%n---END---' <component>-vPREV..HEAD
 ```
 
 ### 3. Classify Changes By Component
 
 For each merged PR or commit, classify effects into:
-
 - `cli`
 - `backend`
 - `both`
@@ -141,19 +150,11 @@ For each merged PR or commit, classify effects into:
 - `docs`
 - `internal-only`
 
-When a change is `both`, split it into two component-specific descriptions.
-
-Example:
-
-- Combined feature: executor identity for audit logs
-- CLI release wording: "Added `--executor` to send caller identity on requests."
-- Backend release wording: "Added `X-Executor` request handling and executor attribution in audit logs."
-
-Avoid copying the same full paragraph into both releases.
+When a change is `both`, split it into component-specific descriptions.
 
 ### 4. Draft CLI Release Notes
 
-Use this template:
+When releasing CLI (`cli-vX.Y.Z`), use this template:
 
 ```markdown
 ## Highlights
@@ -177,17 +178,17 @@ Use this template:
 
 - #<number> — <CLI-specific summary>
 
-**Full Changelog**: https://github.com/kamusis/swissql-core/compare/cli-vPREV...cli-vX.Y.Z
+**Full Changelog**: https://github.com/enmotech/swissql-core/compare/cli-vPREV...cli-vX.Y.Z
 ```
-
-Omit empty sections. Keep highlights short and capability-oriented.
 
 ### 5. Draft Backend Release Notes
 
-Use this template:
+When releasing Backend (`backend-vX.Y.Z`), use this template:
 
 ```markdown
-Docker image: `ghcr.io/kamusis/swissql-core:X.Y.Z`
+Docker images:
+- Huawei Cloud SWR: `swr.cn-north-4.myhuaweicloud.com/mopheus/swissql-core:X.Y.Z`
+- GitHub Packages (GHCR): `ghcr.io/enmotech/swissql-core:X.Y.Z`
 
 ## Highlights
 
@@ -210,139 +211,115 @@ Docker image: `ghcr.io/kamusis/swissql-core:X.Y.Z`
 
 - #<number> — <backend-specific summary>
 
-**Full Changelog**: https://github.com/kamusis/swissql-core/compare/backend-vPREV...backend-vX.Y.Z
+**Full Changelog**: https://github.com/enmotech/swissql-core/compare/backend-vPREV...backend-vX.Y.Z
 ```
-
-Omit empty sections. Keep backend notes operator-facing and API-facing.
 
 ### 6. Prepare Repository Release Notes
 
-SwissQL has an established repository convention. Write both release notes using filenames that exactly match the planned tags:
+SwissQL has an established repository convention. Write release notes using filenames that exactly match the planned tags:
 
 ```text
 release-notes/cli-vX.Y.Z.md
 release-notes/backend-vX.Y.Z.md
 ```
 
-Read `release-notes/README.md` and follow its templates and component boundaries. Do not ask whether to use this convention during a normal release.
-
-Prepared notes are strongly preferred but are not an artifact-publication gate. If notes cannot be committed before tags are pushed, or the tag workflows are already running, allow GitHub Actions to complete with generated notes. Prepare temporary component-specific files and update the GitHub Releases afterward.
+Read `release-notes/README.md` and follow its conventions.
+When doing a single-component release, only create the file for that component.
 
 ### 7. Commit Release Notes Before Tagging
 
-For the normal release path:
+Commit release note files to `main` before tagging:
 
 ```bash
+# For CLI release only
+git add release-notes/cli-vX.Y.Z.md
+git commit -m "docs: add release notes for cli-vX.Y.Z"
+git push origin main
+
+# For Backend release only
+git add release-notes/backend-vX.Y.Z.md
+git commit -m "docs: add release notes for backend-vX.Y.Z"
+git push origin main
+
+# For Paired release
 git add release-notes/cli-vX.Y.Z.md release-notes/backend-vX.Y.Z.md
 git commit -m "docs: add release notes for vX.Y.Z"
 git push origin main
 ```
 
-Only commit release note files. Do not mix code or unrelated docs into the release-notes commit. Push the commit to `main`, verify `HEAD` matches `origin/main`, and create both tags on that release-preparation commit.
-
-If this step cannot be completed, do not treat missing notes alone as a release blocker. Continue the requested release and use the post-release correction path in step 9.
+Only commit release note files. Do not mix code or unrelated docs into the release-notes commit. Verify `HEAD` matches `origin/main` before creating tags.
 
 ### 8. Create Annotated Tags
 
 Use annotated tags matching existing project style:
 
 ```bash
+# For CLI release only
+git tag -a cli-vX.Y.Z -m "CLI vX.Y.Z"
+git push origin cli-vX.Y.Z
+
+# For Backend release only
+git tag -a backend-vX.Y.Z -m "Backend vX.Y.Z"
+git push origin backend-vX.Y.Z
+
+# For Paired release
 git tag -a cli-vX.Y.Z -m "CLI vX.Y.Z"
 git tag -a backend-vX.Y.Z -m "Backend vX.Y.Z"
 git push origin cli-vX.Y.Z backend-vX.Y.Z
 ```
 
-Wait for both workflows to finish. Release notes must never prevent CLI binaries, OSS uploads, backend images, GHCR manifests, or SWR manifests from being published.
+Wait for GitHub Actions workflows to finish:
+- `Release CLI` (`.github/workflows/release-cli.yml`)
+- `Release Backend Docker Image` (`.github/workflows/release-backend-image.yml`)
 
 ### 9. Update GitHub Releases If Needed
 
-If Actions used generated notes, generated weak notes, or did not pick up the prepared files, update manually:
+If Actions used generated notes or did not pick up the prepared files, update manually:
 
 ```bash
 gh release edit cli-vX.Y.Z \
-  --repo kamusis/swissql-core \
+  --repo enmotech/swissql-core \
   --notes-file release-notes/cli-vX.Y.Z.md
 
 gh release edit backend-vX.Y.Z \
-  --repo kamusis/swissql-core \
+  --repo enmotech/swissql-core \
   --notes-file release-notes/backend-vX.Y.Z.md
 ```
 
-For temporary notes files, use the temporary paths instead. A successful post-release edit is an acceptable completion path when artifacts were published without prepared repository notes.
-
 ### 10. Verify
 
-Read both releases back:
+Read releases back:
 
 ```bash
-gh release view cli-vX.Y.Z --repo kamusis/swissql-core --json body,url
-gh release view backend-vX.Y.Z --repo kamusis/swissql-core --json body,url
+gh release view <tag> --repo enmotech/swissql-core --json body,url
 ```
 
 Confirm:
-
 - CLI release contains only CLI-facing content
 - Backend release contains only backend-facing content
-- Backend release includes the Docker image line
+- Backend release includes the SWR and GHCR Docker image references
 - Full changelog links use matching component tags
-- Tags point to the intended commit
+- Tag points to the intended `main` commit
+
+---
 
 ## GitHub Actions Contract
 
-Required workflow behavior:
-
-- Actions may create releases and upload artifacts.
-- Actions should not be trusted to generate final human-facing notes.
-- If `release-notes/${TAG}.md` exists, Actions should use it as the release body.
-- If the file is missing, Actions should emit a warning and continue with GitHub-generated notes.
+- Actions create releases and upload artifacts.
+- Both workflows inspect `release-notes/${GITHUB_REF_NAME}.md`.
+- If the file exists, Actions uses it as the release body (`body_path`).
+- If missing, Actions publishes with generated notes and emits a warning.
 - Missing release notes must not fail or skip binary, OSS, container-image, GHCR, or SWR publication.
-- The agent should replace generated notes before considering the release fully documented.
+- Release tags must be on the `origin/main` branch or the workflow will abort.
 
-Suggested Actions logic:
-
-```yaml
-- name: Locate release notes
-  id: notes
-  run: |
-    NOTES="release-notes/${GITHUB_REF_NAME}.md"
-    if [[ -f "${NOTES}" ]]; then
-      echo "available=true" >> "$GITHUB_OUTPUT"
-      echo "path=${NOTES}" >> "$GITHUB_OUTPUT"
-    else
-      echo "available=false" >> "$GITHUB_OUTPUT"
-      echo "::warning::Missing ${NOTES}; publishing with generated notes."
-    fi
-
-- name: Release from prepared notes
-  if: steps.notes.outputs.available == 'true'
-  uses: softprops/action-gh-release@v2
-  with:
-    body_path: ${{ steps.notes.outputs.path }}
-
-- name: Release with generated notes
-  if: steps.notes.outputs.available != 'true'
-  uses: softprops/action-gh-release@v2
-  with:
-    generate_release_notes: true
-```
+---
 
 ## Final Report
 
 When done, report:
-
-- Tags created and pushed
+- Tag(s) created and pushed
 - Commit SHA released
-- CLI release URL
-- Backend release URL
+- Release URL(s)
 - Whether release notes were committed before tagging or edited directly on GitHub afterward
-- Release-notes commit SHA when the repository-note path was used
-- Any GitHub Actions jobs still running or failed
-
-## Safety Rules
-
-- Do not publish artifacts to registries manually unless the user explicitly asks.
-- Do not force-push tags unless the user explicitly approves a tag rewrite.
-- Do not create tags from a dirty worktree.
-- Do not mix CLI-only and backend-only notes.
-- Do not treat GitHub auto notes as sufficient when they obscure user-facing capabilities.
-- Do not fail or cancel artifact publication solely because prepared release notes are missing.
+- Any GitHub Actions jobs still running or completed
+- SWR & GHCR image pull tags (for Backend releases)

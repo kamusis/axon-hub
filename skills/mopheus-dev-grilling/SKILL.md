@@ -92,6 +92,6 @@ During the grilling session:
 2. **Challenge against codebase facts**:
    - "You proposed `CommentType = 4`, but `server/models/ticket_comment.go` currently defines only 0~3. We must define `CommentTypeWidgetEvent = 4` with `String()` and update migrations."
    - "You proposed SSE, but Mopheus uses WebSocket Hub in `server/internal/notify/`."
-3. **Present recommended options for each question**: Never ask open-ended questions without providing a recommended answer and technical trade-off rationale.
+3. **Present recommended options for each question**: Never ask open-ended questions without providing a recommended answer and technical trade-off rationale. In multi-agent/team grilling sessions (Agent-to-Agent), always format branches and recommendations using native Markdown tables or lists; never emit ````widget` code blocks because follow-up comments from moderators or peers trigger immediate expiration (`hasNewerComment`). Reserve widgets solely for direct human-facing decision points.
 4. **Prune speculative complexity**: Apply the *Simplicity First* rule. If a feature can be solved with 3 states instead of 8, or without a retract window, push back firmly.
 5. **Output Final Consolidated Spec**: Deliver complete, copy-pasteable JSON schemas, Go DDL/structs, and React component contracts ready for Code Writer.
