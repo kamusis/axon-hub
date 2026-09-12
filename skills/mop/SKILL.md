@@ -107,10 +107,10 @@ When users mention:
 $\to$ The agent must immediately recognize that these correspond to Mopheus **profiles** located under `~/.mopheus/profiles/<name>/`.
 
 ### 2. Available Profiles Discovery
-To identify configured profiles on the host:
-- List directories in `~/.mopheus/profiles/` (e.g. `wt-preview-test`, `mop-demo`).
-- Inspect target profile configuration: `mop config show --profile <name>`.
-- Default profile lives directly under `~/.mopheus/config.json`.
+To discover and inspect configured profiles on the host:
+- Run `mop profile list` (or `mop profile ls`) to list all configured profiles with server URLs, active workspaces, and auth status.
+- Run `mop profile show [name]` (or `mop profile get [name]`) to inspect specific profile configuration details.
+- Profiles are stored under `~/.mopheus/config.json` (`default`) and `~/.mopheus/profiles/<name>/config.json`.
 
 ### 3. Execution & Context Isolation Rules
 - **Explicit Flag Passing**: Whenever the user specifies an environment/profile, ALWAYS pass `--profile <name>` to all subsequent `mop` commands:
@@ -145,6 +145,17 @@ Always use native `--*-file` or `--*-stdin` flags:
 | **`job`** | Event Filter | `--event-filter-file <file.json>`<br>`--event-filter-stdin` | `mop job trigger-add <id> --kind event --event-filter-file filter.json` |
 | **`memory`** | Memory Body | `--content-file <file>`<br>`--content-stdin` | `mop memory store --type <type> --content-file note.md` |
 | **`skill`** | Entire Directory | `import --path <dir>` | `mop skill import --path ./my-skill/ --update` |
+
+### Interactive Decision Widgets (Ticket Widgets) & Feature Gating
+When comments or tickets involve user choices, options selection, or operational approvals, agents may embed interactive decision widgets (` ```widget ... ``` `) using `--content-stdin` or `--description-stdin`.
+
+> [!IMPORTANT]
+> **Workspace Feature Gate**:
+> Before emitting an interactive widget, agents **MUST** verify that the `widget` feature is enabled for the active workspace (e.g. via `mop feature check widget` or inspecting `mop feature list -o json`).
+> - **Enabled**: Use the appropriate widget block (`single-select`, `multi-select`, or `confirm-action`).
+> - **Disabled or Check Fails**: Degrade safely to standard plain-text Markdown bullet lists.
+>
+> For full widget schemas, JSON properties, CLI examples, and receipt processing, see [`references/ticket_widgets.md`](references/ticket_widgets.md).
 
 ## 7. Capability Gating & Automatic Version Detection
 
@@ -243,3 +254,4 @@ For specialized tasks that exceed basic CLI ergonomics, use the bundled scripts 
 - **Capability Matrix & Version Mapping**: Read [`references/capabilities.json`](references/capabilities.json) for the complete list of capabilities, minimum CLI versions, daemon requirements, and fallbacks.
 - **Event-Type Jobs & JSON Filters**: Read [`references/event_jobs.md`](references/event_jobs.md) for full JSON schema, matching semantics (scalars, OR arrays, tag containment), domain event types (`ticket`, `comment`, `agent_task`, `runtime`), and template variables.
 - **Enums & Model Attributes Reference**: Read [`references/enums.md`](references/enums.md) for authoritative integer enum mappings, string representations, and self-describing companion `*Name` fields (`statusName`, `priorityName`, `assigneeTypeName`, `typeName`) across tickets, comments, tasks, jobs, and runtimes.
+- **Interactive Decision Widgets (Ticket Widgets)**: Read [`references/ticket_widgets.md`](references/ticket_widgets.md) for full JSON schema specifications, option intents, `--content-stdin` examples, and receipt processing.

@@ -239,6 +239,17 @@
       ],
       "description": "Start, stop, install, and check local Mopheus daemon background service.",
       "fallback": "You are running in non-daemon pure CLI client mode. Daemon management requires a local Mopheus Node. Use remote API commands instead."
+    },
+    "profile.inspection": {
+      "name": "Profile Inspection & Discovery",
+      "minCliVersion": "v2.2.5",
+      "requiresDaemon": false,
+      "commands": [
+        "mop profile list",
+        "mop profile show <name>"
+      ],
+      "description": "List and inspect local Mopheus configuration profiles.",
+      "fallback": "Inspect ~/.mopheus/config.json or ~/.mopheus/profiles/<name>/config.json directly."
     }
   }
 }

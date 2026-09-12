@@ -20,6 +20,11 @@ Global full-text search across all workspace entities.
 - `mop search "<query>" --type skill` - Restrict search to skills.
 - `mop search "<query>" --limit 50` - Control result limit (1-100, default 20).
 
+### `mop feature`
+Inspect workspace feature flags.
+- `mop feature list` - List effective feature flags for the active workspace.
+- `mop feature check <feature-key>` - Check if a feature flag is enabled (exits with 0 if enabled, 1 if disabled).
+
 ---
 
 ## 2. Tickets & Workflows (`mop ticket`)
@@ -39,6 +44,7 @@ Global full-text search across all workspace entities.
 ### Comments & Collaboration
 - `mop ticket comment list <id>` - List all comments on a ticket.
 - `mop ticket comment add <id> --content-file note.md` - Post comment from Markdown file.
+- `mop ticket comment add <id> --content-stdin` - Post multiline comment via stdin (supports interactive ` ```widget ` blocks if `widget` feature is enabled; see `references/ticket_widgets.md`).
 
 ### Execution Lifecycle & Diagnostics
 - `mop ticket rerun <id>` - Re-enqueue agent task execution on a ticket.
@@ -149,3 +155,9 @@ Automation jobs, schedules, and event-driven triggers.
 - `mop auth status` - Inspect current authenticated user and session validity.
 - `mop login` - Interactive login.
 - `mop token list` - List user API access tokens (`moc_...`).
+
+### `mop profile`
+Local configuration profile discovery and inspection.
+- `mop profile list` (alias: `ls`) - List configured local profiles (`default` and named profiles in `~/.mopheus/profiles/`).
+- `mop profile show [name]` (alias: `get`) - Show detailed configuration for default or named profile.
+- Both commands support `-o json` for structured JSON output.

@@ -13,6 +13,7 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- When asked an investigatory question without explicit instructions for follow-up actions, investigate, identify root cause, and report findings to the user first. Never presumptuously execute follow-up modifications, builds, deployments, or remediation unprompted.
 
 ## 2. Simplicity First
 
