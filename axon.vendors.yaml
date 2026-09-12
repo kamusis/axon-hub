@@ -1,0 +1,36 @@
+vendors:
+    - name: skill-creator
+      repo: https://github.com/anthropics/skills.git
+      subdir: skills/skill-creator
+      dest: skills/skill-creator
+      ref: main
+    - name: frontend-design
+      repo: https://github.com/anthropics/skills.git
+      subdir: skills/frontend-design
+      dest: skills/frontend-design
+      ref: main
+    - name: openai-docs
+      repo: https://github.com/openai/skills.git
+      subdir: skills/.curated/openai-docs
+      dest: skills/openai-docs
+      ref: main
+    - name: mes-cli-terminal
+      repo: https://github.com/enmotech/mes-cli.git
+      subdir: skills/mes-cli-terminal
+      dest: skills/mes-cli-terminal
+      ref: master
+    - name: mop
+      repo: https://github.com/enmotech/mopheus-skills.git
+      subdir: skills/mop
+      dest: skills/mop
+      ref: main
+    - name: mattpocock-git-guardrails-claude-code
+      repo: https://github.com/mattpocock/skills.git
+      subdir: skills/misc/git-guardrails-claude-code
+      dest: skills/git-guardrails-claude-code
+      ref: main
+    - name: diagram-design
+      repo: https://github.com/cathrynlavery/diagram-design.git
+      subdir: skills/diagram-design
+      dest: skills/diagram-design
+      ref: main
