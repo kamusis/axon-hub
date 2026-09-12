@@ -30,6 +30,7 @@ server/pkg/version/version.go
 install/env.example
 packages/docs-content/en/releases/changelog.md
 packages/docs-content/zh-Hans/releases/changelog.md
+packages/docs-content/ja/releases/changelog.md
 ```
 
 Then verify and commit:
@@ -39,7 +40,8 @@ make check
 git add server/pkg/version/version.go \
   install/env.example \
   packages/docs-content/en/releases/changelog.md \
-  packages/docs-content/zh-Hans/releases/changelog.md
+  packages/docs-content/zh-Hans/releases/changelog.md \
+  packages/docs-content/ja/releases/changelog.md
 git diff --cached --check
 git commit -m "chore(release): prepare <version>"
 git push origin main

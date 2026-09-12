@@ -1,12 +1,12 @@
 ---
 name: mopheus-release
-description: Release Mopheus from the fixed enmotech/mopheus GitHub repository and its long-lived release branch by validating a user-supplied SemVer tag, compiling complete release notes, updating the source version and bilingual documentation changelog in one verified preparation commit, tagging that commit, monitoring the release workflow, replacing workflow-generated GitHub notes, and bumping the development version on main to the next patch version. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release.
+description: Release Mopheus from the fixed enmotech/mopheus GitHub repository and its long-lived release branch by validating a user-supplied SemVer tag, compiling complete release notes, updating the source version and trilingual documentation changelog (EN, ZH, JA) in one verified preparation commit, tagging that commit, monitoring the release workflow, replacing workflow-generated GitHub notes, and bumping the development version on main to the next patch version. Use whenever the user asks to release, publish, tag, prepare release notes for, or finalize a Mopheus version, including when they explicitly mention mopheus-release.
 compatibility: Requires git, Python 3, GitHub CLI access, and a repository with origin/main, origin/release, and .github/workflows/release.yml.
 ---
 
 # Mopheus Release
 
-Release Mopheus by preparing one versioned commit on `main`, fast-forwarding `release` to that exact commit, and creating one validated tag there. The preparation commit owns both the source version and the bilingual documentation changelog. The tag wakes the repository's GitHub Actions workflow. Treat the workflow as opaque; observe only its run state and the GitHub Release it creates.
+Release Mopheus by preparing one versioned commit on `main`, fast-forwarding `release` to that exact commit, and creating one validated tag there. The preparation commit owns both the source version and the trilingual documentation changelog. The tag wakes the repository's GitHub Actions workflow. Treat the workflow as opaque; observe only its run state and the GitHub Release it creates.
 
 ## Responsibilities
 
@@ -19,7 +19,7 @@ This skill owns only:
 - finding the correct previous release boundary;
 - inventorying every change in the release range;
 - drafting accurate, useful release notes in English;
-- updating `packages/docs-content/en/releases/changelog.md` and `packages/docs-content/zh-Hans/releases/changelog.md` from the same release inventory;
+- updating `packages/docs-content/en/releases/changelog.md`, `packages/docs-content/zh-Hans/releases/changelog.md`, and `packages/docs-content/ja/releases/changelog.md` from the same release inventory;
 - creating and pushing one `chore(release): prepare <version>` commit on `main`;
 - fast-forwarding `release` to that exact commit without merging, rebasing, resetting, or force-pushing;
 - creating and pushing the annotated tag on the verified release commit;
@@ -138,10 +138,10 @@ Save the final GitHub notes outside the repository worktree, preferably in a dir
 
 The documentation changelog is part of the release artifact, not a follow-up task.
 
-- Update both `packages/docs-content/en/releases/changelog.md` and `packages/docs-content/zh-Hans/releases/changelog.md` in the preparation commit.
+- Update all three documentation changelog locales (`packages/docs-content/en/releases/changelog.md`, `packages/docs-content/zh-Hans/releases/changelog.md`, and `packages/docs-content/ja/releases/changelog.md`) in the preparation commit.
 - Insert the new release first, immediately below each changelog introduction, using the release date in `YYYY-MM-DD` form.
-- Derive both entries from the same complete inventory and coverage ledger as the GitHub notes. Keep scope and facts aligned, while writing natural English and Simplified Chinese rather than mechanically copying one language.
-- Preserve each page's established headings and compact product-facing style. The changelog may be more concise than the GitHub Release, but every GitHub Highlight and every upgrade action must be represented in both locale entries.
+- Derive all three entries from the same complete inventory and coverage ledger as the GitHub notes. Keep scope and facts aligned, while writing natural English, Simplified Chinese, and Japanese rather than mechanically copying one language.
+- Preserve each page's established headings and compact product-facing style. The changelog may be more concise than the GitHub Release, but every GitHub Highlight and every upgrade action must be represented in all three locale entries.
 - Link verified PRs where helpful and do not include the invisible GitHub ownership marker in documentation.
 - Treat a missing locale update, mismatched version/date, or omitted upgrade requirement as a release blocker.
 
@@ -165,8 +165,8 @@ An explicit request to release, publish, or tag the supplied version authorizes 
 ### 2. Prepare the release commit
 
 1. Update `server/pkg/version/version.go` to the requested base version and `install/env.example` so `MOPHEUS_IMAGE_TAG` equals the complete requested version, including any prerelease suffix.
-2. Add the new version entry to both documentation changelog locales from the same inventory used for the temporary GitHub notes.
-3. Confirm only the source version, install environment example, and two changelog files changed unless another repository-defined release metadata file is explicitly required.
+2. Add the new version entry to all three documentation changelog locales (EN, ZH, JA) from the same inventory used for the temporary GitHub notes.
+3. Confirm only the source version, install environment example, and three changelog files changed unless another repository-defined release metadata file is explicitly required.
 4. Run the repository's complete required check from this final working tree:
 
 ```bash
