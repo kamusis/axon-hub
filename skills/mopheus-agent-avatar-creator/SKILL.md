@@ -62,8 +62,8 @@ A minimalist line sketch comic avatar in the exact same cartoon doodle art style
 ### 4. 交付与落盘规范
 1. **本地交付目录（默认）**：
    将生成的图片规范命名并复制至用户下载目录，方便在 Web 界面中通过文件选择器直接拖拽上传：
-   `C:\Users\kamus\Downloads\mopheus_avatars\<Role_Name>_avatar.jpg`
+   `D:\Downloads\mopheus_avatars\<Role_Name>_avatar.jpg`
 2. **CLI 自动绑定（若用户明确要求代为上传）**：
    ```bash
-   mopheus agent avatar <agent-id> --file "C:\Users\kamus\Downloads\mopheus_avatars\<Role_Name>_avatar.jpg"
+   mopheus agent avatar <agent-id> --file "D:\Downloads\mopheus_avatars\<Role_Name>_avatar.jpg"
    ```
