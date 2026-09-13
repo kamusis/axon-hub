@@ -34,3 +34,23 @@ vendors:
       subdir: skills/diagram-design
       dest: skills/diagram-design
       ref: main
+    - name: linear
+      repo: https://github.com/openai/skills.git
+      subdir: skills/.curated/linear
+      dest: skills/linear
+      ref: main
+    - name: agentmail
+      repo: https://github.com/agentmail-to/agentmail-skills.git
+      subdir: agentmail
+      dest: skills/agentmail
+      ref: main
+    - name: agentmail-cli
+      repo: https://github.com/agentmail-to/agentmail-skills.git
+      subdir: agentmail-cli
+      dest: skills/agentmail-cli
+      ref: main
+    - name: pdf-generation
+      repo: https://github.com/glebis/claude-skills.git
+      subdir: pdf-generation
+      dest: skills/pdf-generation
+      ref: main
