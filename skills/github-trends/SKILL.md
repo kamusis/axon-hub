@@ -10,7 +10,6 @@ description: Fetch and report GitHub trending repositories across three dimensio
 - `gh` CLI authenticated (`gh auth status`)
 - `jq` installed
 - `python3` installed
-- `scrapling` installed (optional, for monthly trending web scrape)
 
 ## When to Use
 
