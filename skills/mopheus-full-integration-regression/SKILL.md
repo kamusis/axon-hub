@@ -1,6 +1,6 @@
 ---
 name: mopheus-full-integration-regression
-description: Run, resume, or validate a complete Mopheus full-stack E2E regression against a clean, revision-bound repository checkout from remote main. Use this for the Weekly full E2E regression, requests to execute the entire Mopheus E2E test suite (tests/e2e/), or audits of full-stack test results. Read tests/e2e/README.md as the authoritative guide, execute isolated full-stack Playwright E2E (pnpm test:e2e), collect test results, traces, and logs from test-results/e2e-full/<runId>/, preserve revision-bound evidence, and enforce cleanup and report completeness. Do not use this for reusable previews, a single scenario, unit tests, code coverage, or ordinary development environment startup.
+description: Run, resume, or validate a complete Mopheus full-stack E2E regression against a clean, revision-bound repository checkout from remote main. Use this for the Daily or Weekly full E2E regression, requests to execute the entire Mopheus E2E test suite (tests/e2e/), or audits of full-stack test results. Read tests/e2e/README.md as the authoritative guide, execute isolated full-stack Playwright E2E via make test-e2e-full, collect test results, traces, and logs from test-results/e2e-full/<runId>/, preserve revision-bound evidence, and enforce cleanup and report completeness. Do not use this for reusable previews, a single scenario, unit tests, code coverage, or ordinary development environment startup.
 compatibility: Requires a clean Mopheus Git checkout from remote main, Docker, Go, Node.js, pnpm, Playwright dependencies / Chromium, and Claude CLI for daemon runtime testing.
 ---
 
@@ -42,24 +42,22 @@ It is the authoritative guide for full-stack E2E test execution, isolation bound
 Execute the isolated full-stack Playwright E2E suite:
 
 ```bash
-pnpm test:e2e
+make test-e2e-full
 ```
-
-(or `pnpm test:e2e:full` / `make test-e2e-full`)
 
 ### Execution Pipeline & Ordered Stages
 
-The run follows the strict dependency sequence configured in `playwright.full.config.ts`:
+The full stack runs PostgreSQL, Backend, and Frontend in isolated Docker containers with dynamic ports, while Daemon and Playwright run on the host. The run follows the strict dependency sequence configured in `playwright.full.config.ts`:
 
-1. **globalSetup**: Spins up an isolated PostgreSQL container, dedicated backend, frontend, and daemon processes on dynamic ports, and generates an isolated `E2E_RUN_ID` state directory.
+1. **globalSetup**: Spins up an isolated Docker network, volume, and containers (`postgres`, `mopheus-e2e-backend:<buildId>`, `mopheus-e2e-frontend:<buildId>`), starts host daemon binary on dynamic ports, and generates an isolated `E2E_RUN_ID` state directory.
 2. **admin-license** (`bootstrap/admin/01-license.spec.ts`): Admin UI license request export, generator execution, and UI license import.
 3. **admin** (`bootstrap/admin/02-admin.spec.ts`): Admin configuration and management tests.
 4. **user-bootstrap** (`bootstrap/user/`): Regular user account registration, workspace creation, CLI login, provider registration, daemon runtime startup, and online status verification.
 5. **services-workspace** (`services/workspace/`): Completes initial workspace onboarding.
-6. **services-***: Parallel/independent service suites including `user`, `ticket`, `skill`, `agent`, `memory`, `inbox`, and `jobs`.
-7. **globalTeardown**: Gracefully shuts down daemon, backend, frontend, and PostgreSQL container, and captures capped logs (default 512 KiB) into `test-results/e2e-full/<runId>/`.
+6. **services-***: Parallel/independent service suites including `admin`, `user`, `ticket`, `projects`, `files`, `search`, `runtimes`, `skill`, `agent`, `memory`, `inbox`, `jobs`, `teams`, `topics`, `dashboard`, and `cli`.
+7. **globalTeardown**: Gracefully shuts down daemon, deletes containers, networks, volumes, and temporary profiles, and captures capped logs (default 512 KiB) into `test-results/e2e-full/<runId>/`.
 
-Never skip the global setup and teardown unless explicitly testing against pre-existing external services via `E2E_SKIP_SETUP=1`.
+Never skip the global setup and teardown unless explicitly testing against pre-existing external services via `E2E_SKIP_SETUP=1`. If execution aborts prematurely, run `make test-e2e-clean` to clean up any remaining Docker resources.
 
 ## Coordinate long-running work & evidence
 
