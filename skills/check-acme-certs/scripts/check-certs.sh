@@ -6,10 +6,9 @@
 #       如果剩余天数低于阈值，说明 acme.sh 续期出现问题，发出告警。
 #
 # 阈值说明：
-#   acme.sh 默认在到期前 60 天触发续期。续期成功时，证书剩余天数
-#   会被重置回 ~90 天；续期失败时，剩余天数会单调递减。
-#   因此只要续期一直成功，剩余天数永远 >= 60 天。
-#   我们设阈值为 55 天，留 5 天缓冲用于 acme.sh 重试 / 人工介入。
+#   acme.sh 默认在证书签发 60 天后（即到期前 30 天左右）触发自动续期。
+#   续期成功时，证书剩余天数会被重置回 ~90 天。
+#   我们设阈值为 25 天，留出 5 天缓冲用于 acme.sh 自动重试及人工介入。
 #
 # 退出码：
 #   0 = 所有证书正常
@@ -20,7 +19,7 @@ set -u
 
 ACME_DIR="${ACME_DIR:-$HOME/.acme.sh}"
 LOG_FILE="${LOG_FILE:-$ACME_DIR/cert-check.log}"
-THRESHOLD_DAYS="${CERT_CHECK_THRESHOLD:-55}"
+THRESHOLD_DAYS="${CERT_CHECK_THRESHOLD:-25}"
 
 # ----------- 工具函数 -----------
 log() {
@@ -73,6 +72,11 @@ while IFS= read -r -d '' cert_file; do
     # 从路径中提取域名: ~/.acme.sh/<domain>_<keytype>/<domain>.cer
     dir_path="$(dirname "$cert_file")"
     domain="$(basename "$dir_path" | sed -E 's/_ecc$|_rsa$//')"
+
+    # 忽略已从 acme.sh 移除管理的废弃域名（如已被标记 .conf.removed）
+    if [ ! -f "$dir_path/$domain.conf" ]; then
+        continue
+    fi
 
     # 解析证书到期时间
     not_after="$(openssl x509 -in "$cert_file" -noout -enddate 2>/dev/null | sed 's/^notAfter=//')"
