@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/github_trends.sh
-# Reports: 1. Brand New (30d), 2. AI Momentum (1y), 3. Global Trending (Real-time)
+# Reports: 1. Brand New (30d), 2. Global Trending (Real-time), 3. AI Momentum (1y)
 
 set -euo pipefail
 
@@ -16,15 +16,10 @@ echo ""
 JQ_FILTER='to_entries | .[] | "\(.key + 1). **[\(.value.fullName)](\(.value.url))** (⭐ \(.value.stargazersCount))\n• 描述: \(.value.description // "无描述")\n"'
 
 # SECTION 1: Rising Stars
-echo "🔥 **【新锐榜】30 天内诞生的全球黑马 (Top 5)**"
-gh search repos --created=">$SINCE_30" --sort=stars --order=desc --limit=5 --json fullName,description,stargazersCount,url | jq -r "$JQ_FILTER"
+echo "🔥 **【新锐榜】30 天内诞生的全球黑马 (Top 10)**"
+gh search repos --created=">$SINCE_30" --sort=stars --order=desc --limit=10 --json fullName,description,stargazersCount,url | jq -r "$JQ_FILTER"
 
-# SECTION 2: Sector Momentum
-echo -e "\n🤖 **【动能榜】AI & Agent 赛道年度活跃标杆 (Top 10)**"
-echo "*(条件: 1年内创建, 30天内有更新, 关键词: agent)*"
-gh search repos agent --created=">$SINCE_YEAR" --updated=">$SINCE_30" --sort=stars --order=desc --limit=10 --json fullName,description,stargazersCount,url | jq -r "$JQ_FILTER"
-
-# SECTION 3: Global Trending (Real velocity)
+# SECTION 2: Global Trending (Real velocity)
 echo -e "\n🌟 **【全球热度榜】GitHub 官方本月趋势 (Top 10)**"
 echo "*(数据源: github.com/trending?since=monthly)*"
 
@@ -80,6 +75,11 @@ else:
         print("⚠️ 解析热度数据失败。")
 '
 
+# SECTION 3: Sector Momentum
+echo -e "\n🤖 **【动能榜】AI & Agent 赛道年度活跃标杆 (Top 10)**"
+echo "*(条件: 1年内创建, 30天内有更新, 关键词: agent)*"
+gh search repos agent --created=">$SINCE_YEAR" --updated=">$SINCE_30" --sort=stars --order=desc --limit=10 --json fullName,description,stargazersCount,url | jq -r "$JQ_FILTER"
+
 echo -e "\n---"
-echo "Kuro 的每日观察：新锐看爆发，动能看底蕴，热度看风口。🐈‍⬛"
+echo "Kuro 的每日观察：新锐看爆发，热度看风口，动能看底蕴。🐈‍⬛"
 

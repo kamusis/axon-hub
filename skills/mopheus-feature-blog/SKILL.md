@@ -87,6 +87,10 @@ Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-A
 
 - **File Location**: Save articles as Markdown under `docs/blog/<slug>.md`.
 - **Language**: Default to natural, high-signal Chinese for prose when requested in Chinese, while keeping all code, CLI commands, identifiers, configuration keys, and error names in verbatim English.
+- **Intellectual Property & Internal Design Protection (知识产权与内部设计防护)**:
+  - **严禁暴露内部数据库 DDL**：严禁在博客正文、代码块或配图中直接贴出底层数据库的 `CREATE TABLE`、`ALTER TABLE`、内部索引名或内部 Migration 迁移脚本。
+  - **采用抽象概念模型与实体关系图**：若需阐述数据架构或存储机制，必须使用抽象的 ASCII 实体模型图、YAML 声明式清单、公开 REST API 或 CLI 原语进行说明，严禁将私有工程源码中的数据库物理表实现细节逐行抄入公开博客。
+  - **严禁公开私有代码库链接**：Mopheus 为商业专有软件（Private Repository），严禁在文章中提供指向 `enmotech/mopheus` 的 GitHub 源码链接或私有 issue/PR 编号。
 - **Visuals & Image Hosting Standard (配图与图床上传规范)**:
   - 架构与数据流优先使用清晰直观的 ASCII 流程图；
   - 若文章中包含实际系统截图、交互式看板或 UI 效果图，**严禁在最终文章中使用本地相对路径（如 `./images/...`）**；
@@ -104,3 +108,4 @@ Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-A
   ```
   第一句引导问句与第二句结尾行动句根据文章内容动态变化，中间“`立即上手探索 [Mopheus (mopheus.ai)](https://www.mopheus.ai)，`”固定不变。**NEVER link to GitHub (enmotech/mopheus is a private repository).**
 - **Tone**: Professional, confident, technically sharp, empathetic, and inspiring.
+

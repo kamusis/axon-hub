@@ -1,6 +1,6 @@
 ---
 name: github-trends
-description: Fetch and report GitHub trending repositories across three dimensions — New Rising (30d), AI/Agent Momentum (1y), and Global Trending (monthly). Use when user asks "github trends", "gittrending", "github trending repos", "今天有什么热门项目", or wants to discover interesting GitHub repositories.
+description: Fetch and report GitHub trending repositories across three dimensions — New Rising (30d), Global Trending (monthly), and AI/Agent Momentum (1y). Use when user asks "github trends", "gittrending", "github trending repos", "今天有什么热门项目", or wants to discover interesting GitHub repositories.
 ---
 
 # GitHub Trending — Three-Track Report
@@ -35,9 +35,9 @@ bash scripts/github_trends.sh
 The script outputs a pre-formatted report. Present it directly to the user as your response. No further processing needed.
 
 The report contains three sections:
-1. **新锐榜** (Rising Stars) — Top 5 repos created in the last 30 days by stars
-2. **动能榜** (AI/Agent Momentum) — Top 10 AI/Agent repos created in the last year, updated in last 30 days
-3. **全球热度榜** (Global Trending) — Top 10 from GitHub's official monthly trending page
+1. **新锐榜** (Rising Stars) — Top 10 repos created in the last 30 days by stars
+2. **全球热度榜** (Global Trending) — Top 10 from GitHub's official monthly trending page
+3. **动能榜** (AI/Agent Momentum) — Top 10 AI/Agent repos created in the last year, updated in last 30 days
 
 ## Notes
 
