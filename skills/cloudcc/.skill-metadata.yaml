@@ -1,0 +1,386 @@
+install:
+  structure: preserve
+  description:
+    zh: |-
+      本技能包已将 bin/ 目录包含在 cloudcc-skill 目录内部，安装后结构如下：
+        cloudcc-skill/（安装为技能目录）
+        ├── bin/
+        │   └── cloudcc(.exe)       ← CLI 可执行文件
+        ├── SKILL.md
+        ├── references/
+        ├── scripts/
+        └── assets/
+      CLI 调用路径：从 cloudcc-skill/ 目录使用 ./bin/cloudcc 访问。
+    en: |-
+      This skill package includes the bin/ directory inside cloudcc-skill.
+      Expected directory structure after installation:
+        cloudcc-skill/ (installed as skill directory)
+        ├── bin/
+        │   └── cloudcc(.exe)       ← CLI executable
+        ├── SKILL.md
+        ├── references/
+        ├── scripts/
+        └── assets/
+      CLI path: use ./bin/cloudcc from the cloudcc-skill/ directory.
+  requirements:
+    - id: bin-directory
+      description:
+        zh: bin/ 目录必须在 cloudcc-skill/ 内部，包含 cloudcc CLI 可执行文件
+        en: bin/ directory must exist inside cloudcc-skill/, containing the cloudcc CLI executable
+      check:
+        zh: "验证 ./bin/cloudcc 或 ./bin/cloudcc.exe 是否存在且可执行"
+        en: "Verify ./bin/cloudcc or ./bin/cloudcc.exe exists and is executable"
+
+examples:
+  - id: login-auth
+    title:
+      zh: 登录认证
+      en: Login Authentication
+    description:
+      zh: 使用邮箱验证码登录 CloudCC CRM 平台
+      en: Login to CloudCC CRM platform using email verification code
+    prompt:
+      zh: |-
+        请帮我登录到 CloudCC CRM 平台。
+
+        我的邮箱地址是：{{your-email@company.com}}
+
+        步骤：
+        1. 发送验证码到我的邮箱
+        2. 我收到验证码后告诉你
+        3. 完成登录并验证状态
+
+        请开始发送验证码。
+      en: |-
+        Please help me log in to the CloudCC CRM platform.
+
+        My email address is: {{your-email@company.com}}
+
+        Steps:
+        1. Send verification code to my email
+        2. I will tell you the code after receiving it
+        3. Complete login and verify status
+
+        Please start by sending the verification code.
+  - id: query-activities
+    title:
+      zh: 查询销售活动
+      en: Query Sales Activities
+    description:
+      zh: 多维度查询销售活动、商机、客户拜访等数据
+      en: Query sales activities, opportunities, customer visits with multiple dimensions
+    prompt:
+      zh: |-
+        请帮我查询本月的销售活动数据。
+
+        查询条件：
+        - 时间范围：本月
+        - 输出格式：JSON
+        - 需要包含：活动类型、客户名称、商机金额、KNX评分
+
+        如果数据量较大，请导出到文件。
+      en: |-
+        Please help me query this month's sales activity data.
+
+        Query conditions:
+        - Time range: This month
+        - Output format: JSON
+        - Include: Activity type, customer name, opportunity amount, KNX score
+
+        If the data volume is large, please export to a file.
+  - id: create-activity
+    title:
+      zh: 创建销售活动
+      en: Create Sales Activity
+    description:
+      zh: 交互式引导创建销售活动，自动关联业务机会和联系人
+      en: Interactive guided creation of sales activity, auto-linking opportunity and contact
+    prompt:
+      zh: |-
+        请帮我创建一条销售活动记录。
+
+        业务机会：{{20250283152}}
+        联系人：{{张三}}
+        活动类型：{{电话沟通}}
+        活动结果：{{初步沟通客户需求，对方表示感兴趣}}
+
+        其他字段请使用默认值，或在需要时询问我。
+      en: |-
+        Please help me create a sales activity record.
+
+        Opportunity: {{20250283152}}
+        Contact: {{张三}}
+        Activity type: {{电话沟通}}
+        Activity result: {{初步沟通客户需求，对方表示感兴趣}}
+
+        Use default values for other fields, or ask me when needed.
+  - id: check-permission
+    title:
+      zh: 查看管辖范围
+      en: Check Permission Scope
+    description:
+      zh: 查看当前用户的管辖范围和下属团队成员
+      en: View current user's permission scope and subordinate team members
+    prompt:
+      zh: |-
+        请帮我查看当前的管辖范围信息。
+
+        需要显示：
+        1. 管辖范围概要（区域、部门等）
+        2. 管辖用户列表
+        3. 团队成员信息
+
+        以清晰的格式展示结果。
+      en: |-
+        Please help me view the current permission scope information.
+
+        Need to display:
+        1. Permission scope overview (regions, departments, etc.)
+        2. List of managed users
+        3. Team member information
+
+        Display results in a clear format.
+  - id: import-reimbursement
+    title:
+      zh: 导入报销单
+      en: Import Reimbursement
+    description:
+      zh: 批量导入费用报销明细到 CloudCC 系统
+      en: Batch import expense reimbursement details to CloudCC system
+    prompt:
+      zh: |-
+        请帮我导入报销单到 CloudCC 系统。
+
+        Excel 文件路径：{{报销单.xlsx}}
+
+        处理流程：
+        1. 验证 Excel 文件格式
+        2. 检查必填字段
+        3. 执行导入操作
+        4. 返回导入结果和错误信息
+
+        如果有错误，请详细说明如何修正。
+      en: |-
+        Please help me import the reimbursement form to the CloudCC system.
+
+        Excel file path: {{reimbursement.xlsx}}
+
+        Processing flow:
+        1. Validate Excel file format
+        2. Check required fields
+        3. Execute import operation
+        4. Return import results and error messages
+
+        If there are errors, please explain in detail how to fix them.
+  - id: query-project-order
+    title:
+      zh: 查询订单-合同
+      en: Query Project Orders
+    description:
+      zh: 通过合同编号查询订单信息
+      en: Query order information by contract code
+    prompt:
+      zh: |-
+        请帮我查询合同编号 {{00032838}} 的订单信息。
+
+        需要显示：
+        1. 订单编号和金额
+        2. 订单状态
+        3. 项目经理和执行总监
+      en: |-
+        Please help me query order information for contract code {{00032838}}.
+
+        Need to display:
+        1. Order number and amount
+        2. Order status
+        3. Project manager and executive director
+  - id: query-project-full
+    title:
+      zh: 查询合同全貌
+      en: Query Full Contract Overview
+    description:
+      zh: 查询合同的订单、合同子项、收入计划全貌
+      en: Query full overview of a contract including orders, sub-items and revenue plans
+    prompt:
+      zh: |-
+        请帮我查询合同 {{00032838}} 的全部信息。
+
+        需要包含：
+        1. 订单信息（金额、负责人）
+        2. 合同子项和实施计划（类型、工时）
+        3. 收入计划（确认日期、金额）
+      en: |-
+        Please help me query the full overview of contract {{00032838}}.
+
+        Need to include:
+        1. Order information (amount, owner)
+        2. Sub-items and implementation plans (type, hours)
+        3. Revenue plans (confirm date, amount)
+  - id: analyze-knx
+    title:
+      zh: KNX 数据分析
+      en: KNX Data Analysis
+    description:
+      zh: 分析商机的 KNX 评分分布和转化趋势
+      en: Analyze KNX score distribution and conversion trends for opportunities
+    prompt:
+      zh: |-
+        请帮我分析本月的 KNX 数据。
+
+        分析维度：
+        1. KNX 评分分布统计
+        2. 高可能性商机（60-100分）列表
+        3. 不同区域的转化率对比
+        4. 趋势分析和建议
+
+        导出详细数据并提供可视化建议。
+      en: |-
+        Please help me analyze this month's KNX data.
+
+        Analysis dimensions:
+        1. KNX score distribution statistics
+        2. List of high-probability opportunities (60-100 points)
+        3. Conversion rate comparison across regions
+        4. Trend analysis and recommendations
+
+        Export detailed data and provide visualization suggestions.
+  - id: query-customer
+    title:
+      zh: 查询客户
+      en: Query Customer
+    description:
+      zh: 通过客户名称或编号查询客户信息
+      en: Query customer by name or code
+    prompt:
+      zh: |-
+        请帮我查询客户信息。
+
+        客户名称：{{自然之心}}
+
+        步骤：
+        1. 查询客户列表
+        2. 返回客户ID、名称、编号、负责人
+      en: |-
+        Please help me query customer information.
+
+        Customer name: {{自然之心}}
+
+        Steps:
+        1. Query customer list
+        2. Return customer ID, name, code, owner
+  - id: create-customer
+    title:
+      zh: 创建客户
+      en: Create Customer
+    description:
+      zh: 创建新的客户，需指定客户名称、等级、区域、省市
+      en: Create a new customer account with name, level, region, province
+    prompt:
+      zh: |-
+        请帮我创建一个客户。
+
+        客户名称：{{自然之心科技有限公司}}
+        客户简称：{{自然之心}}
+        客户等级：{{A}}
+        所在区域：{{东区}}
+        所在省市：{{上海}}
+        大行业：{{IT/互联网}}
+        小行业：{{软件开发}}
+
+        步骤：
+        1. 创建客户
+        2. 返回客户ID、名称、编号、查看链接
+      en: |-
+        Please help me create a customer account.
+
+        Customer name: {{自然之心科技有限公司}}
+        Short name: {{自然之心}}
+        Level: {{A}}
+        Region: {{东区}}
+        Province: {{上海}}
+        Industry: {{IT/互联网}}
+        Sub-industry: {{软件开发}}
+
+        Steps:
+        1. Create the customer
+        2. Return customer ID, name, code, view URL
+  - id: create-contact
+    title:
+      zh: 创建联系人
+      en: Create Contact
+    description:
+      zh: 为客户创建新的联系人
+      en: Create a new contact for a customer
+    prompt:
+      zh: |-
+        请帮我为客户创建一个联系人。
+
+        客户名称：{{自然之心}}
+        联系人姓名：{{张三}}
+        部门：{{销售部}}
+        职务：{{经理}}
+        手机：{{13800138000}}
+        联系人来源：{{主动销售}}
+      en: |-
+        Please help me create a contact for a customer.
+
+        Customer name: {{自然之心}}
+        Contact name: {{张三}}
+        Department: {{销售部}}
+        Position: {{经理}}
+        Phone: {{13800138000}}
+        Contact source: {{主动销售}}
+  - id: scan-business-card
+    title:
+      zh: 扫描名片添加联系人
+      en: Scan Business Card to Create Contact
+    description:
+      zh: 通过名片图片识别联系人信息并创建到系统，必填字段不可省略
+      en: Recognize contact info from business card image and create contact, required fields must not be omitted
+    prompt:
+      zh: |-
+        请帮我扫描这张名片，并将联系人添加到系统中。
+
+        步骤：
+        1. 识别名片上的信息（姓名、部门、职务、手机、邮箱、公司等）
+        2. 将识别结果展示给我确认
+        3. 如果名片上缺少必填字段（姓名、部门、职务、手机、联系人来源），请询问我补充
+        4. 确认客户在系统中存在
+        5. 创建联系人
+      en: |-
+        Please help me scan this business card and add the contact to the system.
+
+        Steps:
+        1. Recognize info on the card (name, department, title, phone, email, company, etc.)
+        2. Show recognition results for confirmation
+        3. If any required field is missing (name, department, title, phone, contact source), ask me to fill in
+        4. Verify customer exists in the system
+        5. Create the contact
+  - id: check-version
+    title:
+      zh: 检查版本更新
+      en: Check Version Update
+    description:
+      zh: 检查 CloudCC CLI 的最新版本并获取更新指引
+      en: Check the latest version of CloudCC CLI and get update instructions
+    prompt:
+      zh: |-
+        请帮我检查 CloudCC CLI 是否有新版本。
+
+        需要显示：
+        1. 当前版本号
+        2. 最新版本号
+        3. 如果有新版本，提供下载链接
+        4. 文件大小和 SHA256 校验值
+
+        如果需要更新，请说明如何操作。
+      en: |-
+        Please help me check if there is a new version of CloudCC CLI.
+
+        Need to display:
+        1. Current version number
+        2. Latest version number
+        3. If there is a new version, provide download link
+        4. File size and SHA256 checksum
+
+        If an update is needed, please explain how to proceed.
