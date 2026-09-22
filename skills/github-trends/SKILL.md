@@ -30,23 +30,25 @@ Run the packaged script within the skill directory:
 bash scripts/github_trends.sh
 ```
 
-### Step 2 — Report format standard
+### Step 2 — Post-process and refine the report
 
-The script directly outputs a pre-formatted Markdown report.
+The script outputs an initial Markdown report with raw descriptions from GitHub. **The agent MUST post-process the tables before publishing the final report or ticket:**
 
-**Report Format Standard**:
-The report presents all three dimensions as Markdown tables with columns:
-`| # | 仓库 | ⭐ | 简介 |`
-`|---|------|----|------|`
+1. **Mandatory Chinese Distillation (硬性约束)**:
+   - Every entry in the `简介` column **MUST be translated and distilled into concise Chinese** (strictly 1–2 short sentences, under 40 characters).
+   - **NEVER** leave raw English descriptions in the final table.
+   - **Highlight Core Differentiation**: Summarize what problem it solves or why it stands out.
+     - ✅ **Good**: "ChatGPT 负责思考，Codex 负责执行的轻量协同调度器"
+     - ❌ **Bad**: "A simple Python script that connects to OpenAI API and executes shell commands..."
+2. **Preserve Structure**:
+   - Keep `#`, `仓库` (links), `⭐`, table headers, section titles, and the footer observation strictly intact.
 
-Structure:
-1. **Header**: `# GitHub 趋势深度观察：全维度简报` with generation timestamp in Asia/Tokyo.
-2. **新锐榜 — 30 天内诞生的全球黑马 (Top 10)**: Table listing repos created in the last 30 days ordered by stars.
-3. **全球热度榜 — GitHub 官方本月趋势 (Top 10)**: Table listing repos from GitHub's official monthly trending page.
-4. **动能榜 — AI & Agent 赛道年度活跃标杆 (Top 10)**: Table listing AI/Agent repos created in the last year and updated in the last 30 days.
-5. **Footer**: `---` followed by `**Kuro 的每日观察**：新锐看爆发，热度看风口，动能看底蕴。🐈‍⬛`
-
-When an agent presents or summarizes the report, it must preserve the table layout. Translating or refining English descriptions into concise Chinese is encouraged, provided the table structure remains intact.
+**Report Structure Reference**:
+- **Header**: `# GitHub 趋势深度观察：全维度简报` with generation timestamp in Asia/Tokyo.
+- **新锐榜 — 30 天内诞生的全球黑马 (Top 10)**: Table listing repos created in the last 30 days ordered by stars.
+- **全球热度榜 — GitHub 官方本月趋势 (Top 10)**: Table listing repos from GitHub's official monthly trending page.
+- **动能榜 — AI & Agent 赛道年度活跃标杆 (Top 10)**: Table listing AI/Agent repos created in the last year and updated in the last 30 days.
+- **Footer**: `---` followed by `**Kuro 的每日观察**：新锐看爆发，热度看风口，动能看底蕴。🐈‍⬛`
 
 ## Notes
 
