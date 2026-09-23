@@ -145,6 +145,14 @@ The documentation changelog is part of the release artifact, not a follow-up tas
 - Link verified PRs where helpful and do not include the invisible GitHub ownership marker in documentation.
 - Treat a missing locale update, mismatched version/date, or omitted upgrade requirement as a release blocker.
 
+### Public documentation guardrails (Forbidden Content)
+
+`packages/docs-content/` forms the public-facing documentation published to external users and web portals. Strictly enforce what CANNOT be written:
+
+- **Never reference repository-internal paths or design documents**: Strictly forbid referencing `docs/*.md` (e.g. `docs/mopheus-ssh.md`, `docs/architecture.md`, `docs/CONTEXT.md`), `docs/blog/`, or any repo-root Markdown files that are not published as part of `packages/docs-content/`. External users do not have access to internal repo paths. Describe features purely from the user/operator capability perspective.
+- **Never expose internal source code tree paths**: Do not include internal repo source paths (`server/...`, `web/...`, `internal/...`) in changelog bullets unless referring to user-home runtime config locations (e.g. `~/.mopheus/...`, `~/.mes/...`).
+- **Never instruct users to read internal engineering specs**: If a change was accompanied by an internal design spec, explain the resulting user-facing feature/behavior directly in the notes instead of telling users "工程细节见 docs/...".
+
 ## Execution workflow
 
 ### 1. Preflight and inventory
