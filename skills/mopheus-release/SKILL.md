@@ -175,13 +175,33 @@ An explicit request to release, publish, or tag the supplied version authorizes 
 1. Update `server/pkg/version/version.go` to the requested base version and `install/env.example` so `MOPHEUS_IMAGE_TAG` equals the complete requested version, including any prerelease suffix.
 2. Add the new version entry to all three documentation changelog locales (EN, ZH, JA) from the same inventory used for the temporary GitHub notes.
 3. Confirm only the source version, install environment example, and three changelog files changed unless another repository-defined release metadata file is explicitly required.
-4. Run the repository's complete required check from this final working tree:
-
-```bash
-make check
-```
-
-5. Do not commit or tag if verification fails. Report the exact failing command and preserve the prepared notes.
+4. Run the repository's verification checks on the prepared tree:
+   - **Modular verification vs. monolithic `make check`**: A release commit only modifies version constants, image tags, and markdown changelogs. While `make check` is the authoritative full-suite check, running it monolithically executes Vitest (3600+ frontend tests) and all backend Go tests, taking 8–10 minutes. If running modularly, execute:
+     ```bash
+     make check-workflows
+     make check-scripts
+     make check-web
+     cd server && go test ./...
+     ```
+   - **Log capture and piping standard (Strict Guardrail)**:
+     - **NEVER pipe test output directly to `tail -100` or `head -40`** (e.g. `make check | tail -100`): truncating output discards earlier failure stacks, hiding the failing test name and misleading the agent into blind grep loops.
+     - **NEVER grep blindly for unanchored words like `Error` or `FAIL`**: many passing negative tests legitimately output "Error:" or "failed".
+     - Always redirect full output to a log file:
+       ```bash
+       make check > /tmp/release-check.log 2>&1
+       ```
+       If exit code is non-zero, find the failing test with anchored regex:
+       ```bash
+       grep -E "^--- FAIL:|^FAIL\b" /tmp/release-check.log
+       ```
+   - **Test failure isolation & pre-existing failure triage**:
+     - **NEVER re-run monolithic `make check` after a test failure**: each rerun burns 6–10 minutes.
+     - Immediately isolate and re-run only the specific failing test function or package:
+       ```bash
+       cd server && go test -v -race -run "^<TestFuncName>$" <package_path>
+       ```
+     - Check whether the failure pre-exists on `origin/main` (e.g. `git stash` and re-run against clean `origin/main`, or check commit history). If confirmed pre-existing on `origin/main` and unrelated to release changes, document it as a known pre-existing issue in the release summary and proceed rather than attempting ad-hoc fixes or looping on full-suite checks.
+5. Do not commit or tag if verification fails due to newly introduced regressions. Report the exact failing command and preserve the prepared notes.
 6. Create one commit named `chore(release): prepare <version>` and push it to `main` without force.
 7. Verify local `main` and `origin/main` resolve to the same preparation commit.
 
@@ -204,11 +224,25 @@ After the verified preparation commit has been pushed to `main` and fast-forward
 
 Find the run from `.github/workflows/release.yml` whose event is `push`, tag ref is `<version>`, and `headSha` equals `releaseSha`. Do not select a run by recency alone.
 
-Wait for the matching run with `gh run watch <run-id> --repo enmotech/mopheus --exit-status`. If the run fails, stop without creating or editing a GitHub Release. Report the run URL and keep the notes file for recovery.
+#### Background watch & TaskOutput waiting standard
+
+The Mopheus release workflow typically takes 25–30 minutes (multi-arch Docker images, GoReleaser matrix, tool packaging). Do not poll with manual sleep loops.
+
+1. **Launch `gh run watch` in the background**:
+   ```bash
+   gh run watch <run-id> --repo enmotech/mopheus --compact --exit-status
+   ```
+   Run this as a background task.
+2. **Block on the background task via `TaskOutput`**:
+   Call `TaskOutput(task_id, timeout=600000)` (using the runtime's 10-minute maximum wait slice).
+3. **Handling slice timeouts (Anti-Pattern Guardrail)**:
+   - When `TaskOutput` returns `<retrieval_status>timeout</retrieval_status>` and `<status>running</status>`, this is normal and expected for a 25-minute workflow.
+   - **DO NOT abandon `watch`** and **DO NOT fall back to manual shell sleep loops (`sleep 90`, `sleep 180`, `sleep 240`)**; manual sleep loops add minutes of tail latency, pollute transcripts, and waste tokens.
+   - Simply do a quick read-only status heartbeat check (`gh run view <run-id> --repo enmotech/mopheus --json status,conclusion`), then **immediately call `TaskOutput` again on the SAME background task ID** until it terminates.
+4. **Completion**:
+   When the workflow finishes, `gh run watch --exit-status` exits immediately (0 for success, non-zero for failure), waking the agent with zero tail latency. If the run fails, stop without creating or editing a GitHub Release. Report the run URL and keep the notes file for recovery.
 
 If multiple attempts exist for the same tag and SHA, wait until no matching run is queued or in progress, then require the latest attempt to have conclusion `success`.
-
-Provide concise progress updates while a long workflow is running.
 
 ### 5. Replace workflow-generated notes
 

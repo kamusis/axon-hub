@@ -36,7 +36,20 @@ packages/docs-content/ja/releases/changelog.md
 Then verify and commit:
 
 ```bash
-make check
+# Preferred modular verification (avoids 10m full-suite check when only metadata changed):
+make check-workflows
+make check-scripts
+make check-web
+cd server && go test ./...
+
+# Or if running full check, ALWAYS capture to file and check exit code:
+make check > /tmp/release-check.log 2>&1
+# If failed, find exact failing test name:
+grep -E "^--- FAIL:|^FAIL\b" /tmp/release-check.log
+
+# Isolate single test failure without re-running make check:
+cd server && go test -v -race -run "^<TestFuncName>$" <package_path>
+
 git add server/pkg/version/version.go \
   install/env.example \
   packages/docs-content/en/releases/changelog.md \
@@ -106,11 +119,24 @@ Select a run only when both `headBranch == <version>` and `headSha == <release-s
 
 ## Wait for workflow completion
 
+Run `gh run watch` in the background and block on the background task via `TaskOutput` until completion:
+
 ```bash
-gh run watch <run-id> --compact --exit-status
+gh run watch <run-id> --repo enmotech/mopheus --compact --exit-status
 ```
 
-After it exits, list matching runs again. Do not write release notes while another matching attempt is queued or in progress.
+Runtime pattern:
+```text
+task_id = launch_background("gh run watch <run-id> --repo enmotech/mopheus --compact --exit-status")
+while task.status == "running":
+    res = TaskOutput(task_id, timeout=600000)
+    if res.status == "completed":
+        break
+    # Optional single heartbeat check if slice timed out:
+    gh run view <run-id> --repo enmotech/mopheus --json status,conclusion
+```
+
+After it exits, require exit status `0`. List matching runs again. Do not write release notes while another matching attempt is queued or in progress.
 
 ## Wait for the workflow-created release
 
@@ -161,4 +187,7 @@ gh release create
 git push --force
 git tag --force
 git push origin release
+make check | tail -100            # Discards earlier test failure traces; hides failing test names
+make check | head -40             # Truncates logs; misses root-cause test errors
+sleep <N> && gh run view ...      # Do not use sleep loops for CI; use background watch + TaskOutput
 ```
