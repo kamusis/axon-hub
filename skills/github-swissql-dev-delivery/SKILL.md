@@ -1,6 +1,6 @@
 ---
 name: github-swissql-dev-delivery
-description: "Deliver a completed enmotech/swissql-core code change end-to-end: run dual verification (Maven + Go), commit, push, create/reuse PR, wait for checks, squash-merge, safely clean feature worktree, and sync Mopheus ticket and GitHub issue when present."
+description: "Deliver a completed enmotech/swissql-core code change end-to-end: run scoped verification (Maven and/or Go), commit, push, create/reuse PR, wait for checks, squash-merge, safely clean feature worktree, and sync Mopheus ticket and GitHub issue when present."
 ---
 
 # GitHub SwissQL Dev Delivery
@@ -47,24 +47,32 @@ Stop on multiple candidate issues/tickets, an origin that does not map to `swiss
 
 ## 2. Verify and commit
 
-SwissQL Core is a dual-language architecture. **Both test suites MUST be executed fresh and pass with 0 errors/failures.**
+SwissQL Core is a dual-language architecture (Go CLI + Java/Maven backend). Execute module-aware verification scoped to changed files rather than unconditionally running both stacks:
 
 1. Fetch the default branch:
    ```bash
    git fetch origin main
    ```
-2. **Dual-Stack Verification (Mandatory)**:
-   - **CLI (Go)**:
+2. **Execute module-aware verification scoped to changed files**:
+   Analyze modified files (`git status --porcelain` or `git diff --name-only origin/main...HEAD`) to determine which subprojects were touched:
+   - **CLI (Go) changes only** (`swissql-cli/**`):
      ```bash
      cd swissql-cli && go test -count=1 ./...
      ```
-     Require exit code 0 and 100% pass across all packages (`client`, `cmd`, `internal/config`, `internal/setup`).
-   - **Backend (Java / Maven)**:
+     Require exit code 0 and 100% pass across all packages (`client`, `cmd`, `internal/config`, `internal/setup`). While iterating or debugging, isolate the single failing test: `go test -v -run "^<TestFuncName>$" <package_path>`.
+   - **Backend (Java / Maven) changes only** (`swissql-backend/**`):
      ```bash
      mvn -f swissql-backend/pom.xml test -Dtest=!JdbcDriverAutoLoaderTest
      ```
-     Require `BUILD SUCCESS`, 0 failures, 0 errors.
-   - **RED LINE**: Never commit if either test suite fails. Never substitute one for the other.
+     Require `BUILD SUCCESS`, 0 failures, 0 errors. While iterating, isolate the single test: `mvn -f swissql-backend/pom.xml test -Dtest=<TestClassName>#<methodName>`.
+   - **Documentation only** (`docs/**`, `*.md`):
+     Verify markdown syntax and links; skip heavy binary compilation unless docs validation scripts are configured.
+   - **Dual-stack / cross-cutting changes** (both `swissql-cli/` and `swissql-backend/` modified, or root build configs/scripts):
+     Both test suites must be executed and pass with 0 errors/failures.
+   
+   **Verification Guardrails**:
+   - **Log capture standard**: NEVER pipe test output directly to `tail -100` or `head -40`. Redirect output to a log file if needed and inspect exit codes; locate failures with anchored search (`grep -E "^--- FAIL:|^FAIL\b"` for Go, or look for `[ERROR] Failures:` in Maven logs).
+   - **Failure triage & pre-existing defect isolation**: If a test fails, do NOT immediately re-run the entire test suite. Isolate the specific test case, check if the failure pre-exists on `origin/main` (e.g. via `git stash` and running against clean `origin/main`). If confirmed pre-existing on `origin/main` and unrelated to the current change, document it in the PR description as a known pre-existing issue on main, rather than blocking delivery.
 3. If the intended change is uncommitted:
    - Inspect status, untracked files, and diff.
    - Stage only files belonging to the change (`git add ...`).
@@ -95,11 +103,7 @@ SwissQL Core is a dual-language architecture. **Both test suites MUST be execute
 
 ## 4. Wait and squash merge
 
-1. Poll checks if configured:
-   ```bash
-   gh pr checks <pr-number> --repo enmotech/swissql-core
-   ```
-   Continue when no checks are configured. Stop on failed/cancelled checks, conflicts, or draft state.
+1. Wait for PR checks to complete using `gh pr checks <pr-number> --repo enmotech/swissql-core --watch` (or background watch + `TaskOutput` waiting until completion with `--watch`). Avoid manual shell sleep loops (`sleep 60 && gh pr checks`). Continue when no checks are configured. Stop on failed/cancelled checks, conflicts, or draft state.
 2. Require the PR to be open and mergeable. Validate its Conventional Commit title.
 3. Execute squash merge:
    ```bash
