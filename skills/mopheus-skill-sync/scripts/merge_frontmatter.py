@@ -81,7 +81,8 @@ def main() -> int:
         args.local.read_text(encoding="utf-8"),
         args.remote.read_text(encoding="utf-8"),
     )
-    args.output.write_text(merged, encoding="utf-8", newline="")
+    with open(args.output, "w", encoding="utf-8", newline="") as f:
+        f.write(merged)
     print(f"retained_remote_only={','.join(retained_keys) or 'none'}")
     print(f"synchronized_local={','.join(synchronized_keys)}")
     return 0
