@@ -41,7 +41,23 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 ## 2. Verify and commit
 
 1. Fetch the default branch and inspect status, untracked files, diff, and diff check. Confirm every intended file belongs to this change.
-2. Run the repository's complete required verification command (`make check`) fresh. On Windows hosts, execute `make check` in the WSL/Linux environment where the Linux toolchain, daemon, claimkey, and race detectors reside. **CRITICAL**: The execution directory MUST be in native Linux ext4 (e.g. `/home/<user>/CascadeProjects/mopheus`); NEVER execute in `/mnt/c/...`. Require exit code 0 and confirm zero failure markers in both frontend and Go test outputs. Never commit if `make check` fails, and never substitute partial subpackage tests (`go test ./...` without `make check-web`, single package test, etc.) for the full `make check` pipeline.
+2. **Execute module-aware verification scoped to changed files**:
+   Analyze modified files (`git status --porcelain` or `git diff --name-only origin/main...HEAD`) to determine which subsystems were touched, and execute the corresponding targeted verification rather than unconditionally running monolithic `make check` (which takes 8–10 minutes):
+   - **Backend Go changes only** (`server/**`, `cmd/**`, `go.mod`, `go.sum`):
+     Run `cd server && go test -race ./...` (or `make test`). While iterating or debugging, isolate the single failing test: `cd server && go test -v -race -run "^<TestFuncName>$" <package_path>`.
+   - **Frontend Web changes only** (`apps/web/**`, `packages/docs-content/**`, `package.json`, `pnpm-lock.yaml`):
+     Run `make check-web` (executes frontend typecheck and Vitest suite). While iterating, isolate the single test: `cd apps/web && pnpm vitest run path/to/file.test.ts`.
+   - **Documentation only** (`packages/docs-content/**`, `docs/**`, `*.md`):
+     Run `make check-docs-nav` (and `make check-generate` if Fumadocs content changed).
+   - **Workflows or scripts only** (`.github/workflows/**`, `scripts/**`):
+     Run `make check-workflows` and/or `make check-scripts`.
+   - **Full-stack / cross-cutting changes** (both `server/` and `apps/web/` modified, or root build configs):
+     Run the complete verification pipeline (`make check`).
+   
+   **Verification Guardrails**:
+   - **Log capture standard**: **NEVER pipe test output directly to `tail -100` or `head -40`** (e.g. `make check | tail -100`); truncated output discards early failure stacks, hiding the failing test name and misleading the agent into blind loops. Redirect output to a log file (`make test > /tmp/dev-test.log 2>&1`) and inspect exit code. Locate failures with anchored regex: `grep -E "^--- FAIL:|^FAIL\b" /tmp/dev-test.log`.
+   - **Failure triage & pre-existing defect isolation**: If a test fails, **NEVER re-run the entire monolithic suite immediately**. Isolate the specific test function or file. Verify if the failure pre-exists on `origin/main` (e.g. via `git stash` and running against clean `origin/main`). If confirmed pre-existing on `origin/main` and unrelated to the current feature branch, document it in the PR description as a known pre-existing issue on main, rather than blocking delivery or attempting unprompted refactors.
+   - **CRITICAL WSL PATH RULE**: On Windows hosts, execute verification in the WSL/Linux environment where the Linux toolchain, daemon, claimkey, and race detectors reside. The execution directory MUST be in native Linux ext4 (e.g. `/home/<user>/CascadeProjects/mopheus`); NEVER execute in `/mnt/c/...`. Require exit code 0 and confirm zero failure markers in the scoped test outputs.
 3. If the intended change is uncommitted, stage only its files, inspect the complete staged diff, and create one accurate Conventional Commit without a co-author trailer.
 4. If a suitable commit already exists, reuse it. Never duplicate or amend an unrelated commit.
 5. Push the feature branch without force and verify local and remote tips match.
@@ -55,7 +71,7 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 
 ## 4. Wait and squash merge
 
-1. Poll checks with bounded waits until terminal. Continue when no checks are configured. Stop on failed/cancelled checks, conflicts, missing required approval, draft state, or branch-protection denial.
+1. Wait for PR checks to complete using `gh pr checks <pr-number> --repo enmotech/mopheus --watch` (or background watch + `TaskOutput` waiting until completion with `--watch`). Avoid manual shell sleep loops (`sleep 60 && gh pr checks`). Continue when no checks are configured. Stop on failed/cancelled checks, conflicts, missing required approval, draft state, or branch-protection denial.
 2. Require the PR to be open and mergeable. Validate or fix its Conventional Commit title.
 3. Generate a concise squash body with major changes and relevant minor improvements.
 4. Prefer `gh pr merge --repo enmotech/mopheus --squash --delete-branch --subject <title> --body-file <file>` when supported.
