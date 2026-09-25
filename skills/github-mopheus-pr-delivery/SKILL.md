@@ -56,7 +56,7 @@ Fetch the default and feature refs without modifying history. Verify:
 - there are no failed, cancelled, timed-out, action-required, or pending required checks at merge time;
 - branch protection and required approvals, when configured by GitHub, permit merge.
 
-Poll checks with bounded waits until terminal. If no checks are configured, record that fact and continue. If the PR head changes while waiting, restart readiness validation for the new SHA rather than merging with stale evidence.
+Wait for checks to complete using `gh pr checks <number> --repo enmotech/mopheus --watch` (or background watch + `TaskOutput` waiting until completion with `--watch`). Avoid manual shell sleep loops (`sleep 60 && gh pr checks`). If no checks are configured, record that fact and continue. If the PR head changes while waiting, restart readiness validation for the new SHA rather than merging with stale evidence.
 
 Do not edit the PR title/body, push fixes, run implementation tests, manufacture review evidence, or override protection rules. Stop and return those prerequisites to their owning role.
 
