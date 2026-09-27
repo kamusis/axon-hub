@@ -146,14 +146,25 @@ python3 scripts/tesla_cli.py analytics battery
 
 ---
 
-## Agent Guidelines & Interaction Rules
+## Agent Guidelines & Action Guardrails
 
 1. **Auto Vehicle Selection**:
-   The CLI automatically detects the active vehicle associated with the account (`Moomin Y`). You do not need to prompt the user for a VIN unless they have multiple active cars.
-2. **Physical Action Confirmation (Guardrails)**:
-   Never execute `unlock`, `frunk`, or `trunk` silently. Ask the user for confirmation first (e.g., *"即将为您开启 Moomin Y 的后备箱，是否确认？"*). Once confirmed, pass `--force`.
-3. **Navigation Execution**:
-   When the user mentions navigation or setting in-car destination, directly execute `tesla_cli.py nav "<user query>"`. The script will automatically handle Vertex AI geolocation, fallback to OSM if needed, and push the coordinates to Tesla.
+   The CLI automatically resolves the active vehicle (or uses `MY_TESLA_VIN` if set). Do NOT ask the user for a VIN unless multiple active vehicles are detected and ambiguity exists.
+
+2. **Action Classification & Confirmation Guardrails**:
+   Agents must strictly distinguish between **PHYSICAL RISK OPERATIONS** and **CONVENIENCE / DATA OPERATIONS**:
+   - **🔴 PHYSICAL RISK (Mandatory Confirmation)**:
+     - Actions: `unlock`, `frunk`, `trunk`, `enable_keyless_driving`.
+     - Rule: These operations physically open vehicle access, pop open hoods, or disarm locks. You MUST explicitly ask the user for confirmation before executing (e.g. *"即将为您开启 Moomin Y 的后备箱，请确认是否执行？"*). Once confirmed, execute with `--force`.
+   - **🟢 CONVENIENCE / ZERO PHYSICAL RISK (Immediate Execution, NO Confirmation)**:
+     - Actions: `nav` (navigation routing), `climate` (HVAC, seat heating, defrost), `charge` (limits, start/stop), `control honk/flash/vent/lock/sentry`.
+     - Rule: Execute IMMEDIATELY upon user request without any confirmation dialogue. Do not hesitate or ask "Are you sure you want me to turn on climate / send navigation?".
+
+3. **Navigation Execution Rule (Zero-Confirmation Policy)**:
+   - **Immediate Push**: When the user asks to navigate, find a place, or set a destination, **IMMEDIATELY execute `python3 scripts/tesla_cli.py nav "<user query>"` without asking for permission or waiting for user confirmation**.
+   - **Zero Physical Danger**: Pushing a destination is completely harmless—it merely renders the destination and proposed route on the Tesla center touchscreen. It does not drive, steer, or mechanically affect the car. Delaying or waiting for user confirmation breaks the entire remote pre-routing experience.
+   - **The ONLY Exception (True Ambiguity)**: If and only if the destination query matches multiple completely distinct, equally plausible locations (e.g. user says "去人民公园" and there is one in City A and another in City B), present the 2–3 candidate branches and ask which one they meant. Once chosen (or if unique), push immediately without an additional "Shall I send it now?" confirmation round.
+
 4. **Directness**:
    Keep responses concise, clear, and high-signal (Caveman Lite). Present key status numbers in a structured, readable format.
 
