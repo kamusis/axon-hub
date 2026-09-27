@@ -22,29 +22,30 @@ The skill provides:
 
 ## Environment Variables
 
-The CLI automatically reads the following environment variables (or extracts them from `~/.zshrc`):
+The CLI automatically resolves the following environment variables across all environments (from the active process environment, local `.env` file, or user shell configuration files such as `~/.zshenv`, `~/.zshrc`, `~/.bashrc`, `~/.bash_profile`, `~/.profile`, or `~/.config/fish/config.fish`):
 - `TESSIE_ACCESS_TOKEN` (Required): Tessie developer access token.
 - `VERTEX_API_KEY` (Optional): Google Vertex AI API Key for `gemini-3.8-flash` destination extraction. If missing or encountering errors, the system automatically falls back to OpenStreetMap Nominatim.
+- `MY_TESLA_VIN` (Optional): Specific default VIN to skip vehicle auto-discovery.
 
 ---
 
 ## CLI Location & Usage
 
-The core executable is located at:
-`~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py`
-(Also available in project root `tesla_cli.py`).
+The executable is located in the skill's `scripts/` directory:
+- When running from inside this skill directory: `python3 scripts/tesla_cli.py <command>`
+- When running from a standalone project clone: `python3 tesla_cli.py <command>`
 
 ### 1. Status & Location
 
 ```bash
 # Complete summary (Battery, Range, HVAC, Locks, Sentry, TPMS, Odometer)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py status
+python3 scripts/tesla_cli.py status
 
 # Output raw JSON
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py status --json
+python3 scripts/tesla_cli.py status --json
 
 # Current GPS position and address
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py location
+python3 scripts/tesla_cli.py location
 ```
 
 ### 2. AI-Powered Navigation (Japan / Global)
@@ -53,9 +54,9 @@ Takes arbitrary natural language, extracts coordinates via Vertex AI `gemini-3.8
 
 ```bash
 # By POI name or colloquial query
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py nav "名古屋市科学馆"
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py nav "成田机场T1"
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py nav "附近的特斯拉超充"
+python3 scripts/tesla_cli.py nav "名古屋市科学馆"
+python3 scripts/tesla_cli.py nav "成田机场T1"
+python3 scripts/tesla_cli.py nav "附近的特斯拉超充"
 ```
 
 > **Fallback Caution**: If Vertex AI fails or is unconfigured, the CLI automatically falls back to OpenStreetMap Nominatim and emits a prominent `[CAUTION]` banner warning the user to verify the route on their Tesla center screen, since open-source mapping has lower precision for branch distances and colloquial phrasing.
@@ -64,18 +65,18 @@ python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py nav "附近
 
 ```bash
 # Start / Stop HVAC
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py climate on
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py climate off
+python3 scripts/tesla_cli.py climate on
+python3 scripts/tesla_cli.py climate off
 
 # Set cabin temperature (Celsius)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py climate temp 22.0
+python3 scripts/tesla_cli.py climate temp 22.0
 
 # Set seat heating (driver/passenger/rear_left/rear_center/rear_right, level 0-3)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py climate seat driver 2
+python3 scripts/tesla_cli.py climate seat driver 2
 
 # Defrost & Steering Wheel Heater
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py climate defrost on
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py climate steering on
+python3 scripts/tesla_cli.py climate defrost on
+python3 scripts/tesla_cli.py climate steering on
 ```
 
 ### 4. Vehicle Control & Safety Guardrails
@@ -84,38 +85,38 @@ python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py climate ste
 
 ```bash
 # Harmless controls (execute directly)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control honk
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control flash
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control lock
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control vent
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control close_windows
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control sentry_on
+python3 scripts/tesla_cli.py control honk
+python3 scripts/tesla_cli.py control flash
+python3 scripts/tesla_cli.py control lock
+python3 scripts/tesla_cli.py control vent
+python3 scripts/tesla_cli.py control close_windows
+python3 scripts/tesla_cli.py control sentry_on
 
 # Critical physical controls (must confirm with user before using --force)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control unlock --force
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control frunk --force
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py control trunk --force
+python3 scripts/tesla_cli.py control unlock --force
+python3 scripts/tesla_cli.py control frunk --force
+python3 scripts/tesla_cli.py control trunk --force
 ```
 
 ### 5. Charging Management
 
 ```bash
 # Query battery and charger status
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py charge status
+python3 scripts/tesla_cli.py charge status
 
 # Start / Stop charging
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py charge start
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py charge stop
+python3 scripts/tesla_cli.py charge start
+python3 scripts/tesla_cli.py charge stop
 
 # Adjust charge limit (e.g. 80% or 100%)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py charge limit 80
+python3 scripts/tesla_cli.py charge limit 80
 
 # Adjust charging current limit (amps)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py charge amps 16
+python3 scripts/tesla_cli.py charge amps 16
 
 # Open / Close charge port
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py charge open
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py charge close
+python3 scripts/tesla_cli.py charge open
+python3 scripts/tesla_cli.py charge close
 ```
 
 ### 6. Live Fleet Telemetry Stream
@@ -124,23 +125,23 @@ Establishes a WebSocket connection to `wss://streaming.tessie.com/<vin>` and str
 
 ```bash
 # Listen for 15 seconds (default)
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py stream
+python3 scripts/tesla_cli.py stream
 
 # Custom duration
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py stream --duration 30
+python3 scripts/tesla_cli.py stream --duration 30
 ```
 
 ### 7. Historical Analytics
 
 ```bash
 # View recent driving trips
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py analytics drives --limit 5
+python3 scripts/tesla_cli.py analytics drives --limit 5
 
 # View recent charging sessions
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py analytics charges --limit 5
+python3 scripts/tesla_cli.py analytics charges --limit 5
 
 # View battery health assessment
-python3 ~/.gemini/config/skills/tesla-commander/scripts/tesla_cli.py analytics battery
+python3 scripts/tesla_cli.py analytics battery
 ```
 
 ---

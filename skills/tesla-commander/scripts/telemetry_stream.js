@@ -9,12 +9,37 @@ const path = require('path');
 
 function getEnv(name) {
   if (process.env[name]) return process.env[name].trim();
-  const zshrc = path.join(process.env.HOME || '', '.zshrc');
-  if (fs.existsSync(zshrc)) {
+
+  const home = process.env.HOME || '';
+  const candidateFiles = [
+    path.join(process.cwd(), '.env'),
+    path.join(__dirname, '.env'),
+    path.join(__dirname, '..', '.env'),
+    path.join(home, '.zshenv'),
+    path.join(home, '.zshrc'),
+    path.join(home, '.bashrc'),
+    path.join(home, '.bash_profile'),
+    path.join(home, '.profile'),
+    path.join(home, '.config', 'fish', 'config.fish'),
+  ];
+
+  for (const fpath of candidateFiles) {
+    if (!fs.existsSync(fpath)) continue;
     try {
-      const content = fs.readFileSync(zshrc, 'utf8');
-      const match = content.match(new RegExp(`^\\s*(?:export\\s+)?${name}=["']?([^"'\\s#]+)`, 'm'));
-      if (match) return match[1].trim();
+      const content = fs.readFileSync(fpath, 'utf8');
+      const lines = content.split('\n');
+      for (let line of lines) {
+        line = line.trim();
+        if (!line || line.startsWith('#')) continue;
+
+        // POSIX / Sh / Bash / Zsh
+        const match = line.match(new RegExp(`^(?:export\\s+)?${name}=["']?([^"'#\\r\\n]+)`));
+        if (match) return match[1].trim();
+
+        // Fish shell
+        const matchFish = line.match(new RegExp(`^set\\s+(?:-[a-zA-Z]+\\s+)*${name}\\s+["']?([^"'#\\r\\n]+)`));
+        if (matchFish) return matchFish[1].trim();
+      }
     } catch (_) {}
   }
   return null;
@@ -39,7 +64,7 @@ for (let i = 0; i < args.length; i++) {
 
 const token = getEnv('TESSIE_ACCESS_TOKEN');
 if (!token) {
-  console.error('Error: TESSIE_ACCESS_TOKEN not found in environment or ~/.zshrc');
+  console.error('Error: TESSIE_ACCESS_TOKEN not found in environment, .env, or shell profiles');
   process.exit(1);
 }
 

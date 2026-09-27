@@ -6,22 +6,7 @@ import urllib.error
 import urllib.parse
 from typing import Optional, Dict, Any, List
 
-def load_env_var(name: str) -> Optional[str]:
-    """Load environment variable from os.environ or fallback to ~/.zshrc."""
-    val = os.environ.get(name)
-    if val:
-        return val.strip()
-    zshrc_path = os.path.expanduser("~/.zshrc")
-    if os.path.exists(zshrc_path):
-        try:
-            with open(zshrc_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    match = re.match(rf'^\s*(?:export\s+)?{name}=["\']?([^"\'\s#]+)', line)
-                    if match:
-                        return match.group(1).strip()
-        except Exception:
-            pass
-    return None
+from env_loader import load_env_var
 
 class TessieClient:
     """Tessie REST API Client with automatic active vehicle resolution."""
@@ -30,7 +15,7 @@ class TessieClient:
     def __init__(self, token: Optional[str] = None):
         self.token = token or load_env_var("TESSIE_ACCESS_TOKEN")
         if not self.token:
-            raise ValueError("TESSIE_ACCESS_TOKEN not found in environment or ~/.zshrc")
+            raise ValueError("TESSIE_ACCESS_TOKEN not found in environment, .env, or shell profiles")
         self._cached_vin: Optional[str] = None
 
     def _request(self, path: str, method: str = "GET", params: Optional[Dict[str, Any]] = None, body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -145,7 +130,7 @@ class TessieClient:
             summary = self._format_vehicles_table(active_vehicles)
             raise RuntimeError(
                 f"Multiple active vehicles found ({len(active_vehicles)}). "
-                f"Please specify which vehicle to use via --vin or set MY_TESLA_VIN in ~/.zshrc:\n\n{summary}"
+                f"Please specify which vehicle to use via --vin or set MY_TESLA_VIN in your shell profile or .env:\n\n{summary}"
             )
         else:
             if len(vehicles) == 1:
@@ -154,7 +139,7 @@ class TessieClient:
             summary = self._format_vehicles_table(vehicles)
             raise RuntimeError(
                 f"No active vehicles found among {len(vehicles)} vehicles. "
-                f"Please specify which vehicle to use via --vin or set MY_TESLA_VIN in ~/.zshrc:\n\n{summary}"
+                f"Please specify which vehicle to use via --vin or set MY_TESLA_VIN in your shell profile or .env:\n\n{summary}"
             )
 
     def get_state(self, vin: Optional[str] = None) -> Dict[str, Any]:

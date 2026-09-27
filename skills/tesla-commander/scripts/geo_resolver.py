@@ -6,22 +6,7 @@ import urllib.parse
 import urllib.error
 from typing import Optional, Dict, Any, Tuple
 
-def load_env_var(name: str) -> Optional[str]:
-    """Load environment variable from os.environ or fallback to ~/.zshrc."""
-    val = os.environ.get(name)
-    if val:
-        return val.strip()
-    zshrc_path = os.path.expanduser("~/.zshrc")
-    if os.path.exists(zshrc_path):
-        try:
-            with open(zshrc_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    match = re.match(rf'^\s*(?:export\s+)?{name}=["\']?([^"\'\s#]+)', line)
-                    if match:
-                        return match.group(1).strip()
-        except Exception:
-            pass
-    return None
+from env_loader import load_env_var
 
 class GeoResolver:
     """
