@@ -1,6 +1,6 @@
 ---
 name: github-issue-to-mopheus-dev-ticket
-description: "Create a complete, detailed Chinese Mopheus dev ticket as the primary implementation entry and a paired concise English GitHub issue in the current repository's remote GitHub repository. Ensures the GitHub issue links to the Mopheus ticket using the full Ticket UUID. Supports existing-ticket, existing-issue, and new-report modes, auto-detects current repo origin to target the GitHub repo, auto-assigns tickets to the matching repository project in Mopheus dev workspace, and enforces CLI-first design and comprehensive multi-tier testing acceptance criteria."
+description: "Create a complete, detailed Chinese Mopheus dev ticket as the primary implementation entry and a paired concise English GitHub issue in the current repository's remote GitHub repository. Ensures the GitHub issue links to the Mopheus ticket using the full Ticket UUID. Strictly enforces single authoritative implementation design with zero ambiguity (strictly banning '或'/or/alternatives in design specifications), pre-creation user clarification for open design choices, and post-creation ambiguity verification."
 ---
 
 # GitHub Issue to Mopheus Dev Ticket
@@ -12,6 +12,10 @@ This skill bridges user requests, bug reports, and feature specifications betwee
 - **Universal & Repository-Aware**: Automatically resolves the target GitHub repository from the current working directory's Git remote origin (`<owner>/<repo>`), and auto-associates the Mopheus ticket with the matching repository project.
 - **Mopheus Dev Ticket (Primary & Comprehensive)**: The Mopheus dev ticket is the **primary, authoritative internal implementation specification**. It must be written in **detailed Chinese**, containing the complete reproduction steps, detailed root cause analysis, exhaustive technical architecture (strictly following CLI-first design), and multi-tier acceptance criteria.
 - **GitHub Issue (Concise & Linked)**: The GitHub issue is the **external tracking issue** written in **concise English**. It must capture the core summary, key reproduction/motivation points, and acceptance criteria, and **MUST include a direct link to the Mopheus Dev Ticket using the Ticket UUID**.
+- **Zero Ambiguity & Single Authoritative Design (严格禁止模棱两可与方案二选一)**:
+  - **方案必须绝对唯一 (Single Concrete Design)**: 工单是具体的工程执行契约与验收基准，不是发散性设计讨论稿。每一个涉及架构设计、CLI 命令/参数名、HTTP API 契约、数据模型字段、状态流转逻辑、默认行为的环节，必须且只能给出**唯一确定**的实现方案。
+  - **严禁模棱两可词汇 (Strict Ban on Ambiguous Phrasing)**: 工单正文严禁出现“方案 A 或 方案 B”、“可采用 X 或者 Y”、“使用 A 或 B”、“亦可考虑”、“也可以选择”、“备选方案”、“两种方式”等让实现者二次做选择题的推诿或未决措辞。
+  - **不确定时前置追问，决策闭环 (Clarify Before Creation)**: 如果在分析过程中发现存在多种可行技术路线或权衡点（Trade-offs），且无法 100% 确定哪种更合适，**必须在生成工单前立即停止，并向用户提出明确追问**。待用户决策闭环并锁定唯一方案后，方可创建工单。绝对不可将“二选一/多选一”的未决设计直接写入工单或 Issue！
 
 > [!IMPORTANT]
 > **Ticket Link URL Rule (Mandatory Ticket UUID)**:
@@ -97,13 +101,13 @@ Capture `<project-id>`. If found, associate tickets with this project.
   - Verify ticket: `mopheus <target-connection-args> --workspace-id <target-workspace-id> ticket get <ticket-id> --output json`.
   - Check existing links: `mopheus <target-connection-args> --workspace-id <target-workspace-id> repo links --ticket <ticket-id> --output json`.
   - If already linked, return existing records and stop.
-  - If unlinked, proceed to Step 1 & 2 (extract evidence), Step 3 (screenshots), Step 4 (create concise GitHub issue with ticket UUID URL), Step 5 Path B (post detailed reply comment on ticket), Step 6 (sync link), Step 7 (project binding).
+  - If unlinked, proceed to Step 1 (extract evidence & ensure zero-ambiguity closure), Step 3 (create concise GitHub issue with ticket UUID URL), post structured Chinese reply comment on existing ticket with single concrete design, Step 4 (sync link & project binding), Step 5 (ambiguity audit), and Step 6 (reporting).
 - **Existing-Issue mode:** Check if user supplies an existing GitHub issue URL or number.
   - Verify issue: `gh issue view <number> --repo <target-github-repo>`.
   - Check existing links: `mopheus <target-connection-args> --workspace-id <target-workspace-id> repo links --repo <canonical-repo-url> --type git_issue --number <n> --output json`.
   - If already linked, return and reuse it.
-  - If unlinked, proceed to Step 1 & 2, Step 5 Path A (create detailed Chinese ticket), Step 4 (update existing GitHub issue with ticket UUID URL), Step 6 (sync link), Step 7 (project binding).
-- **New-report mode:** Follow Steps 1 through 5.
+  - If unlinked, proceed to Step 1, Step 2 (create detailed Chinese ticket with single concrete design), Step 3 (update existing GitHub issue with ticket UUID URL), Step 4 (sync link & project binding), Step 5 (ambiguity audit), and Step 6 (reporting).
+- **New-report mode:** Follow Steps 1 through 6.
 
 ---
 
@@ -112,6 +116,10 @@ Capture `<project-id>`. If found, associate tickets with this project.
 - Extract exact reproduction steps, expected vs actual behavior, error messages, logs, IDs, and root cause analysis.
 - If relevant screenshots are present in the conversation, upload them using the S.EE uploader skill/script to obtain public Markdown image URLs.
 - Categorize as `bug` or `feature`.
+- **Pre-Creation Design Decision Closure (方案决策闭环与零模棱两可自检)**:
+  - 梳理拟定的技术实现方案。
+  - 自查方案是否存在任何二选一、分支备选或不确定性设计（例如“可通过配置项或环境变量控制”、“方案 A 或 方案 B”、“返回格式 A 或 B”）。
+  - **红线拦截门禁**: 若存在未决定的实现选项，**坚决不可假定或把选择题留进工单，必须立即停止创建流程，向用户明确提出追问**，待用户决策确认唯一方案后，方可继续推进。
 
 ---
 
@@ -130,6 +138,13 @@ mopheus <target-connection-args> --workspace-id <target-workspace-id> ticket cre
 EOF
 ```
 
+> [!CAUTION]
+> **方案唯一性与零模棱两可红线 (Zero Ambiguity & Single Implementation Standard)**:
+> - **严禁二选一措辞**: 技术方案中严禁出现“或”、“或者”、“亦可”、“也可考虑”、“方案 A 或 方案 B”等模棱两可的二选一措辞。
+> - **必须提供唯一落地定义**: 所有的 CLI 命令名、参数名、返回值类型、HTTP Handler 路由、数据表字段名、类型定义、状态机转移逻辑，必须且只能给出**唯一确定的生产落地规范**。
+> - **严禁推诿与猜测**: 绝不允许写出“可通过参数 --foo 或 --bar 控制”、“采用方案1或方案2”这类让下游实现者猜测的不确定设计。
+> - 遇到任何未决设计，必须先追问用户决策闭环，严禁带入工单！
+
 #### Detailed Chinese Ticket Structure:
 
 ```markdown
@@ -145,16 +160,16 @@ EOF
 - **现象截图 / 日志**: [嵌入 S.EE 截图链接或详细错误调用栈]
 - **根因分析**: [代码层面的根本原因剖析，指明涉及的 package / file / struct / handler]
 
-## 详细功能设计与技术方案（严格遵循 CLI 优先原则）
-- **架构设计**: [前后端交互流与数据契约]
+## 详细功能设计与技术方案（严格遵循 CLI 优先原则与唯一设计标准）
+- **架构设计**: [前后端交互流与数据契约，严格给出唯一数据走向]
 - **CLI 命令与参数设计**:
   - `[cli-name] <domain> <subcommand> [flags]`
-  - 参数说明表与输入/输出示例（支持 `--*-file` / `--*-stdin` / `--output json`）
-- **后端 API & 数据模型**: [HTTP Handler 路由、Service 方法、SQL/Repo 变更]
+  - 参数说明表与输入/输出示例（支持 `--*-file` / `--*-stdin` / `--output json`，参数名与行为严格唯一）
+- **后端 API & 数据模型**: [HTTP Handler 路由、Service 方法、SQL/Repo 变更，字段与逻辑严格确定]
 - **前端 Web UI 交互设计**: [页面布局、组件复用、交互状态与 i18n 键名]
 
 ## 完备的验收标准（必须包含全层级测试交付要求）
-1. [业务功能要求 1]
+1. [业务功能要求 1（确定性描述，无“或”选项）]
 2. [业务功能要求 2]
 3. **全层级质量与测试交付要求**:
    - **单元测试 (Unit Tests)**: 覆盖后端 Repo、Service 逻辑/权限/错误码、HTTP Handler、CLI 参数解析等。
@@ -168,6 +183,9 @@ EOF
 ### Step 3: Create or Update the Concise English GitHub Issue
 
 Create the GitHub issue in `<target-github-repo>`. The GitHub issue should be **concise**, focusing on the high-level summary, key problem/requirement, acceptance criteria, and **MUST contain the Mopheus Dev Ticket link with the Ticket UUID**.
+
+> [!IMPORTANT]
+> The GitHub issue must strictly adhere to the **Zero Ambiguity & Single Concrete Design** rule: never specify alternative or undecided implementations (e.g. avoid "either X or Y", "option A or option B"). State only the single decided behavior and acceptance criteria.
 
 ```bash
 gh issue create --repo <target-github-repo> \
@@ -191,7 +209,7 @@ EOF
 - [Key step or motivation point 2]
 
 ## Expected vs Actual Behavior / Proposed Behavior
-- **Expected / Proposed**: [What should happen]
+- **Expected / Proposed**: [What should happen - single concrete specification]
 - **Actual**: [What happens currently, if bug]
 
 ## Evidence / Screenshots
@@ -234,7 +252,28 @@ EOF
 
 ---
 
-### Step 5: Verification and Reporting
+### Step 5: Post-Creation Ambiguity Verification & Audit (工单回览与零模棱两可终审门禁)
+
+在工单与 Issue 创建及同步完成后，**必须立即执行回览自检（Review & Audit）**，严格确保落盘内容零模棱两可：
+
+1. **回览工单正文与 Issue 内容**:
+   ```bash
+   mopheus <target-connection-args> --workspace-id <target-workspace-id> ticket get <ticket-uuid> --output json
+   gh issue view <number> --repo <target-github-repo>
+   ```
+2. **执行模棱两可关键词自检 (Ambiguity Keyword Scan)**:
+   - 逐段自检工单的“详细功能设计与技术方案”与“验收标准”，排查是否存在以下词汇及其语境：
+     - 中文关键词：`或`、`或者`、`亦可`、`也可以`、`备选`、`候选方案`、`两种方式`、`可采用...也可采用...`
+     - 英文关键词：`or `、`either `、`optionally `、`alternative `
+   - 严禁把方案选择权、二选一决策推诿给后续的实现者。
+3. **发现模棱两可的处理流程 (Remediation)**:
+   - 若发现上述词汇用于二选一未决设计（例如“使用 A 或 B”）：
+     - **若属于措辞不够确定但方案已收敛**：**立即调用 `mopheus ticket update <ticket-uuid>` 重新更新工单正文**，消除模糊词汇，牢牢锁定唯一实现方案。
+     - **若属于尚未决定的设计分歧/权衡点**：**立刻停止流程，向用户发出明确追问**，获得用户决策指令后，再行更新工单至唯一确定的方案。
+
+---
+
+### Step 6: Final Verification and Reporting
 
 Verify the created records:
 
@@ -254,6 +293,7 @@ mopheus <target-connection-args> --workspace-id <target-workspace-id> repo links
   - 所属工作区: `<workspace-name>` (`<target-workspace-id>`)
   - 绑定项目: `<project-name>` (`<project-id>`)
   - 优先级 / 状态: `High` / `Todo`
+  - 方案设计审计: 已完成回览自检，设计方案唯一确定，无任何“或”等模棱两可二选一描述
 - **GitHub Issue**：[<target-github-repo>#<number>](<github-issue-url>)
 - **关联状态**：已建立双向 `git_issue` 结构化元数据绑定，并在 GitHub Issue 中包含了工单 UUID 直达链接。
 ```

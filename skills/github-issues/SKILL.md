@@ -1,11 +1,18 @@
 ---
 name: github-issues
-description: 'Create, update, and manage GitHub issues using gh CLI. Use this skill when users want to create bug reports, feature requests, or task issues, update existing issues, add labels/assignees/milestones, or manage issue workflows. Triggers on requests like "create an issue", "file a bug", "request a feature", "update issue X", or any GitHub issue management task.'
+description: 'Create, update, and manage GitHub issues using gh CLI. Strictly enforces single authoritative implementation design with zero ambiguity (strictly banning "or", "either", "或", alternatives, or undecided options), pre-creation user clarification for open design choices, and mandatory post-creation ambiguity verification.'
 ---
 
 # GitHub Issues
 
 Manage GitHub issues using the `gh` CLI.
+
+## Invariants: Zero Ambiguity & Single Authoritative Design (方案唯一性与零模棱两可红线)
+
+- **Single Settled Specification (设计方案务必绝对唯一)**: Every issue must describe exactly one concrete implementation. Issues are engineering execution contracts, not open design polls or brainstorming drafts.
+- **Strict Ban on Ambiguous & Alternative Phrasing (严禁模棱两可与二选一措辞)**: The issue body strictly forbids wording that pushes decision-making to the implementer, such as "A or B", "either X or Y", "or", "and/or", "could", "maybe", "consider", "suggest", "optionally", "etc.", "或", "或者", "亦可", "备选方案".
+- **Clarify Before Creating (未决设计前置追问，决策闭环)**: If multiple technical approaches or trade-offs exist and the preferred path is not 100% determined, **STOP immediately before creating the issue**. Ask the user direct clarifying questions to close the decision loop. Never create an issue containing an undecided choice or alternatives.
+- **Mandatory Post-Creation Audit Step (创建后强制回览审计)**: After issue creation, always view the issue and scan for ambiguity markers. If any ambiguity is detected, remediate immediately via `gh issue edit` or user clarification.
 
 ## Available gh Commands
 
@@ -22,10 +29,11 @@ Manage GitHub issues using the `gh` CLI.
 ## Workflow
 
 1. **Determine action**: Create, update, or query?
-2. **Gather context**: Get repo info, existing labels, milestones if needed
-3. **Structure content**: Use appropriate template from [references/templates.md](references/templates.md)
-4. **Execute**: Run the appropriate `gh` command
-5. **Confirm**: Report the issue URL to user
+2. **Gather context & Close Design Decisions**: Get repo info, resolve any open questions with the user, ensuring the design is 100% settled, concrete, and singular.
+3. **Structure content**: Use appropriate template from [references/templates.md](references/templates.md), ensuring zero ambiguity.
+4. **Execute**: Run the appropriate `gh` command (`gh issue create` or `gh issue edit`).
+5. **Post-Creation Ambiguity Audit (Mandatory Check Step)**: Fetch the created/edited issue via `gh issue view`, verify content, and scan for any ambiguous phrasing (`or `, `either `, `或`, etc.). Remediate immediately if found.
+6. **Confirm**: Report the issue URL and verified single-design audit status to user.
 
 ## Creating Issues
 
@@ -44,6 +52,12 @@ gh issue create --repo owner/repo --title "Title" --body "Body content" --label 
 ### Requirement Clarity Rules
 
 When creating an issue, write requirements and design decisions as a single settled specification. Do not leave ambiguity for the later implementer.
+
+> [!CAUTION]
+> **Zero Ambiguity & Single Implementation Standard**:
+> - Never write "X or Y", "use A or B", "support either foo or bar", "参数 A 或 B". Every flag, parameter, data schema, route, and UI flow must have exactly one determined definition.
+> - An issue must never ask the implementer to make product, UX, architecture, or data model choices.
+> - If you feel the urge to write "or" / "或", STOP and ask the user to choose before creating the issue.
 
 - Do not use vague wording that gives the implementer multiple choices, such as "suggest", "maybe", "could", "consider", "if possible", "preferably", "one option is", "A or B", "either", "or", "and/or", "etc.", or "whatever works".
 - Do not describe several possible implementations and ask the implementer to choose.
@@ -242,6 +256,21 @@ Use these standard labels when applicable:
 | `duplicate` | Already exists |
 | `high-priority` | Urgent issues |
 
+## Post-Creation Ambiguity Verification & Audit (强制回览审计)
+
+After running `gh issue create`, you MUST execute a verification check to ensure zero ambiguity:
+
+```bash
+gh issue view <issue_number> --repo owner/repo
+```
+
+1. **Scan for ambiguity keywords**:
+   - English: `or `, `either `, `optionally `, `alternative `, `maybe `, `could `, `etc.`
+   - Chinese: `或`、`或者`、`亦可`、`也可以`、`备选`、`两种方式`
+2. **Remediation**:
+   - If imprecise phrasing is found but the intended solution is settled: immediately run `gh issue edit <issue_number> --repo owner/repo --body "..."` to remove ambiguity and lock in the single solution.
+   - If an undecided architectural or product choice was inadvertently included: stop and ask the user for clarification, then update the issue with the user's decision.
+
 ## Tips
 
 - Always confirm the repository context before creating issues
@@ -250,3 +279,4 @@ Use these standard labels when applicable:
 - Link related issues when known: `Related to #123`
 - For updates, fetch current issue first to preserve unchanged fields
 - Use `gh issue view` to check existing issue state before modifying
+- Always complete the post-creation ambiguity audit before confirming to the user
