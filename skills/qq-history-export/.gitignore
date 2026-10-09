@@ -1,0 +1,16 @@
+# Decrypted databases and keys
+decrypted/
+decrypted/**
+*.key
+plain/
+plain/**
+
+# Export outputs
+out/
+out_*/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.venv/
+venv/
