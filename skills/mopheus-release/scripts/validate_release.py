@@ -173,7 +173,7 @@ def validate(version: str) -> dict[str, str | None]:
         raise RuntimeError("The Git worktree must be clean before release validation.")
 
     run_git("remote", "get-url", "origin")
-    run_git("fetch", "--quiet", "--prune", "--tags", "origin")
+    run_git("fetch", "--quiet", "--force", "--prune", "--tags", "origin")
 
     main_sha = run_git("rev-parse", "refs/remotes/origin/main^{commit}").stdout.strip()
     release_sha = run_git("rev-parse", "refs/remotes/origin/release^{commit}").stdout.strip()

@@ -1,6 +1,6 @@
 ---
 name: mopheus-sync-release
-description: "Synchronize Mopheus release artifacts (multi-arch Docker images and CLI binaries) from GitHub (GHCR and GitHub Releases) to Huawei Cloud (SWR and OBS). Use whenever triggered by a release webhook or asked to sync a nightly/stable release from GitHub to Huawei Cloud."
+description: "Synchronize Mopheus release artifacts (multi-arch Docker images and CLI binaries) from GitHub (GHCR and GitHub Releases) to Huawei Cloud (SWR and OBS). Use whenever triggered by a release sync flow or asked to sync a nightly/stable release from GitHub to Huawei Cloud."
 ---
 
 # Mopheus Sync Release
@@ -30,10 +30,9 @@ bash "$SCRIPT_PATH" \
 
 ### Options
 
-- `--tag <tag>`: GitHub release tag to sync (e.g. `nightly`, `v2.2.9-beta.20260929.04c3fab4`, or `v2.2.6`). Default: `nightly`.
+- `--tag <tag>`: GitHub release tag to sync (e.g. `nightly`, `v2.2.9-beta.20260929.04c3fab4`, or `v2.2.9`). Default: `nightly`.
 - `--version <version>`: Exact version string for image tags and OBS directory (e.g. `v2.2.9-beta.20260929.04c3fab4`). Defaults to `--tag`.
 - `--commit <sha>`: Git commit SHA (optional).
-- `--wecom-webhook <url>`: Optional WeCom webhook URL for success notification.
 - `--skip-images`: Skip Docker image synchronization.
 - `--skip-cli`: Skip CLI release assets synchronization.
 - `--dry-run`: Test flow without pushing images to SWR or uploading assets to OBS.

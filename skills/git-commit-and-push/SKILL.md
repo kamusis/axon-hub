@@ -105,7 +105,7 @@ Create one new commit. Do not amend an existing commit. After committing, verify
 Fetch the selected remote before pushing. Verify the push remains fast-forward and targets the current branch.
 
 - With an existing upstream, use a normal `git push` to that upstream.
-- Without an upstream, use `git push -u <remote> HEAD:<current-branch>`.
+- Without an upstream, use `git push -u <remote> <current-branch>`.
 - Never use `--force`, `--force-with-lease`, deletion refspecs, or a different destination branch.
 
 If the remote branch advanced, stop and report the divergence. Do not automatically rebase or merge.

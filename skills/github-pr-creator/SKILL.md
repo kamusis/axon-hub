@@ -232,7 +232,7 @@ If the user chooses to create the PR:
 1. Ensure the branch is pushed (do not force-push):
 
 ```bash
-git push -u origin HEAD
+git push -u origin <current-branch>
 ```
 
 2. Create the PR:

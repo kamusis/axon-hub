@@ -131,7 +131,7 @@ if [ -f server/pkg/version/version.go ]; then
   perl -0pi -e 's/var Version = "v[0-9]+\.[0-9]+\.[0-9]+"/var Version = "'"$next_version"'"/' server/pkg/version/version.go
   git add server/pkg/version/version.go
   git commit -m "chore(release): bump development version to $next_version"
-  git push origin HEAD:<default-branch>
+  git push origin <default-branch>
 else
   echo "server/pkg/version/version.go not found; skipping post-release version bump"
 fi

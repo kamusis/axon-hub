@@ -26,6 +26,7 @@ This skill owns only:
 - waiting for the tag-triggered workflow to finish;
 - replacing the workflow-generated GitHub Release notes after the workflow succeeds;
 - verifying that the final GitHub Release contains the prepared notes;
+- synchronizing release artifacts (SWR multi-arch images, OBS CLI binaries, and full offline installer packages) to Huawei Cloud via `mopheus-sync-release`;
 - bumping the development version on `main` to the next patch version (or explicit target) after release completion and pushing to `origin/main`.
 
 Do not run `gh release create`; the workflow creates the GitHub Release.
@@ -258,9 +259,36 @@ This ordering prevents GoReleaser's initial simple notes from overwriting the cu
 
 If final verification does not find the marker, retry `gh release edit` only after confirming all matching workflow attempts are complete. If the marker is still absent, stop and report the mismatch rather than claiming success.
 
-### 6. Bump development version on main
+### 6. Sync release artifacts to Huawei Cloud (SWR & OBS)
 
-After GitHub Release creation and notes verification succeed (the release is completely finalized):
+After GitHub Release creation and curated notes verification succeed, invoke the `mopheus-sync-release` skill to synchronize artifacts to Huawei Cloud:
+
+1. Locate and run `sync-github-to-huawei.sh`:
+   ```bash
+   SCRIPT_PATH="$(find . "$HOME" -name "sync-github-to-huawei.sh" 2>/dev/null | head -n 1)"
+   if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
+     SCRIPT_PATH="scripts/sync-github-to-huawei.sh"
+   fi
+
+   bash "$SCRIPT_PATH" \
+     --tag "<version>" \
+     --version "<version>" \
+     --commit "<releaseSha>"
+   ```
+2. The synchronization flow deterministically:
+   - Mirrors multi-arch container images from GHCR to SWR (`swr.cn-north-4.myhuaweicloud.com/mopheus/mopheus-{backend,web}:<version>` and `:latest`).
+   - Downloads CLI release assets from GitHub Releases and uploads them to Huawei Cloud OBS (`tools/mopheus/<version>/`).
+   - Rewrites download endpoints and updates `tools/mopheus/version.json` on OBS.
+3. (For stable releases with offline package requirements) Within the repository worktree, refresh the tools manifest from OBS and build/push the full offline installer package:
+   ```bash
+   python3 install/scripts/sync-tools.py
+   bash install/scripts/pack.sh --version "<version>" --platform all --push
+   ```
+4. Verify that the commands exit with code 0. If any step fails, capture the error log and halt before bumping the development version.
+
+### 7. Bump development version on main
+
+After GitHub Release and Huawei Cloud synchronization succeed (the release is completely finalized):
 
 1. Fetch latest remote state and switch to `main`:
    ```bash
@@ -281,18 +309,71 @@ After GitHub Release creation and notes verification succeed (the release is com
 
 ## Completion report
 
-Report:
+### 1. In-Ticket Completion Summary
+
+Report the following verifiable items in the Mopheus ticket or task session:
 
 - version;
-- previous release tag or first-release status;
 - tagged commit SHA;
 - workflow run URL and successful conclusion;
 - GitHub Release URL;
 - confirmation that the curated-notes marker was verified;
+- Huawei Cloud SWR container image tags (`swr.cn-north-4.myhuaweicloud.com/mopheus/mopheus-{backend,web}:<version>`);
+- Huawei Cloud OBS offline installer package and online installer links;
 - next development version bumped on `main`;
 - the release note text or a concise section summary.
 
+### 2. Standard WeCom Release Announcement Card
+
+When `WECOM_RELEASE_WEBHOOK_URL` (or `WECOM_WEBHOOK_URL`) is configured in the environment, dispatch the final release announcement card to WeCom.
+
+**Strict Formatting Requirement**: The message layout, fields, and styling must strictly follow the canonical markdown template below. Agents MUST NOT invent or alter the card layout.
+
+- **Highlights Constraint**: `${TOP_3_HIGHLIGHTS}` must strictly contain only the **Top 3** most impactful highlights (exactly 3 concise bullet points) extracted from the release changelog (`### 重点更新` in Chinese doc changelog or `## Highlights` in notes file). Never dump the full changelog into the card to keep the notification compact and readable.
+
+```bash
+date_str="$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')"
+
+# Extract Top 3 highlights from Chinese docs changelog (or fallback to English notes file)
+TOP_3_HIGHLIGHTS=""
+if [[ -f "packages/docs-content/zh-Hans/releases/changelog.md" ]]; then
+  TOP_3_HIGHLIGHTS=$(awk '/^### 重点更新/{flag=1; next} /^### /{flag=0} flag && /^-[ ]/{print}' packages/docs-content/zh-Hans/releases/changelog.md | head -n 3)
+elif [[ -n "${NOTES_FILE:-}" && -f "$NOTES_FILE" ]]; then
+  TOP_3_HIGHLIGHTS=$(awk '/^## Highlights/{flag=1; next} /^## /{flag=0} flag && /^-[ ]/{print}' "$NOTES_FILE" | head -n 3)
+fi
+
+message=$(cat <<EOF
+### 🚀 Mopheus 版本发布通知: ${VERSION}
+> **发布版本**: <font color="info">${VERSION} (正式版)</font>
+> **发布时间**: ${date_str}
+
+#### 🐳 容器镜像 (华为云 SWR)
+\`swr.cn-north-4.myhuaweicloud.com/mopheus/mopheus-backend:${VERSION}\`
+\`swr.cn-north-4.myhuaweicloud.com/mopheus/mopheus-web:${VERSION}\`
+
+#### 📦 服务端部署包 (华为云 OBS)
+- 一键在线安装: \`curl -fsSL https://mopheus.obs.cn-north-4.myhuaweicloud.com/install-online.sh | bash\`
+- 在线安装包: https://mopheus.obs.cn-north-4.myhuaweicloud.com/mopheus-install-${VERSION}-online.tar.gz
+- 全量离线包 (linux/amd64): https://mopheus.obs.cn-north-4.myhuaweicloud.com/mopheus-install-${VERSION}-linux-amd64.tar.gz
+- 全量离线包 (linux/arm64): https://mopheus.obs.cn-north-4.myhuaweicloud.com/mopheus-install-${VERSION}-linux-arm64.tar.gz
+
+#### 💻 CLI 客户端 (华为云 OBS)
+- 一键在线安装 CLI: \`curl -fsSL https://mopheus.obs.cn-north-4.myhuaweicloud.com/tools/install-cli-online.sh | bash\`
+
+#### 🌟 核心更新亮点 (Top 3)
+${TOP_3_HIGHLIGHTS}
+EOF
+)
+
+payload=$(jq -n --arg content "$message" '{msgtype: "markdown", markdown: {content: $content}}')
+curl --fail-with-body --retry 3 --connect-timeout 10 --max-time 30 \
+  -H 'Content-Type: application/json' \
+  --data "$payload" \
+  "${WECOM_RELEASE_WEBHOOK_URL:-${WECOM_WEBHOOK_URL}}"
+```
+
 Do not report release success merely because the tag push succeeded.
+
 
 ## Failure handling
 
