@@ -279,6 +279,8 @@ def main():
     sessions_meta, query2target = load_session_metadata(db_dir)
     print(f"[*] Session metadata loaded: {len(sessions_meta)} sessions indexed")
 
+    my_uin = os.path.basename(db_dir) if os.path.basename(db_dir).isdigit() else ""
+
     target_session = resolve_session_query(args.session, query2target, sessions_meta)
 
     kws = [k.strip().lower() for k in args.keywords.split(",") if k.strip()]
