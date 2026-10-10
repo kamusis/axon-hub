@@ -27,7 +27,8 @@ This skill owns only:
 - replacing the workflow-generated GitHub Release notes after the workflow succeeds;
 - verifying that the final GitHub Release contains the prepared notes;
 - synchronizing release artifacts (SWR multi-arch images, OBS CLI binaries, and full offline installer packages) to Huawei Cloud via `mopheus-sync-release`;
-- bumping the development version on `main` to the next patch version (or explicit target) after release completion and pushing to `origin/main`.
+- bumping the development version on `main` to the next patch version (or explicit target) after release completion and pushing to `origin/main`;
+- dispatching `nightly-github.yaml` via GitHub CLI so the newly bumped development version immediately produces a fresh beta build.
 
 Do not run `gh release create`; the workflow creates the GitHub Release.
 

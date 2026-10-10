@@ -176,6 +176,9 @@ git add server/pkg/version/version.go
 git diff --cached --check
 git commit -m "chore(release): bump development version to <next-version>"
 git push origin main
+
+# Trigger Nightly Build immediately so dev channel receives the new beta version:
+gh workflow run nightly-github.yaml --repo enmotech/mopheus
 ```
 
 ## Commands intentionally excluded
