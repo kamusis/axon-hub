@@ -57,7 +57,7 @@ Do not force every article into a single rigid template. Detect the topic's core
 Best for: Griller reviewer agent, ticket comment deep-links, external platform issue/PR mirroring, Lark/DingTalk ChatOps integration.
 1. **Hook & Real-World Friction**: Start from a concrete everyday developer frustration (e.g. blind spots in code review, hard-to-share discussion threads).
 2. **Core Concept & Origin (if applicable)**: Explain the underlying principle (and credit open-source origins with links if applicable).
-3. **The Mopheus Way**: Contrast traditional manual/fragmented workflows against Mopheus's automated, contextual flow (with ASCII diagram).
+3. **The Mopheus Way**: Contrast traditional manual/fragmented workflows against Mopheus's automated, contextual flow (with architecture or workflow diagram via `diagram-design`).
 4. **Engineering Elegance & Design Details**:
    - Minimalist data modeling & role inheritance (e.g. single boolean flags, zero redundant fields).
    - Strict execution/prompt guardrails (thread scoping, language adaptation, hierarchical replies).
@@ -68,7 +68,7 @@ Best for: Griller reviewer agent, ticket comment deep-links, external platform i
 ### Archetype B: Deep Architecture & Implementation Breakdown (底层架构与技术实现剖析)
 Best for: Three-tier Git virtualization, Daemon execution engine, Worktree isolation, Memory/pgvector recall, WebSocket multiplexing.
 1. **The Core Engineering Challenge**: High concurrency, resource explosion, state contamination, or cross-system disconnects.
-2. **Tiered Architecture & Data Flow**: Multi-layer topology breakdown with clear ASCII or structural diagrams.
+2. **Tiered Architecture & Data Flow**: Multi-layer topology breakdown with structural architecture or data-flow diagrams via `diagram-design`.
 3. **Key Architectural Pillars**: Deep technical dive into each subsystem (e.g. bare repo object reuse, lazy sync on checkout, memory distillation).
 4. **End-to-End SOP & Standard Lifecycle**: Step-by-step lifecycle flow from task claim to verification, commit, PR, and ticket closure.
 5. **Platform Compatibility & Roadmap**: Neutrality (GitHub/GitLab/Gitea), SDK abstractions, and future evolution.
@@ -89,12 +89,12 @@ Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-A
 - **Language**: Default to natural, high-signal Chinese for prose when requested in Chinese, while keeping all code, CLI commands, identifiers, configuration keys, and error names in verbatim English.
 - **Intellectual Property & Internal Design Protection (知识产权与内部设计防护)**:
   - **严禁暴露内部数据库 DDL**：严禁在博客正文、代码块或配图中直接贴出底层数据库的 `CREATE TABLE`、`ALTER TABLE`、内部索引名或内部 Migration 迁移脚本。
-  - **采用抽象概念模型与实体关系图**：若需阐述数据架构或存储机制，必须使用抽象的 ASCII 实体模型图、YAML 声明式清单、公开 REST API 或 CLI 原语进行说明，严禁将私有工程源码中的数据库物理表实现细节逐行抄入公开博客。
+  - **采用抽象概念模型与实体关系图**：若需阐述数据架构或存储机制，必须使用通过 `diagram-design` 绘制的抽象实体模型图（ER/Data Model）、YAML 声明式清单、公开 REST API 或 CLI 原语进行说明，严禁将私有工程源码中的数据库物理表实现细节逐行抄入公开博客。
   - **严禁公开私有代码库链接**：Mopheus 为商业专有软件（Private Repository），严禁在文章中提供指向 `enmotech/mopheus` 的 GitHub 源码链接或私有 issue/PR 编号。
-- **Visuals & Image Hosting Standard (配图与图床上传规范)**:
-  - 架构与数据流优先使用清晰直观的 ASCII 流程图；
-  - 若文章中包含实际系统截图、交互式看板或 UI 效果图，**严禁在最终文章中使用本地相对路径（如 `./images/...`）**；
-  - **必须使用 `see-uploader` 技能将截图上传至公开图床（S.EE）**：
+- **Visuals & Image Hosting Standard (架构图与配图上传规范)**:
+  - **严禁使用 ASCII 流程图**：所有架构拓扑、交互时序、数据流转及状态流转图，**必须调用 `diagram-design` 技能**生成高品质的出版级矢量架构图（SVG 或独立 HTML）；
+  - 若文章中包含实际系统截图、交互式看板、UI 效果图或导出的架构图图片，**严禁在最终文章中使用本地相对路径（如 `./images/...`）**；
+  - **必须使用 `see-uploader` 技能将图片上传至公开图床（S.EE）**：
     ```bash
     python3 ~/.gemini/config/skills/see-uploader/scripts/upload.py --file <path_to_image>
     ```
