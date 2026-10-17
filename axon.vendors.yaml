@@ -54,3 +54,8 @@ vendors:
       subdir: pdf-generation
       dest: skills/pdf-generation
       ref: main
+    - name: reverse-engineer-anything
+      repo: https://github.com/morluto/rea.git
+      subdir: .agents/skills/reverse-engineer-anything
+      dest: skills/reverse-engineer-anything
+      ref: main
