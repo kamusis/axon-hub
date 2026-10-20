@@ -18,6 +18,7 @@ Over time, git worktrees and local branches accumulate after features merge. Thi
 3. **Conservative classification**: Ambiguous items are classified as `NEEDS_REVIEW` and investigated before presenting to the user.
 4. **Zero data loss**: A worktree or branch is removed only when all its changes are verified to exist within main.
 5. **Selective execution**: Support confirming all safe candidates or selectively excluding specific ones.
+6. **Never touch Mopheus bare repos or Agent Task `workDir`/worktrees**: Mopheus Daemon's shared bare caches (`*/mopheus_workspace/.repos/*` or `.repos/<workspace-id>/*`) and per-task checkouts (`*/mopheus_workspace/<workspace-id>/<task-id>/workdir/*`) are isolated across tasks via bubblewrap `--tmpfs`. Inside any task sandbox, sibling tasks' active `workDir` directories are invisible (`ENOENT`) and falsely appear as `PRUNABLE` in `git worktree list`. Running `git worktree prune`, `git worktree remove`, or `git branch -d/-D` against Mopheus `.repos/*` bare caches or task `workDir` worktrees destroys live sibling tasks' git metadata. Those repositories and worktrees are managed exclusively by the Mopheus Daemon GC — only run this skill on standalone host repositories (such as `/src/*` or a local developer checkout).
 
 ## Detection Algorithm Summary
 
@@ -92,6 +93,7 @@ git branch -D <branch-name>
 
 #### 4c: Prune remote-tracking and metadata
 ```bash
+# Only on standalone host repositories — NEVER run on Mopheus .repos/* bare caches
 git remote prune origin
 git worktree prune
 ```

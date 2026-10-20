@@ -18,6 +18,7 @@ Explicit invocation authorizes the writes in this workflow: squash merge, remote
 - Resume idempotently from partial success. Query external state before retrying a write.
 - Never force-push, bypass GitHub checks or branch protection, guess an ambiguous issue or ticket, clean a dirty worktree, or touch unrelated branches and worktrees.
 - Never execute destructive git commands (such as `git reset --hard`, `git checkout -f`, or `git clean -fd`) on the main worktree or any workspace containing uncommitted changes. Always protect dirty files and uncommitted user edits.
+- **Mopheus Agent Task sandbox boundary**: When running inside a Mopheus Agent Task (`$MOPHEUS_AGENT_TASK_ID` is set or the repository is backed by a `.repos/<workspace-id>` shared bare cache), sibling task `workDir` directories are hidden by bubblewrap `--tmpfs` isolation and appear as `prunable` in `git worktree list`. NEVER run `git worktree prune`, `git worktree remove`, or `mopheus repo worktree prune`, and NEVER attempt to inspect/clean another task's feature worktree or fast-forward a local `main` worktree (the Mopheus Daemon manages and GCs task worktrees automatically).
 - Keep GitHub and commit content in English. Match the Mopheus ticket language in comments.
 
 ## 1. Resolve the delivery context
@@ -28,7 +29,7 @@ Resolve and verify the PR, and resolve the associated Issue/Mopheus records when
 - existing pull request, its base/head branches, current head SHA, state, draft status, author, title, and URL;
 - existing GitHub issue associated through the PR body, branch context, or structured Mopheus links, when present;
 - Mopheus workspace and ticket, when present;
-- feature worktree and main worktree when local cleanup is possible.
+- feature worktree and main worktree when local cleanup is possible (host local IDE/CLI environments only; skip when `$MOPHEUS_AGENT_TASK_ID` is set).
 
 Prefer explicit task context, then PR metadata and structured Mopheus repository links. Require every supplied PR URL, issue URL, structured link, and local `origin` to identify `enmotech/mopheus`; stop on a mismatch. Pass the resolved workspace ID to every `mopheus` command and use `https://github.com/enmotech/mopheus.git` for repository-link operations.
 
@@ -84,25 +85,32 @@ Stop ticket closure if merge verification is incomplete.
 
 ## 4. Update main and clean only the delivered branch
 
-Fast-forward the registered main worktree safely to the remote default branch:
-- Inspect the main worktree with `git status --porcelain`.
-- If dirty (uncommitted or untracked changes exist): safely stash first with `git stash push -u -m "mopheus-delivery-auto-stash"`.
-- Run safe fast-forward: `git fetch origin main && git merge --ff-only FETCH_HEAD` (or `git pull --ff-only origin main`).
-- If changes were stashed, restore them immediately with `git stash pop`.
-- **SAFETY RED LINE**: NEVER execute `git reset --hard` or `git checkout -f` on the main worktree. If fast-forward or stash pop encounters merge conflicts, preserve all user edits, STOP immediately, and report the state.
+**Environment check (Mopheus Agent Task Sandbox vs. Host Local Development)**:
 
-Delete the remote feature branch if GitHub did not remove it. For local cleanup:
+- **When `$MOPHEUS_AGENT_TASK_ID` is set (running inside a Mopheus Agent Task sandbox)**:
+  1. Delete the remote feature branch via GitHub CLI/API if `gh pr merge --delete-branch` did not already remove it.
+  2. **Skip all local `main` fast-forward, local feature worktree removal, local branch deletion, `cleaning-merged-worktrees`, `mopheus repo worktree prune`, and `git worktree prune` / `git worktree remove` steps.** In Mopheus Agent Tasks, each task's `workDir` is isolated in its own sandbox (sibling worktrees are invisible and falsely appear `prunable`), and worktree lifecycle is managed and GC'd automatically by the Mopheus Daemon. Record `local_cleanup=SKIPPED (managed by Mopheus Daemon GC)` and proceed directly to Stage 5.
 
-1. Read and follow `cleaning-merged-worktrees`.
-2. Run its detector for the exact feature worktree.
-3. Remove only a clean worktree classified as merged with no review items.
-4. Delete only the corresponding local feature branch. Use forced local deletion solely when the detector confirms a squash merge.
-5. Prune stale remote tracking and worktree metadata.
-6. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update this disposable test harness to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
+- **When `$MOPHEUS_AGENT_TASK_ID` is unset (host local IDE/CLI development environment)**:
+  Fast-forward the registered main worktree safely to the remote default branch:
+  - Inspect the main worktree with `git status --porcelain`.
+  - If dirty (uncommitted or untracked changes exist): safely stash first with `git stash push -u -m "mopheus-delivery-auto-stash"`.
+  - Run safe fast-forward: `git fetch origin main && git merge --ff-only FETCH_HEAD` (or `git pull --ff-only origin main`).
+  - If changes were stashed, restore them immediately with `git stash pop`.
+  - **SAFETY RED LINE**: NEVER execute `git reset --hard` or `git checkout -f` on the main worktree. If fast-forward or stash pop encounters merge conflicts, preserve all user edits, STOP immediately, and report the state.
 
-If no local worktree can be resolved, report cleanup as not applicable. If it is dirty or uncertain, preserve it and report the blocker; the verified remote merge remains successful.
+  Delete the remote feature branch if GitHub did not remove it. For local cleanup:
 
-Verify the expected local/remote feature refs are absent and the main worktree is clean and synchronized when cleanup was performed.
+  1. Read and follow `cleaning-merged-worktrees`.
+  2. Run its detector for the exact feature worktree.
+  3. Remove only a clean worktree classified as merged with no review items.
+  4. Delete only the corresponding local feature branch. Use forced local deletion solely when the detector confirms a squash merge.
+  5. Prune stale remote tracking and worktree metadata.
+  6. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update this disposable test harness to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
+
+  If no local worktree can be resolved, report cleanup as not applicable. If it is dirty or uncertain, preserve it and report the blocker; the verified remote merge remains successful.
+
+  Verify the expected local/remote feature refs are absent and the main worktree is clean and synchronized when cleanup was performed.
 
 ## 5. Synchronize and close the Mopheus ticket when a ticket is resolved
 

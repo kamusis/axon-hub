@@ -23,6 +23,7 @@ Over time, server environments accumulate obsolete Docker images from daily cont
   - The main repository worktree and main/master branches.
   - Worktrees with uncommitted, untracked, or unique changes.
   - Remote Git branches (`git push --delete` is strictly forbidden).
+  - Mopheus Daemon bare repository caches (`~/mopheus_workspace/.repos/*` or `.repos/<workspace-id>/*`) and task `workDir` directories — these are managed exclusively by Mopheus Daemon's built-in GC; inside a Mopheus Agent Task sandbox (`$MOPHEUS_AGENT_TASK_ID` set), sibling task worktrees are masked by `--tmpfs` and must NEVER be scanned, removed, or pruned (`git worktree prune` / `git worktree remove` / `mopheus repo worktree prune`).
   - Persistent volume directories, database storage, user directories, or paths outside authorized temporary scopes.
 
 ---
@@ -65,10 +66,7 @@ For application service images built during daily iterations (e.g., `mopheus-bac
    bash <skill-dir>/scripts/detect-docker-images.sh --keep 3 --dry-run
    ```
 2. **Git Worktree Detection**:
-   Invoke the `cleaning-merged-worktrees` skill across registered workspace repositories:
-   ```bash
-   bash <cleaning-merged-worktrees-dir>/scripts/detect-merged-worktrees.sh --all
-   ```
+   **Mandatory skill delegation**: First invoke the `cleaning-merged-worktrees` skill via the `Skill` tool (or `Read` its `SKILL.md` if the `Skill` tool is unavailable) — do NOT bypass the skill by guessing script paths or running ad-hoc git commands directly. Then follow the loaded `cleaning-merged-worktrees` workflow (Step 1 detection and Step 2 `NEEDS_REVIEW` verification) across the authorized target repositories.
 
 ### Step 2: Present Findings
 
@@ -84,12 +82,11 @@ Format detection findings in a structured Markdown summary:
    bash <skill-dir>/scripts/detect-docker-images.sh --keep 3 --apply
    ```
 2. **Clean Verified Git Worktrees**:
-   Execute worktree and branch removals according to the `cleaning-merged-worktrees` protocol. Skip any item classified as `NEEDS_REVIEW` or dirty.
-3. **Prune Stale System Resources**:
+   Execute worktree, branch, and metadata cleanup strictly according to Step 4 of the loaded `cleaning-merged-worktrees` skill (respecting all its safety principles, including skipping `NEEDS_REVIEW`/dirty items and never pruning Mopheus Daemon `.repos/*` caches).
+3. **Prune Stale Docker Resources**:
    ```bash
    docker image prune -f
    docker builder prune -f --filter "until=168h" 2>/dev/null || true
-   git worktree prune
    ```
 
 ---

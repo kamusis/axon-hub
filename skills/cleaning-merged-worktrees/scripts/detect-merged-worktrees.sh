@@ -68,7 +68,17 @@ if ! git rev-parse --verify "refs/heads/$MAIN_BRANCH" >/dev/null 2>&1; then
     fi
 fi
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+COMMON_GIT_DIR=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --git-common-dir 2>/dev/null || echo "")
+
+# Guard: Refuse to run on Mopheus Daemon bare caches (.repos/*) or Agent Task workDir checkouts.
+case "$REPO_ROOT|$COMMON_GIT_DIR|$PWD" in
+    *"/mopheus_workspace/.repos/"*|*"/.repos/"*|*"/mopheus_workspace/"*"/workdir"*)
+        echo "ERROR: Refusing to scan Mopheus Daemon managed repository ($REPO_ROOT / $COMMON_GIT_DIR)." >&2
+        echo "Mopheus bare caches (.repos/*) and agent task workDir worktrees are isolated per task (--tmpfs hides sibling worktrees) and are managed exclusively by the Mopheus Daemon GC." >&2
+        exit 1
+        ;;
+esac
 
 MODE_LABEL="worktrees and local branches"
 [ "$MODE" = "worktrees" ] && MODE_LABEL="worktrees only"
