@@ -11,6 +11,12 @@ Git worktrees create isolated workspaces sharing the same repository, allowing w
 
 **Core principle:** Synced `main` baseline + systematic directory selection + safety verification = reliable isolation.
 
+## Mopheus Agent Task Sandbox Boundary
+
+When running inside a Mopheus Agent Task (`$MOPHEUS_AGENT_TASK_ID` is set):
+- **Prefer runtime-isolated checkout / `mopheus repo checkout`**: If the task runtime has already provisioned an isolated `workDir` or if the repository is registered in Mopheus, prefer using the current task `workDir` or `mopheus repo checkout --repo <repo-url>` (which creates a task-scoped worktree backed by the shared bare cache `~/.mopheus/workspace/.repos/<workspace-id>/<repo>.git`) instead of creating nested `.worktrees/` inside a task sandbox.
+- **Strictly Forbidden in Task Sandboxes**: Because bubblewrap (`bwrap`) hides sibling task `workDir` directories via `--tmpfs`, `git worktree list` inside a task sandbox will falsely report active sibling worktrees as `prunable`. **NEVER** run `git worktree prune`, `git worktree remove`, or `mopheus repo worktree prune` against a shared `.repos/<workspace-id>` bare repository or another task's `workDir`. The Mopheus Daemon automatically manages and GCs task worktrees after tasks reach terminal states.
+
 ## Directory Selection Process
 
 Follow this priority order:

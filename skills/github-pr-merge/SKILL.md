@@ -85,6 +85,12 @@ If PR title does NOT match Conventional Commits format:
    - Keep under 72 characters
    - Format: `type(scope): description`
 
+4. **Normalize the PR title on GitHub before merging:**
+   - Update the PR title directly so the GitHub PR page, squash subject, and any downstream `mopheus repo pr sync` records stay consistent:
+   ```bash
+   gh pr edit <number> --title "<type>(<scope>): <description>"
+   ```
+
 **Example conversions:**
 - `Add user authentication` → `feat(auth): add user authentication`
 - `Bug fix for login` → `fix(auth): resolve login validation error`
@@ -185,14 +191,30 @@ Do you want to proceed?
 
 ### Step 6: Execute Merge
 
-If user approves, execute the following steps **in strict order**. Do NOT skip any step.
+If user approves (or when delegated for autonomous PR merge in a Mopheus Agent Task), execute the following steps **in strict order**. Do NOT skip any step.
 
-**Step 6a: Detect merge-message support**
+**Step 6a: Detect merge-message support and execution environment**
 ```bash
 gh pr merge --help | grep -E -- '--subject|--body-file'
 ```
 
 If the installed `gh` supports both `--subject` and `--body-file`, use the preferred direct path.
+
+- **Mopheus Agent Task Sandbox (`$MOPHEUS_AGENT_TASK_ID` is set)**:
+  - Do **NOT** run `git checkout <base-branch>` or `git pull origin <base-branch>` locally (in a Mopheus shared bare-cache worktree, `<base-branch>` may already be checked out by another worktree, and `gh pr merge` executes remotely via the GitHub API).
+  - Do **NOT** run `git worktree remove`, `git worktree prune`, or `mopheus repo worktree prune` (the Mopheus Daemon manages and GCs task worktrees automatically; sibling task worktrees are hidden by sandbox isolation and falsely appear `prunable`).
+  - Execute the remote squash merge directly:
+  ```bash
+  # Normalize PR title first if non-compliant
+  gh pr edit <number> --title "<type>(<scope>): <description>"
+
+  printf '%s\n' "<clean commit message body from Step 4>" > /tmp/pr-<number>-merge-body.txt
+  gh pr merge <number> --squash --delete-branch \
+    --subject "<type>(<scope>): <description>" \
+    --body-file /tmp/pr-<number>-merge-body.txt
+  ```
+
+- **Host Local Development Environment (`$MOPHEUS_AGENT_TASK_ID` is unset)**:
 
 **Preferred path: direct custom squash message**
 ```bash
