@@ -3,5 +3,5 @@ vendor: mop
 repo: https://github.com/enmotech/mopheus-skills.git
 subdir: skills/mop
 ref: main
-commit: 96dd8052a2826c548568d3176fc84237296a2fc8
-synced_at: 2026-09-12T09:40:15.8884992Z
+commit: 0d6dfd6a72d370c28f2e89c560629d30cfbdeee7
+synced_at: 2026-10-20T07:33:47.201331415Z

@@ -1,11 +1,11 @@
 ---
 name: mop
-description: Manage Mopheus workspaces, tickets, projects, agents, teams, skills, jobs, and triggers via mop CLI. Supports slash command /mop with interactive wizard, natural language intent translation, and Claude Code aliases.
+description: Manage Mopheus workspaces, tickets, projects, agents, teams, skills, jobs, IT assets, SSH execution, channels, labels, and personal inboxes via mop CLI. Supports slash command /mop with interactive wizard, natural language intent translation, and Claude Code aliases.
 ---
 
 # Mopheus CLI Skill (`mop` / `mopheus`)
 
-Standardized guide for querying and managing Mopheus workspaces, tickets, agents, teams, skills, jobs, and event triggers via the `mop` (or `mopheus`) CLI.
+Standardized guide for querying and managing Mopheus workspaces, tickets, agents, teams, skills, jobs, IT assets, SSH execution, channels, labels, and personal inboxes via the `mop` (or `mopheus`) CLI.
 
 ## 1. Safety Invariants (Zero Guesswork)
 
@@ -34,10 +34,12 @@ When the user invokes `/mop` without exact CLI syntax:
   Tell me what you would like to do, or use one of the common actions below:
   1. 🎫 Tickets: `mop ticket list --status open` / `mop ticket get <id>` / `mop ticket assign <id>`
   2. 🤖 Agents & Teams: `mop agent list` / `mop agent get <id>` / `mop agent skills list <id>`
-  3. 🔍 Search: `mop search "<query>"` (Full-text search across tickets, agents, skills)
-  4. 🏢 Workspace: `mop workspace list` / `mop workspace switch <slug>`
-  5. ⚡ Jobs & Shortcuts: `mop job list` / `mop shortcut list` / `mop shortcut run <name> -t <id>`
-  6. 🩺 Diagnostics: `mop agent-task get <id>` / `python <skill-dir>/scripts/mop_task.py transcript <id>`
+  3. 🗺️ Assets & SSH: `mop asset list` / `mop asset topology <id>` / `mop ssh exec <host> -- <cmd>`
+  4. 🏷️ Labels & Channels: `mop label list` / `mop channel list` / `mop channel send`
+  5. 🔍 Search: `mop search "<query>"` (Full-text search across tickets, agents, skills)
+  6. 🏢 Workspace: `mop workspace list` / `mop workspace switch <slug>`
+  7. ⚡ Jobs & Shortcuts: `mop job list` / `mop shortcut list` / `mop shortcut run <name> -t <id>`
+  8. 🩺 Diagnostics & Inbox: `mop agent-task get <id>` / `mop inbox list --unread` / `mop_task.py transcript <id>`
   ```
 - **Natural Language Intent (e.g. `/mop check urgent tickets` or `/mop 帮我查紧急工单`)**: Translate the user's intent to the appropriate `mop` command (e.g. `mop ticket list --priority urgent -o json`), execute it, and present clean formatted results. The user does not need to memorize CLI subcommands.
 - **Direct CLI Invocation (`/mop ticket list --status open`)**: Directly execute the command.
@@ -58,16 +60,26 @@ Always prefer `--output json` (or `-o json`) when parsing programmatically.
 | Domain | CLI Command | Purpose |
 | :--- | :--- | :--- |
 | **Workspace & Search** | `mop workspace list`<br>`mop workspace switch <slug-or-id>`<br>`mop workspace get <id>`<br>`mop search "<query>" [--type ticket,agent,skill]` | Inspect and switch workspace; workspace-wide full-text search across all resources |
-| **Tickets** | `mop ticket list [--status open] [--priority urgent]`<br>`mop ticket get <id-or-num>`<br>`mop ticket create --title "..." --description-file <file>`<br>`mop ticket update <id> [--priority <p>] [--tags <t>]`<br>`mop ticket status <id> <status>`<br>`mop ticket assign <id> --assignee <user-or-agent-id>`<br>`mop ticket comment add <id> --content-file <file>`<br>`mop ticket rerun <id>`<br>`mop ticket grill <id>`<br>`mop ticket transcript <id> [--out <dir>]` | Query, create, update, assign, and comment on tickets; trigger task re-runs, reviews, and transcript export |
+| **Tickets** | `mop ticket list [--status open] [--priority urgent]`<br>`mop ticket get <id-or-num>`<br>`mop ticket create --title "..." --description-file <file> [--label <l>]`<br>`mop ticket update <id> [--priority <p>] [--label <l>] [--due-date <d>]`<br>`mop ticket status <id> <status>`<br>`mop ticket assign <id> --assignee <user-or-agent-id>`<br>`mop ticket comment add <id> --content-file <file>`<br>`mop ticket rerun <id>`<br>`mop ticket grill <id>`<br>`mop ticket transcript <id> [--out <dir>]` | Query, create, update, assign, and comment on tickets; manage labels; trigger task re-runs, reviews, and transcript export |
+| **IT Assets & Topology** | `mop asset list [--concept <name>] [--app <app>]`<br>`mop asset inspect <id>`<br>`mop asset resolve <query>`<br>`mop asset topology <id> [-d <depth>]`<br>`mop asset path --from <id> --to <id>`<br>`mop asset diagram --app <app> [-f <out.json>]`<br>`mop asset apply -f <manifest.yaml>`<br>`mop asset export [-f <file.yaml>]` | Query IT assets, explore graph topology, calculate shortest paths, project architecture diagrams, and ingest declarative manifests |
+| **SSH & Bastion Execution** | `mop ssh list`<br>`mop ssh exec <host> -- <command...>`<br>`mop ssh exec <host> --script <file.sh>`<br>`mop ssh upload <host> --src <src> --dst <dst>`<br>`mop ssh config` | Discover JumpServer authorized hosts, execute remote commands/scripts, and transfer files |
+| **Channels & External Chat** | `mop channel list`<br>`mop channel bindings <id>`<br>`mop channel chat <id>`<br>`mop channel send --channel <c> --session <s> -m "<msg>"`<br>`mop chat channel list`<br>`mop chat send-channel -m "<msg>"` | Manage Lark/DingTalk/WeChat Work channel bindings, inspect chat sessions, and dispatch outbound messages |
+| **Labels** | `mop label list`<br>`mop label get <id>`<br>`mop label create --name "..." [--color <hex>]`<br>`mop label update <id>`<br>`mop label delete <id>` | Query, create, update, and delete workspace entity labels |
+| **User Config & Credentials** | `mop user config-file list`<br>`mop user config-file templates`<br>`mop user config-file upload <tpl> <file>`<br>`mop user config-file render <group>`<br>`mop user config-file generate-ssh-key`<br>`mop user env list/set/delete` | Manage personal runtime configuration templates, SSH key pairs, and personal environment variables |
+| **Notifications & Inbox** | `mop inbox list [--unread]`<br>`mop inbox read <id> / read-all`<br>`mop inbox archive <id> / archive-all`<br>`mop inbox unarchive <id>`<br>`mop inbox delete <id>` | Query personal notifications, mark as read, archive, and batch manage notifications |
+| **Email (SMTP)** | `mop email config`<br>`mop email send --to <addr> --subject <s> --body <b> [--html]` | Configure workspace SMTP credentials and dispatch outbound emails |
 | **Agents** | `mop agent list`<br>`mop agent get <id-or-name>`<br>`mop agent create --name "..." --role "..." --instructions-file <file>`<br>`mop agent update <id> [--instructions-file <file>] [--model <m>]`<br>`mop agent skills list <id>`<br>`mop agent skills add <id> --skill <skill-id>`<br>`mop agent skills remove <id> --skill <skill-id>`<br>`mop agent tasks <id>`<br>`mop agent env list/set/unset <id>` | Inspect workspace agents, view system prompts, configure models, manage skill bindings, inspect tasks, and manage env vars |
 | **Teams** | `mop team list`<br>`mop team get <id>`<br>`mop team update <id> --instructions-file <file>`<br>`mop team member add/remove <id> --member <id>` | List and inspect teams, update team leader instructions, and manage team members |
-| **Shortcuts & Tasks** | `mop shortcut list`<br>`mop shortcut run <shortcut-name> -t <ticket-id>`<br>`mop agent-task get <id>`<br>`mop agent-task messages <id>`<br>`mop agent-task cancel <id>`<br>`mop chat history`<br>`mop chat message <session-id>` | List and run skill shortcuts on tickets; inspect agent task runs, transcripts, and chat channel history |
+| **Shortcuts & Tasks** | `mop shortcut list`<br>`mop shortcut run <shortcut-name> -t <ticket-id>`<br>`mop agent-task get <id>`<br>`mop agent-task messages <id>`<br>`mop agent-task cancel <id>`<br>`mop chat list`<br>`mop chat history`<br>`mop chat message <session-id>` | List and run skill shortcuts on tickets; inspect agent task runs, transcripts, and chat sessions |
 | **Skills** | `mop skill list`<br>`mop skill get <id>`<br>`mop skill import --path <dir> --update`<br>`mop skill export --all --output-dir <dir>` | Inspect, import local SKILL.md folders, and export workspace skills |
-| **Jobs & Triggers** | `mop job list`<br>`mop job get <id>`<br>`mop job runs <id> --limit 10`<br>`mop job trigger <id>`<br>`mop job trigger-add <id> --kind <schedule/event/webhook>`<br>`mop job event-list`<br>`mop job event-schema [event-type]` | Inspect jobs, view run history, manage triggers and condition filters, inspect domain events |
-| **Projects & Repos** | `mop project list`<br>`mop project get <id>`<br>`mop repo links --ticket <id>`<br>`mop repo issue sync --number <n> --ticket <id>`<br>`mop repo pr sync --number <n> --ticket <id>` | List and inspect projects; manage GitHub/GitLab structured issue and PR links |
-| **Memory** | `mop memory list`<br>`mop memory search "<query>"`<br>`mop memory store --type <type> --content-file <file>` | Query, search, and store workspace memories |
-| **Runtimes & Daemon** | `mop runtime list`<br>`mop daemon status`<br>`mop daemon start / stop` | Inspect runtime nodes and local daemon status |
-| **Auth & Profiles** | `mop auth status`<br>`mop login`<br>`mop token list` | Inspect session, authenticate, and manage user API tokens |
+| **Jobs & Triggers** | `mop job list`<br>`mop job get <id>`<br>`mop job runs <id> --limit 10`<br>`mop job trigger <id>`<br>`mop job trigger-add <id> --kind <schedule/event/webhook> [--cron-dialect quartz]`<br>`mop job event-list`<br>`mop job event-schema [event-type]` | Inspect jobs, view run history, manage triggers (standard / Quartz cron, events), inspect domain events |
+| **Projects & Repos** | `mop project list`<br>`mop project get <id>`<br>`mop repo list`<br>`mop repo checkout <repo>`<br>`mop repo worktree list`<br>`mop repo links --ticket <id>`<br>`mop repo issue sync --number <n> --ticket <id>`<br>`mop repo pr sync --number <n> --ticket <id>` | List and inspect projects; manage git repo checkouts, worktrees, and GitHub/GitLab issue/PR links |
+| **Memory & Graph** | `mop memory list`<br>`mop memory search "<query>"`<br>`mop memory store --type <type> --content-file <file>`<br>`mop graph rebuild` | Query, search, and store workspace memories; rebuild knowledge graph |
+| **Attachments** | `mop attachment list [--ticket <id>]`<br>`mop attachment get <id>`<br>`mop attachment download <id> -o <path>`<br>`mop attachment delete <id>` | Search, inspect metadata, download, and delete ticket and chat file attachments |
+| **Providers** | `mop provider list`<br>`mop provider register <alias> <type>`<br>`mop provider remove <alias>` | Inspect and manage agent model providers and CLI runner aliases |
+| **Runtimes & Daemon** | `mop runtime list`<br>`mop daemon status`<br>`mop daemon start / stop / restart`<br>`mop daemon logs` | Inspect runtime nodes and manage local daemon process |
+| **Auth & Profiles** | `mop auth status`<br>`mop login`<br>`mop token list`<br>`mop profile list`<br>`mop profile show <name>` | Inspect session, authenticate, manage user API tokens, and inspect configuration profiles |
+| **CLI Upgrade** | `mop upgrade [--dev] [--version <v>]` | Upgrade local mopheus CLI binary to latest stable, beta, or specific release |
 
 ## 4. The Universal "Mine" (我的) Resolution Standard
 
@@ -90,6 +102,8 @@ Match the resolved `userId` to each domain's ownership and assignment schema:
 | **Agents (智能体)** | "我的 Agent" / "我建的" | `ownerId == <userId>`<br>Filter `mop agent list -o json` |
 | **Jobs (定时/事件任务)** | "我的 Job" / "我建的任务" | `ownerId == <userId>`<br>Filter `mop job list -o json` |
 | **Teams (团队)** | "我的团队" / "我建的团队" | `ownerId == <userId>`<br>Filter `mop team list -o json` |
+| **Inbox (通知)** | "我的通知" / "我的未读" | `mop inbox list --unread`<br>`mop inbox list` |
+| **Config (运行时配置)** | "我的配置" / "我的模板" | `mop user config-file list`<br>`mop user config-file templates` |
 
 ### 3. Agent Execution Directive
 - For tickets, prefer `python <skill-dir>/scripts/mop_ticket.py list-mine` which combines identity resolution, uncompleted status filtering, priority sorting, and formatted Markdown tables.
@@ -144,6 +158,10 @@ Always use native `--*-file` or `--*-stdin` flags:
 | **`team`** | Leader Instructions | `--instructions-file <file>`<br>`--instructions-stdin` | `mop team update <id> --instructions-file prompt.md` |
 | **`job`** | Event Filter | `--event-filter-file <file.json>`<br>`--event-filter-stdin` | `mop job trigger-add <id> --kind event --event-filter-file filter.json` |
 | **`memory`** | Memory Body | `--content-file <file>`<br>`--content-stdin` | `mop memory store --type <type> --content-file note.md` |
+| **`asset`** | Declarative Manifest | `-f <manifest.yaml>`<br>`-f -` (stdin) | `mop asset apply -f cluster-manifest.yaml` |
+| **`asset`** | Diagram Input Manifest | `-i <manifest.yaml>`<br>`-i -` (stdin) | `mop asset diagram -i topology.yaml -f diagram.json` |
+| **`ssh`** | Remote Shell Script | `--script <file.sh>` | `mop ssh exec <host> --script ./deploy.sh` |
+| **`email`** | Email Body | `--body-file <file>` | `mop email send --to <addr> --subject "..." --body-file note.html --html` |
 | **`skill`** | Entire Directory | `import --path <dir>` | `mop skill import --path ./my-skill/ --update` |
 
 ### Interactive Decision Widgets (Ticket Widgets) & Feature Gating

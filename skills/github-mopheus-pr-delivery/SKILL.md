@@ -7,7 +7,7 @@ description: "Squash-merge, verify, and close an existing approved enmotech/moph
 
 Deliver an existing reviewed PR from merge readiness through verified Mopheus ticket synchronization and closure when the corresponding ticket (and optional GitHub issue) exists.
 
-Explicit invocation authorizes the writes in this workflow: squash merge, remote feature-branch deletion, verified local worktree and branch cleanup, main fast-forward, Mopheus ticket comments, repository-link synchronization, and ticket completion. It does not authorize implementation, commit creation, feature-branch pushes, PR creation or editing, review, test-environment setup, deployment, or version release.
+Explicit invocation authorizes the writes in this workflow: PR title normalization to Conventional Commits (when needed), squash merge, remote feature-branch deletion, verified local worktree and branch cleanup (host local environments only), main fast-forward (host local environments only), closing an associated GitHub issue that remained open after merge, Mopheus ticket comments, repository-link synchronization, and ticket completion. It does not authorize implementation, commit creation, feature-branch pushes, PR creation, review, test-environment setup, deployment, or version release.
 
 ## Operating contract
 
@@ -48,18 +48,16 @@ Return only genuine delivery blockers to Team Leader; continue when optional int
 
 ## 2. Validate merge readiness
 
-Fetch the default and feature refs without modifying history. Verify:
+Verify using `gh pr view` and `gh pr checks`:
 
 - the local feature tip, remote feature tip, and PR head SHA agree when a local checkout exists;
-- the PR is open, non-draft, and reports a mergeable state;
-- the PR title already follows the repository's Conventional Commit policy;
-- GitHub checks apply to the current head SHA;
-- there are no failed, cancelled, timed-out, action-required, or pending required checks at merge time;
-- branch protection and required approvals, when configured by GitHub, permit merge.
+- the PR is open, non-draft, and reports a mergeable state (`mergeable=MERGEABLE`);
+- the PR title follows the repository's Conventional Commit policy (`feat(scope): ...`, `fix(scope): ...`, `refactor(scope): ...`, `docs: ...`, `test(scope): ...`, `chore(scope): ...`). If the existing PR title does not follow Conventional Commits (e.g. `[Feature] ...`), normalize the PR title first with `gh pr edit <number> --repo enmotech/mopheus --title "<valid-conventional-title>"` so the PR page, squash subject, and Mopheus `repo pr sync` record remain consistent;
+- GitHub checks (when configured) apply to the current head SHA and have no failed, cancelled, timed-out, action-required, or pending required checks at merge time.
 
-Wait for checks to complete using `gh pr checks <number> --repo enmotech/mopheus --watch` (or background watch + `TaskOutput` waiting until completion with `--watch`). Avoid manual shell sleep loops (`sleep 60 && gh pr checks`). If no checks are configured, record that fact and continue. If the PR head changes while waiting, restart readiness validation for the new SHA rather than merging with stale evidence.
+Wait for checks to complete using `gh pr checks <number> --repo enmotech/mopheus --watch` (or background watch + `TaskOutput` waiting until completion with `--watch`). Avoid manual shell sleep loops (`sleep 60 && gh pr checks`). If `gh pr checks` reports no checks configured (`no checks reported`), record that fact and continue immediately — do NOT probe `branches/main/protection`, `rulesets`, `commitlint.config.js`, `CONTRIBUTING.md`, or `.github/workflows` via `gh api`, and do NOT store routine merge/check observations as workspace memories. If the PR head changes while waiting, restart readiness validation for the new SHA rather than merging with stale evidence.
 
-Do not edit the PR title/body, push fixes, run implementation tests, manufacture review evidence, or override protection rules. Stop and return those prerequisites to their owning role.
+Do not push code fixes, run implementation tests, manufacture review evidence, or override protection rules. Stop and return those prerequisites to their owning role.
 
 ## 3. Squash merge
 
@@ -117,7 +115,7 @@ Stop ticket closure if merge verification is incomplete.
 Perform this stage after the remote merge is verified whenever `mopheus_ticket` was resolved (even when `github_issue` is `SKIPPED`). Skip this stage only when `mopheus_ticket` is `SKIPPED`.
 
 1. Add one completion comment containing clickable links to the PR and merge commit (plus the GitHub issue link when `github_issue` was resolved); include the merged head SHA, check evidence, delivered behavior, and cleanup result.
-2. When `github_issue` was resolved (not `SKIPPED`), refresh the issue through `mopheus repo issue sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` using its actual GitHub state. When `github_issue=SKIPPED`, skip only this issue-sync step.
+2. When `github_issue` was resolved (not `SKIPPED`), if the GitHub issue is still `OPEN` after the PR merge (e.g. because the PR description lacked `Closes #<n>`), close it first via `gh issue close <n> --repo enmotech/mopheus --reason completed`. Then refresh and link the issue through `mopheus repo issue sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` with `--state closed`. When `github_issue=SKIPPED`, skip only this issue-close/issue-sync step.
 3. Refresh and link the PR through `mopheus repo pr sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` using its actual title, author, refs, additions, deletions, changed-file count, closed state (`--state closed`), and merged flag (`--merged`).
 4. Read `mopheus repo links --ticket <id>` and require the merged `git_pull_request` entry (and require the `git_issue` entry only when `github_issue` was resolved).
 5. Set the ticket to `done` (if not already `done`) only after the completion comment and required structured link(s) succeed.

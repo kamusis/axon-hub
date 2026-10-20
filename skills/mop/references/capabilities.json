@@ -1,8 +1,8 @@
 {
   "$schema": "https://mopheus.ai/schemas/capabilities.json",
-  "version": "1.0.0",
-  "latestRelease": "v2.2.4",
-  "latestReleaseDate": "2026-09-03",
+  "version": "1.1.0",
+  "latestRelease": "v2.2.8",
+  "latestReleaseDate": "2026-09-22",
   "upgradeCommand": "mop upgrade",
   "capabilities": {
     "workspace.management": {
@@ -250,6 +250,183 @@
       ],
       "description": "List and inspect local Mopheus configuration profiles.",
       "fallback": "Inspect ~/.mopheus/config.json or ~/.mopheus/profiles/<name>/config.json directly."
+    },
+    "asset.management": {
+      "name": "IT Asset Ontology & Topology",
+      "minCliVersion": "v2.2.7",
+      "requiresDaemon": false,
+      "commands": [
+        "mop asset list",
+        "mop asset inspect <id>",
+        "mop asset resolve <query>",
+        "mop asset apply -f <manifest>",
+        "mop asset topology <id>",
+        "mop asset path --from <id> --to <id>",
+        "mop asset concept list",
+        "mop asset export"
+      ],
+      "description": "Manage IT asset ontology, topology graph traversal, and declarative manifests.",
+      "fallback": "Asset graph management requires Mopheus v2.2.7+. Use Mopheus Web UI Asset graph."
+    },
+    "asset.diagram": {
+      "name": "Asset Architecture Diagram Projection",
+      "minCliVersion": "v2.2.7",
+      "requiresDaemon": false,
+      "commands": [
+        "mop asset diagram --app <app> -f <out.json>",
+        "mop asset diagram -i <manifest.yaml>"
+      ],
+      "description": "Generate declarative architecture diagram specifications from workspace assets or offline manifests.",
+      "fallback": "Generate diagrams manually or use Mopheus Web UI."
+    },
+    "ssh.execution": {
+      "name": "SSH Bastion & Asset Remote Execution",
+      "minCliVersion": "v2.2.6",
+      "requiresDaemon": false,
+      "commands": [
+        "mop ssh list",
+        "mop ssh exec <host> [--user <u>] [-- command...]",
+        "mop ssh upload <host> --src <path> --dst <path>",
+        "mop ssh config"
+      ],
+      "description": "Execute commands and upload files to remote hosts through authorized JumpServer/bastion credentials.",
+      "fallback": "SSH execution via mop requires v2.2.6+. Connect via native OpenSSH client or JumpServer Web terminal."
+    },
+    "channel.management": {
+      "name": "Channel Installations & Outbound Messaging",
+      "minCliVersion": "v2.2.6",
+      "requiresDaemon": false,
+      "commands": [
+        "mop channel list",
+        "mop channel bindings <installation-id>",
+        "mop channel chat <installation-id>",
+        "mop channel send --channel <c> --session <id> -m <msg>"
+      ],
+      "description": "Inspect external chat channels (Lark, DingTalk, WeChat Work), user bindings, and dispatch outbound messages.",
+      "fallback": "Manage channels in Mopheus Web UI Settings."
+    },
+    "user.config_file": {
+      "name": "Personal Runtime Configuration Templates",
+      "minCliVersion": "v2.2.6",
+      "requiresDaemon": false,
+      "commands": [
+        "mop user config-file list",
+        "mop user config-file templates",
+        "mop user config-file upload <template> <file>",
+        "mop user config-file render <group>",
+        "mop user config-file generate-ssh-key"
+      ],
+      "description": "Manage personal runtime configuration files, templates, and SSH key generation.",
+      "fallback": "Configure environment variables or configuration files manually."
+    },
+    "label.management": {
+      "name": "Workspace Entity Labels",
+      "minCliVersion": "v2.2.6",
+      "requiresDaemon": false,
+      "commands": [
+        "mop label list",
+        "mop label get <id>",
+        "mop label create --name <name>",
+        "mop label update <id>",
+        "mop label delete <id>"
+      ],
+      "description": "Query, create, update, and delete workspace entity labels.",
+      "fallback": "Manage labels in Mopheus Web UI."
+    },
+    "inbox.management": {
+      "name": "Personal Inbox & Notifications",
+      "minCliVersion": "v2.2.5",
+      "requiresDaemon": false,
+      "commands": [
+        "mop inbox list",
+        "mop inbox read <id>",
+        "mop inbox read-all",
+        "mop inbox archive <id>",
+        "mop inbox archive-all",
+        "mop inbox unarchive <id>",
+        "mop inbox delete <id>"
+      ],
+      "description": "Inspect notifications, mark as read, archive, and batch manage personal inbox items.",
+      "fallback": "Check notifications in Mopheus Web UI notification drawer."
+    },
+    "email.management": {
+      "name": "Workspace SMTP Configuration & Dispatch",
+      "minCliVersion": "v2.2.5",
+      "requiresDaemon": false,
+      "commands": [
+        "mop email config",
+        "mop email send --to <addr> --subject <subj> --body <body>"
+      ],
+      "description": "Configure workspace SMTP credentials and dispatch outbound emails.",
+      "fallback": "Send emails via standard external email clients."
+    },
+    "provider.management": {
+      "name": "Agent Provider & Model Alias Management",
+      "minCliVersion": "v2.2.5",
+      "requiresDaemon": false,
+      "commands": [
+        "mop provider list",
+        "mop provider register <alias> <type>",
+        "mop provider remove <alias>"
+      ],
+      "description": "Inspect registered agent model providers and configure CLI provider aliases.",
+      "fallback": "Configure providers in Mopheus Web UI workspace settings."
+    },
+    "attachment.management": {
+      "name": "Attachment Inspection & Downloads",
+      "minCliVersion": "v2.2.5",
+      "requiresDaemon": false,
+      "commands": [
+        "mop attachment list",
+        "mop attachment get <id>",
+        "mop attachment download <id> -o <path>",
+        "mop attachment delete <id>"
+      ],
+      "description": "Search, inspect metadata, download, and manage ticket/chat file attachments.",
+      "fallback": "Download attachments directly from ticket pages in Mopheus Web UI."
+    },
+    "graph.rebuild": {
+      "name": "Knowledge Graph Rebuild",
+      "minCliVersion": "v2.2.5",
+      "requiresDaemon": false,
+      "commands": [
+        "mop graph rebuild"
+      ],
+      "description": "Rebuild the knowledge graph from all enabled memories.",
+      "fallback": "Rebuild knowledge graph in Mopheus Web UI."
+    },
+    "job.quartz": {
+      "name": "Quartz Cron Dialect for Scheduled Jobs",
+      "minCliVersion": "v2.2.6",
+      "requiresDaemon": false,
+      "commands": [
+        "mop job trigger-add <id> --kind schedule --cron-dialect quartz --cron '0 0 9 ? * 2-6 *'"
+      ],
+      "description": "Define complex schedules using 7-field Quartz cron expressions with timezone support.",
+      "fallback": "Use standard 5-field cron syntax."
+    },
+    "ticket.labels": {
+      "name": "Ticket Multi-Label Assignment",
+      "minCliVersion": "v2.2.6",
+      "requiresDaemon": false,
+      "commands": [
+        "mop ticket create --label <label>",
+        "mop ticket update <id> --label <label>"
+      ],
+      "description": "Assign, append, or replace structured labels on tickets via CLI.",
+      "fallback": "Manage ticket labels in Mopheus Web UI."
+    },
+    "cli.upgrade": {
+      "name": "CLI Self-Upgrade",
+      "minCliVersion": "v2.2.0",
+      "requiresDaemon": false,
+      "commands": [
+        "mop upgrade",
+        "mop upgrade --dev",
+        "mop upgrade --version <v>"
+      ],
+      "description": "Download and install latest mopheus CLI binaries from release server.",
+      "fallback": "Download binary release manually from GitHub or package manager."
     }
   }
 }

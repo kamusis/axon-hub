@@ -37,7 +37,10 @@ Inspect workspace feature flags.
 
 ### Creation & Updates (Native File First)
 - `mop ticket create --title "Title" --description-file spec.md` - Create ticket using Markdown file.
-- `mop ticket update <id> --priority urgent --tags "backend,p0"` - Update priority and tags.
+- `mop ticket create --title "Title" --label "backend" --label "p0" --priority urgent` - Create ticket with labels and priority.
+- `mop ticket update <id> --priority urgent --label "backend" --label "p0"` - Update priority and labels (alias: `--labels "backend,p0"`).
+- `mop ticket update <id> --due-date "2026-12-31T00:00:00Z" --activate-at "2026-10-01T00:00:00Z"` - Set scheduled activation or due date.
+- `mop ticket update <id> --status done --cascade-subtickets` - Close ticket and cascade status to open subtickets.
 - `mop ticket status <id> <open|in_progress|resolved|closed>` - Transition ticket status.
 - `mop ticket assign <id> --assignee <user-or-agent-id>` - Assign ticket to a member or agent.
 
@@ -96,9 +99,13 @@ Execute skills with shortcut capability on tickets.
 
 ### `mop chat`
 Inspect channel and chat context.
+- `mop chat list` - List chat sessions in active workspace.
+- `mop chat message <session-id>` - List messages in a chat session (includes attachments).
+- `mop chat send <session-id> -m "..."` - Send a message to a chat session.
+- `mop chat channel list` - List external channel integrations and user bindings.
 - `mop chat history` - Read recent messages from bound channel.
-- `mop chat message <session-id>` - List messages in a chat session.
 - `mop chat thread <thread-id>` - Read a specific channel thread.
+- `mop chat send-channel -m "..."` - Send an agent message directly to external channel.
 
 ---
 
@@ -117,7 +124,8 @@ Automation jobs, schedules, and event-driven triggers.
 - `mop job get <id>` - Inspect job details.
 - `mop job runs <id> --limit 10` - View execution history.
 - `mop job trigger <id>` - Manually fire a job run.
-- `mop job trigger-add <id> --kind schedule --cron "0 9 * * *"` - Add cron schedule.
+- `mop job trigger-add <id> --kind schedule --cron "0 9 * * *"` - Add 5-field cron schedule.
+- `mop job trigger-add <id> --kind schedule --cron-dialect quartz --cron "0 0 9 ? * 2-6 *" --timezone "Asia/Shanghai"` - Add 7-field Quartz schedule (weekdays at 09:00).
 - `mop job trigger-add <id> --kind event --event-filter-file filter.json` - Add event trigger (v2.2.5+).
 - `mop job event-list` - List supported domain event types.
 - `mop job event-schema [type]` - Inspect event payload schema and condition variables.
@@ -131,6 +139,10 @@ Automation jobs, schedules, and event-driven triggers.
 - `mop project get <id>` - Inspect project details.
 
 ### `mop repo`
+- `mop repo list` - List registered git repositories.
+- `mop repo add <url>` - Register a git repository in the workspace.
+- `mop repo checkout <repo-name> [--branch <branch>]` - Create a worktree checkout from a registered repository.
+- `mop repo worktree list` - List active local git worktrees.
 - `mop repo links --ticket <id>` - List linked GitHub/GitLab PRs and issues.
 - `mop repo issue sync --number <n> --ticket <id>` - Associate issue with ticket.
 - `mop repo pr sync --number <n> --ticket <id>` - Associate pull request with ticket.
@@ -150,6 +162,10 @@ Automation jobs, schedules, and event-driven triggers.
 - `mop runtime list` - List connected daemon runtimes and worker status.
 - `mop daemon status` - Check local daemon status (requires daemon node).
 - `mop daemon start / stop` - Manage background service (requires daemon node).
+- `mop daemon restart` - Restart running daemon process.
+- `mop daemon logs` - Tail daemon system and task logs.
+- `mop daemon disk-usage` - Show disk usage of workspace agent task directories.
+- `mop daemon install` - Install systemd service for local daemon.
 
 ### `mop auth` & `token`
 - `mop auth status` - Inspect current authenticated user and session validity.
@@ -161,3 +177,152 @@ Local configuration profile discovery and inspection.
 - `mop profile list` (alias: `ls`) - List configured local profiles (`default` and named profiles in `~/.mopheus/profiles/`).
 - `mop profile show [name]` (alias: `get`) - Show detailed configuration for default or named profile.
 - Both commands support `-o json` for structured JSON output.
+
+---
+
+## 8. IT Assets & Topology Knowledge Graph (`mop asset`)
+
+Manage IT asset ontology, declarative manifests, graph traversal, and topology diagrams.
+
+### Querying & Inspection
+- `mop asset list [--concept <name>] [--app <app>] [--env <env>]` - List workspace assets with concept/app/env filters.
+- `mop asset inspect <id>` - Inspect asset details, attributes, labels, and incident relations.
+- `mop asset resolve <query>` - Resolve an asset by UUID, exact name, or alias.
+- `mop asset topology <id> [-d <depth>] [--direction <downstream|upstream|both>]` - Explore subgraph neighborhood around an asset.
+- `mop asset path --from <source-id> --to <target-id>` - Discover shortest causal path between two assets.
+- `mop asset concept list` - List ontology concept metamodels and validation rules.
+- `mop asset concept get <name>` - Inspect concept metamodel definition.
+
+### Declarative Manifest & Mutation
+- `mop asset apply -f <manifest.yaml>` - Ingest declarative asset manifest (YAML/JSON, use `-` for stdin).
+- `mop asset export [-f <file.yaml>]` - Export workspace assets and relations as declarative manifest.
+- `mop asset delete <id>` - Delete an asset and its incident relations.
+- `mop asset unlink --from <id> --to <id> --relation <type>` - Remove a specific relation between assets.
+
+### Architecture Diagram Projection
+- `mop asset diagram --app <app> [-f <out.json>]` - Project workspace assets into architecture diagram spec.
+- `mop asset diagram -i <manifest.yaml> [-f <out.json>]` - Offline diagram projection from local manifest without server query.
+- Supports `--locale en|zh-Hans|ja`, `--title "..."`, and `--concept <name>`.
+
+---
+
+## 9. SSH Assets & Remote Bastion Execution (`mop ssh`)
+
+Execute commands and transfer files across remote hosts via JumpServer/bastion integration.
+
+### Asset Discovery & Execution
+- `mop ssh list` - List authorized SSH assets with hostnames, IP addresses, protocols, and ports.
+- `mop ssh config` - Inspect active SSH source provider configuration.
+- `mop ssh exec <host> -- <command...>` - Execute command on remote host.
+- `mop ssh exec <host> --user root -- env KEY=VALUE <command>` - Execute as specific user with remote environment.
+- `mop ssh exec <host> --script ./deploy.sh -- arg1 arg2` - Execute a local shell script remotely.
+- `mop ssh upload <host> --src ./app.tar.gz --dst /opt/app/ [--user root]` - Upload a local file to remote host.
+- Supports `--loglevel debug|info|warn|error` and `--logfile <path>`.
+
+---
+
+## 10. Channel Integrations & Chat Routing (`mop channel`)
+
+Manage external collaboration channels (Lark, DingTalk, WeChat Work) and outbound agent dispatch.
+
+- `mop channel list` - List registered channel installations and status.
+- `mop channel bindings <installation-id>` - List Mopheus users bound to a channel installation.
+- `mop channel chat <installation-id>` - List active chat sessions for an installation.
+- `mop channel send --channel <channel> --session <id> -m "..."` - Dispatch an agent message through a channel session.
+
+---
+
+## 11. Personal Runtime Configuration Files (`mop user config-file`)
+
+Manage sensitive credentials and runtime configuration templates for agent tasks.
+
+- `mop user config-file list` - List stored runtime configuration files.
+- `mop user config-file templates` - List supported server templates (e.g. `auth`, `kubeconfig`, `maven-settings`).
+- `mop user config-file upload <template-name> <file-path>` - Create configuration file from server template.
+- `mop user config-file update <id> --file <file-path>` - Update existing configuration file contents.
+- `mop user config-file get <id>` - Inspect configuration file metadata.
+- `mop user config-file delete <id>` - Remove personal configuration file.
+- `mop user config-file render <group>` - Render template group locally into target directories.
+- `mop user config-file generate-ssh-key` - Generate and store an SSH key pair.
+
+### User Environment & Shortcuts
+- `mop user env list` / `mop user env set <KEY=VALUE>` / `mop user env delete <KEY>` - Manage personal environment variables.
+- `mop user shortcut list` / `create` / `get` / `update` / `delete` - Manage personal user shortcuts.
+- `mop user profile get` / `update` - Inspect and update personal account profile.
+
+---
+
+## 12. Workspace Entity Labels (`mop label`)
+
+Categorize tickets, assets, and workspace resources with colored tags.
+
+- `mop label list` - List all workspace labels with IDs, names, and hex colors.
+- `mop label get <id>` - Inspect label details.
+- `mop label create --name "P0-Blocker" [--color "#ef4444"]` - Create a new label.
+- `mop label update <id> [--name "New Name"] [--color "#3b82f6"]` - Update label attributes.
+- `mop label delete <id>` - Remove a label from the workspace.
+
+---
+
+## 13. Personal Notifications & Inbox (`mop inbox`)
+
+Review and triage personal notifications and task updates.
+
+- `mop inbox list [--unread]` - List inbox notifications.
+- `mop inbox get <id>` - Get detailed notification payload.
+- `mop inbox read <id>` - Mark a single notification as read.
+- `mop inbox read-all` - Mark all workspace notifications as read.
+- `mop inbox archive <id>` - Move notification to archive.
+- `mop inbox archive-all` - Archive all notifications in the workspace.
+- `mop inbox unarchive <id>` / `unarchive-all` - Restore archived notifications.
+- `mop inbox delete <id>` / `delete-all` - Permanently remove notifications.
+
+---
+
+## 14. Workspace SMTP Email Dispatch (`mop email`)
+
+Configure workspace SMTP server and dispatch outgoing emails.
+
+- `mop email config --host smtp.example.com --port 587 --username user --password pass --from notify@example.com` - Set SMTP config.
+- `mop email send --to "dev@example.com" --subject "Build Finished" --body "All tests passed."` - Send plaintext email.
+- `mop email send --to "dev@example.com" --subject "Report" --body-file ./report.html --html` - Send HTML formatted email.
+
+---
+
+## 15. Agent Providers & Model Aliases (`mop provider`)
+
+Inspect and register LLM providers and CLI runner binaries.
+
+- `mop provider list` - List registered providers, CLI command names, and availability status.
+- `mop provider register <alias> <type> [--cmd-name <bin>]` - Register provider alias (e.g. `mop provider register my-hermes acp --cmd-name hermes`).
+- `mop provider remove <alias>` - Remove provider alias registration.
+
+---
+
+## 16. File Attachments (`mop attachment`)
+
+Direct inspection, upload, and download of workspace attachments.
+
+- `mop attachment list [--ticket <id>] [--session <id>]` - List attachments filtered by ticket or chat session.
+- `mop attachment get <id>` - Inspect attachment file metadata, MIME type, and size.
+- `mop attachment download <id> -o ./downloaded_file.png` - Download attachment file to local disk.
+- `mop attachment delete <id>` - Delete an attachment.
+- `mop attachment chat-upload <path>` - Upload file attachment within agent task context.
+
+---
+
+## 17. Knowledge Graph Operations (`mop graph`)
+
+- `mop graph rebuild` - Rebuild the entity-relationship knowledge graph from all enabled memories.
+
+---
+
+## 18. CLI Self-Upgrade (`mop upgrade`)
+
+Download and install the latest `mopheus` / `mop` binary directly from the release distribution server.
+
+- `mop upgrade` - Upgrade to the latest stable release.
+- `mop upgrade --dev` - Upgrade to the latest development/beta build.
+- `mop upgrade --version v2.2.8` - Install a specific target version.
+- `mop upgrade --force` - Reinstall even if already on the target version.
+

@@ -100,6 +100,10 @@ Same as Ticket Priority: `-1`=low, `0`=normal, `1`=high, `2`=urgent.
 - `1` / `webhook`: Inbound webhook endpoint with token authentication.
 - `2` / `event`: Real-time internal workspace domain event (`ticket`, `comment`, `agent_task`, `runtime`).
 
+### Cron Dialect (`job_trigger.cron_dialect`)
+- `standard`: Standard 5-field cron expression (`min hour dom month dow`, e.g. `0 9 * * 1-5`).
+- `quartz`: 7-field Quartz cron expression (`sec min hour dom month dow year`, e.g. `0 0 9 ? * 2-6 *`). Supports `?` wildcards for day-of-month / day-of-week disambiguation and weekday ranges.
+
 ### Job Run Status (`job_run.status`)
 - `0`: `pending` — Run initiated, waiting for execution slot.
 - `1`: `success` — Workflow completed successfully.
@@ -153,3 +157,33 @@ Or matching by self-describing names:
   }
 }
 ```
+
+---
+
+## 7. IT Asset Ontology Concepts & Relation Types (>= v2.2.7)
+
+### Common Concepts (`conceptName`)
+IT Assets are modeled against a formal ontology metamodel (`mop asset concept list`):
+- **Infrastructure**: `cloud_provider`, `region`, `vpc`, `subnet`, `security_group`, `host`, `network_interface`
+- **Compute & Orchestration**: `k8s_cluster`, `k8s_namespace`, `k8s_workload`, `k8s_pod`
+- **Data & Storage**: `database`, `database_instance`, `database_schema`, `storage_bucket`
+- **Applications & Services**: `service`, `endpoint`, `api_gateway`, `load_balancer`
+
+### Canonical Relation Types (`relationType`)
+Directed relations connecting assets (`mop asset topology <id>`, `mop asset path`):
+- `contains`: Hierarchical containment (VPC contains Subnet; Cluster contains Namespace)
+- `runs_on`: Execution hosting (Pod runs on Host; Workload runs on Cluster)
+- `depends_on`: Component or service logical dependency
+- `connects_to`: Network traffic or protocol connection
+- `routes_to`: Gateway / ingress routing target
+- `persists_to`: Storage or database persistence relation
+
+---
+
+## 8. Labels (`label`)
+
+Workspace labels (`mop label list`, `mop ticket create --label <label>`) attach categorizations and colored tags to tickets and assets:
+- `id`: UUID of the label
+- `name`: Label display name (case-insensitive uniqueness within workspace)
+- `color`: Hex color code (e.g. `#ef4444`, `#3b82f6`, `#10b981`, `#f59e0b`, `#8b5cf6`)
+
