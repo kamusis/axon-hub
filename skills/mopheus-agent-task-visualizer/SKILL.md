@@ -69,9 +69,11 @@ description: >
 
 ## 快速使用
 
+以下命令均以本技能目录为基准（使用相对路径 `scripts/...`）：
+
 ### 一键执行（推荐）
 ```bash
-python3 ~/.gemini/config/skills/mopheus-agent-task-visualizer/scripts/run_visualizer.py -w <workspace_slug>
+python3 scripts/run_visualizer.py -w <workspace_slug>
 ```
 常用选项：
 - `-w, --workspace <slug>`: 指定目标工作区（默认 `dev` 或根据当前配置）。
@@ -83,15 +85,15 @@ python3 ~/.gemini/config/skills/mopheus-agent-task-visualizer/scripts/run_visual
 ### 分步执行
 1. **增量采集裸数据**：
    ```bash
-   python3 ~/.gemini/config/skills/mopheus-agent-task-visualizer/scripts/collect_raw_tasks.py -w dev
+   python3 scripts/collect_raw_tasks.py -w dev
    ```
 2. **清洗加工 Stage 数据**：
    ```bash
-   python3 ~/.gemini/config/skills/mopheus-agent-task-visualizer/scripts/process_stage_metrics.py -w dev
+   python3 scripts/process_stage_metrics.py -w dev
    ```
 3. **渲染 HTML 报告**：
    ```bash
-   python3 ~/.gemini/config/skills/mopheus-agent-task-visualizer/scripts/generate_html_report.py -w dev
+   python3 scripts/generate_html_report.py -w dev
    ```
 
 ---

@@ -96,7 +96,7 @@ Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-A
   - 若文章中包含实际系统截图、交互式看板、UI 效果图或导出的架构图图片，**严禁在最终文章中使用本地相对路径（如 `./images/...`）**；
   - **必须使用 `see-uploader` 技能将图片上传至公开图床（S.EE）**：
     ```bash
-    python3 ~/.gemini/config/skills/see-uploader/scripts/upload.py --file <path_to_image>
+    python3 ../see-uploader/scripts/upload.py --file <path_to_image>
     ```
   - 将返回的公开图床直链（如 `https://files.seeusercontent.com/...`）以标准 Markdown 语法 `![图片说明](https://files.seeusercontent.com/...)` 嵌入文章中，确保文章在官网、微信公众号、技术博客或社区分发时图片均能稳定公开展示。
 - **External Links & Call to Action (CTA)**: End every article with a standard blockquote CTA:
