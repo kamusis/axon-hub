@@ -5,7 +5,7 @@ description: "Squash-merge, verify, and close an existing approved enmotech/moph
 
 # GitHub Mopheus PR Delivery
 
-Deliver an existing reviewed PR from merge readiness through verified Mopheus ticket closure when the corresponding issue and ticket exist.
+Deliver an existing reviewed PR from merge readiness through verified Mopheus ticket synchronization and closure when the corresponding ticket (and optional GitHub issue) exists.
 
 Explicit invocation authorizes the writes in this workflow: squash merge, remote feature-branch deletion, verified local worktree and branch cleanup, main fast-forward, Mopheus ticket comments, repository-link synchronization, and ticket completion. It does not authorize implementation, commit creation, feature-branch pushes, PR creation or editing, review, test-environment setup, deployment, or version release.
 
@@ -104,18 +104,18 @@ If no local worktree can be resolved, report cleanup as not applicable. If it is
 
 Verify the expected local/remote feature refs are absent and the main worktree is clean and synchronized when cleanup was performed.
 
-## 5. Synchronize and close the Mopheus ticket when both records exist
+## 5. Synchronize and close the Mopheus ticket when a ticket is resolved
 
-Perform this stage only after the remote merge is verified and both `github_issue` and `mopheus_ticket` were resolved. If either is `SKIPPED`, skip this entire stage and continue to the final report.
+Perform this stage after the remote merge is verified whenever `mopheus_ticket` was resolved (even when `github_issue` is `SKIPPED`). Skip this stage only when `mopheus_ticket` is `SKIPPED`.
 
-1. Add one completion comment containing clickable links to the GitHub issue, PR, and merge commit; include the merged head SHA, check evidence, delivered behavior, and cleanup result.
-2. Refresh the issue through `mopheus repo issue sync --repo https://github.com/enmotech/mopheus.git` using its actual GitHub state.
-3. Refresh the PR through `mopheus repo pr sync --repo https://github.com/enmotech/mopheus.git` using its actual title, author, refs, additions, deletions, changed-file count, closed state, and merged flag.
-4. Read `mopheus repo links --ticket <id>` and require both the `git_issue` and merged `git_pull_request` entries.
-5. Set the ticket to `done` only after the completion comment and both structured links succeed.
-6. Re-read the ticket and links. Confirm the ticket is Done, the URLs are correct, the issue state is current, and the PR is recorded as merged.
+1. Add one completion comment containing clickable links to the PR and merge commit (plus the GitHub issue link when `github_issue` was resolved); include the merged head SHA, check evidence, delivered behavior, and cleanup result.
+2. When `github_issue` was resolved (not `SKIPPED`), refresh the issue through `mopheus repo issue sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` using its actual GitHub state. When `github_issue=SKIPPED`, skip only this issue-sync step.
+3. Refresh and link the PR through `mopheus repo pr sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` using its actual title, author, refs, additions, deletions, changed-file count, closed state (`--state closed`), and merged flag (`--merged`).
+4. Read `mopheus repo links --ticket <id>` and require the merged `git_pull_request` entry (and require the `git_issue` entry only when `github_issue` was resolved).
+5. Set the ticket to `done` (if not already `done`) only after the completion comment and required structured link(s) succeed.
+6. Re-read the ticket and links. Confirm the ticket is Done, the URLs are correct, the PR is recorded as merged, and the issue state is current when an issue exists.
 
-Do not close the ticket when the PR is unmerged, link synchronization fails, or the ticket identity is ambiguous. Missing Issue or ticket records are handled as `SKIPPED`, not as closure blockers.
+Do not close the ticket when the PR is unmerged, required link synchronization fails, or the ticket identity is ambiguous. A missing GitHub issue (`github_issue=SKIPPED`) never skips Mopheus PR link synchronization, completion comment, or ticket closure.
 
 ## Failure and final report
 

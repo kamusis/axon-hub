@@ -39,7 +39,7 @@ Delivery updates durable records in `https://dev.mopheus.ai`. Never inherit disp
    ```
    Do not create a ticket if no matching ticket is found.
 5. If the issue exists but no ticket is linked, record `mopheus_ticket=SKIPPED`. If a ticket exists but no issue is found, record `github_issue=SKIPPED` and continue without issue-linking or issue-closing actions.
-6. If either `github_issue` or `mopheus_ticket` is `SKIPPED`, omit dependent link, comment, and completion writes.
+6. When `github_issue` is `SKIPPED`, omit only GitHub issue lookup, issue sync, and issue-link checks while still executing all Mopheus ticket PR sync, link verification, completion comment, and status closure steps. Omit Mopheus ticket writes only when `mopheus_ticket` is `SKIPPED`.
 
 Stop on multiple candidate issues/tickets, an origin that does not map to `swissql-core`, or unsafe CLI authentication.
 
@@ -146,30 +146,30 @@ SwissQL Core is a dual-language architecture (Go CLI + Java/Maven backend). Exec
 
 ---
 
-## 6. Close the Mopheus ticket when both records exist
+## 6. Synchronize and close the Mopheus ticket when a ticket is resolved
 
-Perform this only after the merge is verified and both `github_issue` and `mopheus_ticket` were resolved. If either is `SKIPPED`, skip this section.
+Perform this after the merge is verified whenever `mopheus_ticket` was resolved (even when `github_issue` is `SKIPPED`). Skip this section only when `mopheus_ticket` is `SKIPPED`.
 
 1. Add one completion comment to the Mopheus ticket (in Chinese, matching ticket language):
-   - Include clickable Markdown links to the GitHub issue, PR, and merge commit.
+   - Include clickable Markdown links to the PR and merge commit (plus the GitHub issue link when `github_issue` was resolved).
    - Summarize delivered components, behavior changes, and verification test results.
    ```bash
    mop ticket comment add <ticket-id> --content-file "<file>"
    ```
-2. Refresh and formally link the issue:
+2. When `github_issue` was resolved (not `SKIPPED`), refresh and formally link the issue:
    ```bash
    mop repo issue sync --number <issue-number> --state closed --ticket <ticket-id> --repo https://github.com/enmotech/swissql-core
    ```
 3. Refresh and formally link the merged PR:
    ```bash
-   mop repo pr sync --number <pr-number> --state closed --merged --ticket <ticket-id> --repo https://github.com/enmotech/swissql-core --title "<pr-title>" --base main --head <feature-branch> --close-keyword
+   mop repo pr sync --number <pr-number> --state closed --merged --ticket <ticket-id> --repo https://github.com/enmotech/swissql-core --title "<pr-title>" --base main --head <feature-branch>
    ```
 4. Verify structured links on the ticket:
    ```bash
    mop repo links --ticket <ticket-id>
    ```
-   Confirm both `git_issue` and merged `git_pull_request` entries are present.
-5. Set ticket status to `done`:
+   Confirm the merged `git_pull_request` entry is present (and confirm `git_issue` when `github_issue` was resolved).
+5. Set ticket status to `done` (if not already `done`):
    ```bash
    mop ticket update <ticket-id> --status done
    ```

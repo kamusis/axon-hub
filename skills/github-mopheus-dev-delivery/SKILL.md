@@ -34,7 +34,7 @@ Delivery updates durable records in `https://dev.mopheus.ai`. Never inherit disp
 4. If Mopheus lookup is available, resolve the workspace before ticket lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. If no required workspace or ticket is found, record `mopheus_ticket=SKIPPED` and continue. Stop if candidates are ambiguous or formal CLI authentication/configuration is unsafe.
 5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --profile default --workspace-id <id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n>`. Do not create a ticket when this lookup returns no matching ticket.
 6. If the issue exists but no ticket is linked, record `mopheus_ticket=SKIPPED`; do not invoke a ticket-creation skill. If a ticket exists but no issue is found, record `github_issue=SKIPPED` and continue without issue-linking or issue-closing actions.
-7. Once a ticket is resolved, pass its workspace ID explicitly to every subsequent `mopheus` command. If either `github_issue` or `mopheus_ticket` is `SKIPPED`, omit all dependent lookup, sync, link, comment, and completion writes.
+7. Once a ticket is resolved, pass its workspace ID explicitly to every subsequent `mopheus` command. When `github_issue` is `SKIPPED`, omit only GitHub issue lookup, issue sync, and issue-link checks while still executing all Mopheus ticket PR sync, link verification, completion comment, and status closure steps. Omit Mopheus ticket writes only when `mopheus_ticket` is `SKIPPED`.
 
 Stop on multiple candidate issues/tickets, an `origin` that does not identify `enmotech/mopheus`, unsafe formal CLI authentication/configuration, or mismatched repository identity. A missing workspace or ticket record is `SKIPPED`, not a blocker.
 
@@ -93,16 +93,16 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
 6. Verify the path, local branch, and remote branch are absent and `main` is clean and synchronized.
 7. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update this disposable test harness to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
 
-## 6. Close the Mopheus ticket when both records exist
+## 6. Synchronize and close the Mopheus ticket when a ticket is resolved
 
-Perform this only after the merge is verified and both `github_issue` and `mopheus_ticket` were resolved. If either is `SKIPPED`, skip this entire section and continue to the final report.
+Perform this after the merge is verified whenever `mopheus_ticket` was resolved (even when `github_issue` is `SKIPPED`). Skip this section only when `mopheus_ticket` is `SKIPPED`.
 
-1. Add one completion comment with clickable Markdown links to the GitHub issue, PR, and merge commit; summarize delivered behavior and fresh verification evidence.
-2. Refresh and formally link the issue with `mopheus --profile default --workspace-id <workspace-id> repo issue sync --repo https://github.com/enmotech/mopheus.git` using its actual state.
-3. Refresh and formally link the PR with `mopheus --profile default --workspace-id <workspace-id> repo pr sync --repo https://github.com/enmotech/mopheus.git`, including actual title, author, refs, additions, deletions, changed files, closed state, and merged flag.
-4. Read `mopheus --profile default --workspace-id <workspace-id> repo links --ticket <id>` and require both the `git_issue` and merged `git_pull_request` entries.
-5. Set the ticket to `done` only after the comment and both links succeed.
-6. Re-read the ticket and links; confirm Done, correct URLs, closed issue state, and merged PR state.
+1. Add one completion comment with clickable Markdown links to the PR and merge commit (plus the GitHub issue link when `github_issue` was resolved); summarize delivered behavior and fresh verification evidence.
+2. When `github_issue` was resolved (not `SKIPPED`), refresh and formally link the issue with `mopheus --profile default --workspace-id <workspace-id> repo issue sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` using its actual state. When `github_issue=SKIPPED`, skip only this issue-sync step.
+3. Refresh and formally link the PR with `mopheus --profile default --workspace-id <workspace-id> repo pr sync --repo https://github.com/enmotech/mopheus.git --ticket <id>`, including actual title, author, refs, additions, deletions, changed files, closed state (`--state closed`), and merged flag (`--merged`).
+4. Read `mopheus --profile default --workspace-id <workspace-id> repo links --ticket <id>` and require the merged `git_pull_request` entry (and require the `git_issue` entry only when `github_issue` was resolved).
+5. Set the ticket to `done` (if not already `done`) only after the comment and required structured link(s) succeed.
+6. Re-read the ticket and links; confirm Done, correct URLs, merged PR state, and closed issue state when an issue exists.
 
 ## Failure and final report
 
