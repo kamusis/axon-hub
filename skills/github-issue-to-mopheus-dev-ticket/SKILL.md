@@ -10,8 +10,11 @@ This skill bridges user requests, bug reports, and feature specifications betwee
 ## Core Philosophy & Weighting
 
 - **Universal & Repository-Aware**: Automatically resolves the target GitHub repository from the current working directory's Git remote origin (`<owner>/<repo>`), and auto-associates the Mopheus ticket with the matching repository project.
-- **Mopheus Dev Ticket (Primary & Comprehensive)**: The Mopheus dev ticket is the **primary, authoritative internal implementation specification**. It must be written in **detailed Chinese**, containing the complete reproduction steps, detailed root cause analysis, exhaustive technical architecture (strictly following CLI-first design), and multi-tier acceptance criteria.
-- **GitHub Issue (Concise & Linked)**: The GitHub issue is the **external tracking issue** written in **concise English**. It must capture the core summary, key reproduction/motivation points, and acceptance criteria, and **MUST include a direct link to the Mopheus Dev Ticket using the Ticket UUID**.
+- **Mopheus Dev Ticket (Primary & Authoritative)**: The Mopheus dev ticket is the **primary, authoritative internal implementation specification**. It must be written in **clear, natural, professional written Chinese** (avoiding awkward translationese, bureaucratic jargon, stacked pre-modifiers, and colloquial slang), covering the background, exact code locations/root cause, concrete changes, and acceptance criteria.
+- **GitHub Issue (Concise & Linked)**: The GitHub issue is the **external tracking issue** written in **concise English**. It must capture the core summary, proposed change, and acceptance criteria, and **MUST include a direct link to the Mopheus Dev Ticket using the Ticket UUID**.
+- **Writing Style & Scope Discipline (行文风格与按需裁剪规范)**:
+  - **自然专业的工程书面语**: 用清晰、简练的中文工程书面语编写工单。严禁机器翻译腔、公文套话和多重前置定语堆叠（例如：写“使用 `tokenAlphabet` 构造的 Base64 编码器”，不写“由 `tokenAlphabet` 构造的无填充严格编码器”）；同时保持正式规范，不使用俚语口语（如“挂了”）。
+  - **按需裁剪章节 (Omit Untouched Layers)**: 只写本次改动实际涉及的模块。如果不涉及 CLI、前端 UI、数据库迁移或 E2E 测试，**直接省略对应小节**，严禁保留空章节或编写免责套话段落去解释“为什么不改前端 / 为什么不写 E2E”。
 - **Zero Ambiguity & Single Authoritative Design (严格禁止模棱两可与方案二选一)**:
   - **方案必须绝对唯一 (Single Concrete Design)**: 工单是具体的工程执行契约与验收基准，不是发散性设计讨论稿。每一个涉及架构设计、CLI 命令/参数名、HTTP API 契约、数据模型字段、状态流转逻辑、默认行为的环节，必须且只能给出**唯一确定**的实现方案。
   - **严禁模棱两可词汇 (Strict Ban on Ambiguous Phrasing)**: 工单正文严禁出现“方案 A 或 方案 B”、“可采用 X 或者 Y”、“使用 A 或 B”、“亦可考虑”、“也可以选择”、“备选方案”、“两种方式”等让实现者二次做选择题的推诿或未决措辞。
@@ -145,35 +148,33 @@ EOF
 > - **严禁推诿与猜测**: 绝不允许写出“可通过参数 --foo 或 --bar 控制”、“采用方案1或方案2”这类让下游实现者猜测的不确定设计。
 > - 遇到任何未决设计，必须先追问用户决策闭环，严禁带入工单！
 
-#### Detailed Chinese Ticket Structure:
+#### Chinese Ticket Structure:
+
+按如下结构组织，仅保留本次改动实际触及的模块（非 Bug 工单直接省略“复现步骤与环境”；未涉及 CLI、前端或 E2E 时直接省略对应子项，严禁保留空章节或免责说明）：
 
 ```markdown
-## 需求背景与目标 / 问题背景
-[详尽阐述业务背景、用户需求、触发场景或缺陷影响]
+## 背景
+[简明说明业务背景、问题现象或需求目标，1~2 段话讲清为什么要做]
 
-## 复现步骤与环境（针对 Bug）
+## 复现步骤与环境（针对 Bug，非 Bug 省略本节）
 1. [步骤 1]
 2. [步骤 2]
 - **环境信息**: [OS / 浏览器 / 数据库 / 组件版本]
 
 ## 验证证据与根因分析
-- **现象截图 / 日志**: [嵌入 S.EE 截图链接或详细错误调用栈]
-- **根因分析**: [代码层面的根本原因剖析，指明涉及的 package / file / struct / handler]
+- **现象截图 / 日志**: [嵌入 S.EE 截图链接或关键报错日志，无截图/日志时省略]
+- **根因 / 问题位置**: [直接指明涉及的代码文件、行号、函数/结构体及具体原因]
 
-## 详细功能设计与技术方案（严格遵循 CLI 优先原则与唯一设计标准）
-- **架构设计**: [前后端交互流与数据契约，严格给出唯一数据走向]
-- **CLI 命令与参数设计**:
-  - `[cli-name] <domain> <subcommand> [flags]`
-  - 参数说明表与输入/输出示例（支持 `--*-file` / `--*-stdin` / `--output json`，参数名与行为严格唯一）
-- **后端 API & 数据模型**: [HTTP Handler 路由、Service 方法、SQL/Repo 变更，字段与逻辑严格确定]
-- **前端 Web UI 交互设计**: [页面布局、组件复用、交互状态与 i18n 键名]
+## 修改方案
+[按实际涉及的模块列出唯一确定的改法（不涉及的模块直接省略）：]
+- **后端 / 数据模型**: [涉及的 struct、service、repo、migration 变更]
+- **CLI**: [涉及的命令、flag 与输出格式]
+- **前端 UI**: [涉及的组件、状态与交互]
 
-## 完备的验收标准（必须包含全层级测试交付要求）
-1. [业务功能要求 1（确定性描述，无“或”选项）]
-2. [业务功能要求 2]
-3. **全层级质量与测试交付要求**:
-   - **单元测试 (Unit Tests)**: 覆盖后端 Repo、Service 逻辑/权限/错误码、HTTP Handler、CLI 参数解析等。
-   - **集成与端到端测试 (Integration & E2E Tests)**: Author or update comprehensive integration tests covering end-to-end user journeys.
+## 验收标准
+1. [具体功能或修复结果断言 1（确定性描述，无“或”选项）]
+2. [具体功能或修复结果断言 2]
+3. **测试验证**: [列出需要通过的具体单测包、E2E 用例或 `make check` 命令]
 ```
 
 > **Note**: Capture the created `ticket.id` (UUID, e.g. `b2fa14d4-784b-46fa-b162-9c1517211317`) and `ticket.number` (e.g. `733`).
@@ -182,7 +183,7 @@ EOF
 
 ### Step 3: Create or Update the Concise English GitHub Issue
 
-Create the GitHub issue in `<target-github-repo>`. The GitHub issue should be **concise**, focusing on the high-level summary, key problem/requirement, acceptance criteria, and **MUST contain the Mopheus Dev Ticket link with the Ticket UUID**.
+Create the GitHub issue in `<target-github-repo>`. The GitHub issue must stay **concise** (avoid repeating lengthy line-by-line code dumps), focusing on the background, proposed change, and acceptance criteria, and **MUST contain the Mopheus Dev Ticket link with the Ticket UUID**.
 
 > [!IMPORTANT]
 > The GitHub issue must strictly adhere to the **Zero Ambiguity & Single Concrete Design** rule: never specify alternative or undecided implementations (e.g. avoid "either X or Y", "option A or option B"). State only the single decided behavior and acceptance criteria.
@@ -201,26 +202,17 @@ EOF
 ```markdown
 **Mopheus Dev Ticket**: [MOC-<number>](https://dev.mopheus.ai/<workspace-slug>/tickets/<ticket-uuid>) (`<ticket-uuid>`)
 
-## Description / Summary
-[Concise description of the problem or feature]
+## Background
+[Concise description of the problem, reproduction steps, or motivation]
 
-## Steps to Reproduce / Motivation
-- [Key step or motivation point 1]
-- [Key step or motivation point 2]
-
-## Expected vs Actual Behavior / Proposed Behavior
-- **Expected / Proposed**: [What should happen - single concrete specification]
-- **Actual**: [What happens currently, if bug]
-
-## Evidence / Screenshots
-[Rendered S.EE Markdown image embeds if applicable]
+## Proposed Change
+- [Concrete change 1 with target file/module]
+- [Concrete change 2 with target file/module]
 
 ## Acceptance Criteria
-1. [Core capability requirement 1]
-2. [Core capability requirement 2]
-3. **Testing & QA Deliverables**:
-   - Unit tests covering backend and frontend modules.
-   - Integration & regression tests covering end-to-end workflows.
+1. [Core requirement 1]
+2. [Core requirement 2]
+3. [Specific unit/integration/E2E verification commands that must pass]
 ```
 
 > [!CAUTION]
@@ -262,7 +254,7 @@ EOF
    gh issue view <number> --repo <target-github-repo>
    ```
 2. **执行模棱两可关键词自检 (Ambiguity Keyword Scan)**:
-   - 逐段自检工单的“详细功能设计与技术方案”与“验收标准”，排查是否存在以下词汇及其语境：
+   - 逐段自检工单的“修改方案”与“验收标准”，排查是否存在以下词汇及其语境：
      - 中文关键词：`或`、`或者`、`亦可`、`也可以`、`备选`、`候选方案`、`两种方式`、`可采用...也可采用...`
      - 英文关键词：`or `、`either `、`optionally `、`alternative `
    - 严禁把方案选择权、二选一决策推诿给后续的实现者。
