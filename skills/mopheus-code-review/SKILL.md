@@ -93,6 +93,8 @@ If a component's path pattern is **not** present in the diff, skip its checklist
 - Verify valid YAML frontmatter (`name`, `description`) and clear, unambiguous instructions without contradicting `AGENTS.md`.
 
 ### 1G. Playwright E2E Tests (`tests/e2e/**` & `playwright*.config.ts`)
+- **Executable Source Precedence Over Stale Ticket Prose**:
+  - Before writing or reviewing an `[E2E Gap]` spec, inspect the target production components (`apps/web/`, `server/internal/http/`, `server/cmd/`) at current `HEAD`. If commits merged after the ticket's `updatedAt` altered the DOM structure, i18n copy, receipt format, route, or API payload, **always follow current executable production code as the source of truth** and note the evolution delta in the PR/ticket comment rather than coding against outdated ticket prose.
 - **Strict-Mode Locator Scoping (Prevent Multi-Element Collisions)**:
   - **Optimistic Mutation vs. Editor Collision**: After submitting a comment or form, never assert with an unscoped `page.getByText(...)` while the optimistic cache entry (`onMutate`) and the still-filled editor (`reply-input-shell` or inline editor before `onSuccess` clears it) can coexist. Always await the `POST`/`PUT`/`PATCH` response, read the server-assigned ID, and scope assertions to the target container (e.g., `page.locator("#ticket-comment-<id>")`).
   - **`getByRole("alert")` Collision**: Never use bare `page.getByRole("alert")` (which collides with Next.js `__next-route-announcer__` in strict mode). Always chain `.filter({ hasText: ... })` or scope inside the active dialog/form container.

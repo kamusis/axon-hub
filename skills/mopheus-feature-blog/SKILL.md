@@ -91,10 +91,11 @@ Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-A
   - **严禁暴露内部数据库 DDL**：严禁在博客正文、代码块或配图中直接贴出底层数据库的 `CREATE TABLE`、`ALTER TABLE`、内部索引名或内部 Migration 迁移脚本。
   - **采用抽象概念模型与实体关系图**：若需阐述数据架构或存储机制，必须使用通过 `diagram-design` 绘制的抽象实体模型图（ER/Data Model）、YAML 声明式清单、公开 REST API 或 CLI 原语进行说明，严禁将私有工程源码中的数据库物理表实现细节逐行抄入公开博客。
   - **严禁公开私有代码库链接**：Mopheus 为商业专有软件（Private Repository），严禁在文章中提供指向 `enmotech/mopheus` 的 GitHub 源码链接或私有 issue/PR 编号。
-- **Visuals & Image Hosting Standard (架构图与配图上传规范)**:
-  - **严禁使用 ASCII 流程图**：所有架构拓扑、交互时序、数据流转及状态流转图，**必须调用 `diagram-design` 技能**生成高品质的出版级矢量架构图（SVG 或独立 HTML）；
-  - 若文章中包含实际系统截图、交互式看板、UI 效果图或导出的架构图图片，**严禁在最终文章中使用本地相对路径（如 `./images/...`）**；
-  - **必须使用 `see-uploader` 技能将图片上传至公开图床（S.EE）**：
+- **Visuals & Image Hosting Standard (题图、架构图与配图上传规范 — 强制执行)**:
+  - **必须生成文章题图（Mandatory Cover Image via `blog-cover-image`）**：每篇博客文章在完成初稿时，**必须主动调用 `blog-cover-image` 技能**（通过 `generate_image` / `image-generator` 生成一张 16:9 绘本风题图），调用 `see-uploader` 上传至 S.EE 图床，并将返回的公开图床直链插入文章主标题 `# Title` 正下方（导语或第一章节之前）。严禁漏掉题图生成步骤。
+  - **严禁使用 ASCII 流程图**：所有架构拓扑、交互时序、数据流转及状态流转图，**必须调用 `diagram-design` 技能**生成高品质的出版级矢量架构图（SVG 或独立 HTML），并导出为高清 PNG；
+  - 若文章中包含题图、实际系统截图、交互式看板、UI 效果图或导出的架构图图片，**严禁在最终文章中使用本地相对路径（如 `./images/...`）**；
+  - **必须使用 `see-uploader` 技能将所有图片（含题图与架构图）上传至公开图床（S.EE）**：
     ```bash
     python3 ../see-uploader/scripts/upload.py --file <path_to_image>
     ```

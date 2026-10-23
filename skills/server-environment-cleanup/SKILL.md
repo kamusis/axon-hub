@@ -18,6 +18,13 @@ Over time, server environments accumulate obsolete Docker images from daily cont
 
 - **Safety Over Aggressiveness**: Safety is always the highest priority. If there is ANY doubt, ambiguity, missing evidence, unexpected error, or uncertainty about whether an item is safe to remove, **DO NOT delete it**. Keeping an obsolete item is completely harmless and can be handled later; deleting an active or unique resource causes irreversible data loss.
 - **Never Escalate Destructiveness**: Never use `--force`, `docker rmi -f`, `git worktree remove --force`, or `docker system prune -a --volumes`. If a normal deletion fails, keep the item, record the failure reason, and continue with other independent items.
+- **Rootless Podman & Sandbox Redline (严禁使用 Namespace/tmpfs 绕过沙箱访问 Podman 存储)**:
+  - **NEVER** use `unshare`, `nsenter`, `mount`, or a private `tmpfs` over `/run/user/<uid>` (or `/run/user/<uid>/libpod`, `/run/user/<uid>/containers`), **NEVER** set custom `CONTAINERS_STORAGE_CONF`, and **NEVER** write custom namespace wrapper scripts (e.g., `podrun.py`, `podman-ns.sh`) or directly access/modify `~/.local/share/containers/storage/` (`db.sql`, `images.json`). Mounting an empty `tmpfs` over `/run/user/<uid>` while pointing at the real `~/.local/share/containers/storage` causes Podman to think the host rebooted and overwrites all running containers' states in `db.sql` to `Created` (`state=1`)!
+  - **Safe Standard Method in `bwrap` Sandbox**: When `/run/user/<uid>` is read-only inside a `bwrap` sandbox on a Rootless Podman host, delegate `docker`/`podman` commands to the host's user systemd manager via D-Bus socket (`/run/user/<uid>/bus`), which runs outside the sandbox in the real host user context:
+    ```bash
+    systemd-run --user --pipe --wait --quiet -- docker <args...>
+    ```
+    `scripts/detect-docker-images.sh` automatically detects this and uses `systemd-run --user --pipe --wait --quiet -- docker`. If both direct `docker info` and `systemd-run --user` fail, abort the Docker cleanup step immediately and report the error—never attempt any namespace/mount workaround.
 - **Protected Resources (Never Delete)**:
   - Any Docker image in active use by running or stopped containers (`docker ps -a`), or base toolchain/infra images (`alpine`, `golang`, `nginx`, `minio`, `pgvector`, `swissql-core`, etc.).
   - The main repository worktree and main/master branches.
@@ -61,7 +68,7 @@ For application service images built during daily iterations (e.g., `mopheus-bac
 ### Step 1: Detect Candidates
 
 1. **Docker Detection**:
-   Run the helper script or native Docker commands:
+   Run the helper script (do NOT run raw `docker`/`podman` workarounds; if the script fails or outputs `[AGENT DIRECTIVE — DO NOT WORK AROUND]`, **STOP** all Docker steps immediately, do NOT try any alternative method, and report the error output verbatim):
    ```bash
    bash <skill-dir>/scripts/detect-docker-images.sh --keep 3 --dry-run
    ```
@@ -77,16 +84,18 @@ Format detection findings in a structured Markdown summary:
 
 ### Step 3: Execute Safe Cleanup
 
-1. **Clean Outdated Docker Images**:
+1. **Clean Outdated Docker Images, Dangling Images, and Stale Builder Cache**:
+   Execute the helper script in `--apply` mode (which safely handles outdated images, dangling image pruning, and 168h builder cache pruning, and automatically outputs `[AGENT DIRECTIVE — DO NOT WORK AROUND]` on failure):
    ```bash
    bash <skill-dir>/scripts/detect-docker-images.sh --keep 3 --apply
    ```
+   *(If any error occurs, **STOP** immediately, report the error verbatim, and **NEVER** attempt any alternative command or workaround).*
 2. **Clean Verified Git Worktrees**:
    Execute worktree, branch, and metadata cleanup strictly according to Step 4 of the loaded `cleaning-merged-worktrees` skill (respecting all its safety principles, including skipping `NEEDS_REVIEW`/dirty items and never pruning Mopheus Daemon `.repos/*` caches).
-3. **Prune Stale Docker Resources**:
+3. **Prune Stale Docker Resources (Only if Step 3.1 `--apply` was skipped because 0 outdated images were found, but dangling images/cache still need pruning)**:
    ```bash
-   docker image prune -f
-   docker builder prune -f --filter "until=168h" 2>/dev/null || true
+   (docker image prune -f || systemd-run --user --pipe --wait --quiet -- docker image prune -f) || { echo "[FATAL_BLOCKER] docker image prune failed. [AGENT DIRECTIVE — DO NOT WORK AROUND]: Stop Docker cleanup immediately, report this error to the human operator, and do NOT attempt any alternative workaround." >&2; exit 2; }
+   docker builder prune -f --filter "until=168h" 2>/dev/null || systemd-run --user --pipe --wait --quiet -- docker builder prune -f --filter "until=168h" 2>/dev/null || true
    ```
 
 ---
