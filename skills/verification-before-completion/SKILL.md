@@ -33,7 +33,9 @@ Always inspect the current diff (`git diff`, staged changes, or branch diff) lin
 BEFORE claiming any status, completion, or committing/opening a PR:
 
 1. INSPECT CURRENT DIFF: Review modified/added/deleted lines (git diff / git diff HEAD~1).
-2. AUDIT MODIFIED CODE: Check the diff against the Architectural & Quality Checklist below.
+2. ROUTE & AUDIT MODIFIED CODE:
+   - If working in `enmotech/mopheus`: Read and apply the `mopheus-code-review` skill (`Step 1: 1A–1G` component checklists matched to touched file paths) as the single source of truth.
+   - For all other repositories: Check the diff against the Universal Quality & Architectural Review Checklist below and the repository's `AGENTS.md` / `CLAUDE.md`.
 3. VERIFY SURGICAL PRECISION: Confirm every changed line traces directly to the task. Reject unrequested abstractions or formatting churn.
 4. RESOLVE OWN VIOLATIONS: If your changes introduce an anti-pattern or rule violation, fix it immediately.
 
@@ -42,22 +44,25 @@ Skip any step = incomplete review
 
 *(Note: Test execution is handled by dedicated test workflows or CI pipelines, not by this review skill).*
 
-## Quality & Architectural Review Checklist (Diff Scope)
+## Repository-Specific Routing: `enmotech/mopheus`
 
-Audit the **changed lines** against these critical defenses:
+When the current repository is `enmotech/mopheus` (detected via `git remote get-url origin` or `.agents/skills/mopheus-code-review/SKILL.md`):
+- **Do NOT maintain or rely on a duplicate static checklist here.**
+- **Mandatory Action**: Read `.agents/skills/mopheus-code-review/SKILL.md` (or invoke the `mopheus-code-review` skill), match the changed file paths in `git diff --name-only` against **Step 1 (`1A`–`1G`)**, and audit the diff strictly against the activated component checklists (`1A` Migrations, `1B` Go Backend & CLI, `1C` Web Frontend, `1D` Trilingual Docs, `1E` Env/Config, `1F` Agent Skills, `1G` Playwright E2E Tests).
+
+## Universal Quality & Architectural Review Checklist (Non-Mopheus / General Diff Scope)
+
+For repositories without a dedicated review skill, audit the **changed lines** against these baseline defenses:
 
 | Category | Check / Guardrail (On Changed Lines Only) | Anti-Pattern to Reject in Diff |
 | :--- | :--- | :--- |
-| **Constants & Enums** | Single source of truth: reuse existing definitions across packages. Search before defining new status maps, priority enums, or type dictionaries. | Defining duplicate or private `STATUS_TO_INT`, `PRIORITY_TO_INT`, or status lists across multiple components/files. |
-| **State & Store Isolation** | Client state in UI stores (e.g. Zustand), server state in query caches (e.g. TanStack Query). Isolate persisted filter keys between distinct pages/views. Never duplicate server entities into client stores. | Shared filter keys causing "ghost filtering" between pages; duplicating server entities into global stores. |
-| **API Boundary Safety** | Validate and parse API responses with runtime schemas (e.g. Zod) with safe fallbacks. Use explicit boolean `=== true` checks and `default` branches for enums. | Bare `as SomeType` assertions on API responses; truthy/falsy assumptions on server booleans. |
-| **Destructive UI Safety** | Never use browser `window.confirm`. Require modal dialogs (e.g. Radix `AlertDialog`) with explicit consequence warning callouts and `e.stopPropagation()` on triggers. | Naked destructive buttons on hover without confirmation; unhandled click bubbling triggering parent row navigation. |
-| **Internationalization (i18n)** | All user-visible strings must use the project's i18n hook/method (e.g. `useT(...)`). | Hardcoded English or Chinese text literals in JSX/templates, alerts, placeholders, or empty states. |
-| **Cascade Deletes** | Explicit transactional cascade in the repository layer, leaf tables first. Update parent entity delete methods when new referencing tables are added. | Relying on DB foreign keys or leaving orphaned child rows after parent record deletion. |
-| **Concurrency Safety** | All background goroutines, schedulers, loops, and workers must use panic-recovery wrappers (e.g. `util.SafeGo`). | Bare `go func()` calls without panic recovery. |
-| **Test Structure & Colocation** | Ensure newly added tests conform to repository colocation and active test paths. Reject placement in deprecated test folders. | Writing new tests in deprecated directories (e.g. `tests/integration/` instead of `tests/e2e/services/`). |
-| **CLI & Prompt Sync** | Repeatable CLI flags must be singular (`--label`), batch collections plural (`--ids`). Synchronize CLI flag changes with system prompts and builtin skills. | Mismatched singular/plural flags; CLI options undocumented or omitted from system prompt templates. |
-| **Documentation Sync** | Synchronize multilingual user-facing documentation and navigation configs in the same change whenever features or CLI behaviors change. | Updating feature code without updating all supported documentation locales (e.g. `en`, `zh-Hans`, `ja`). |
+| **Constants & Enums** | Single source of truth: reuse existing definitions across packages. Search before defining new status maps, priority enums, or type dictionaries. | Defining duplicate or private status/priority maps or enum lists across multiple files. |
+| **State & Store Isolation** | Keep client UI state and server cache state separated per project conventions. Isolate persisted filter keys between distinct views. | Shared filter keys causing cross-page interference; duplicating server entities into local UI stores. |
+| **API & Boundary Safety** | Validate inputs and parse external/API responses safely with explicit fallbacks and `default` branches for enums. | Unchecked type assertions on external payloads; truthy/falsy assumptions on nullable booleans. |
+| **UI & Confirmation Safety** | Follow project modal/dialog conventions for destructive actions and prevent unintended event propagation (`stopPropagation`). | Unconfirmed destructive actions or unhandled click bubbling in interactive rows. |
+| **Internationalization (i18n)** | Use the project's i18n mechanism for all user-visible copy when the codebase is localized. | Hardcoded text literals in localized UI components. |
+| **Data & Concurrency Safety** | Maintain transactional integrity on writes/deletes and ensure background workers/goroutines recover from panics/errors. | Partial non-transactional deletes leaving orphaned records; unrecovered background goroutines/tasks. |
+| **Test & Doc Synchronization** | Place new tests in the repository's active test directories and update user-facing docs/prompts when CLI flags or public behavior change. | Adding tests to deprecated directories or changing public interfaces without updating corresponding docs. |
 | **Surgical Precision** | Minimum code that solves the problem. No speculative abstractions, no unrelated formatting/code cleanup, no orphaned variables or imports. | Overengineering, unrequested flexibility, modifying unrelated adjacent code. |
 
 ## Red Flags - STOP
