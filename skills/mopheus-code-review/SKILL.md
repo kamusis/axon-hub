@@ -73,6 +73,9 @@ If a component's path pattern is **not** present in the diff, skip its checklist
   - **TanStack Query** owns all server state; workspace-scoped query keys must include `workspaceId`.
   - **Zustand** (`apps/web/stores/`) owns client-only UI state. Never copy server data into Zustand. WebSocket events must only invalidate queries (`queryClient.invalidateQueries`), never write payloads directly into stores.
   - Hooks needing workspace context must accept `workspaceId` as a parameter rather than calling `useWorkspaceId()` internally.
+- **List Query & URL Sync Anti-Flicker**:
+  - TanStack Query list hooks accepting dynamic pagination, sorting, search, or filter parameters must set `placeholderData: keepPreviousData` so changing sort/page/filter never unmounts the view into a full-page loading skeleton. Do not apply redundant synchronous client-side search filtering on top of server-filtered query data.
+  - Syncing client-managed list state (sort, page, filter, search, tab) to the browser URL bar in `"use client"` pages must use `window.history.replaceState(null, "", targetUrl)` rather than `router.replace(...)`, preventing Next.js App Router RSC server round-trips (`_rsc` fetches) and Suspense flashes.
 - **API Parsing & Safety**:
   - Parse API responses with Zod schemas and safe fallbacks; never use bare `as` casts on response payloads.
   - Server-driven enum `switch` statements must include a `default` branch.
