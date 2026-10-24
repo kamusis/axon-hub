@@ -1,24 +1,28 @@
 ---
 name: mopheus-integration-preview
-description: Discover, synchronize, and start reusable local Mopheus integration-test previews on macOS (Colima/Docker) and WSL Ubuntu-24.04 from Git checkouts or worktrees. Use this whenever the user asks to start, prepare, bootstrap, reopen, or inspect a Mopheus preview, integration-test environment, local worktree environment, runtime, daemon, or test login. Synchronize latest code, run migrations, restart backend/frontend/daemon, enable all registered features dynamically, and print local test credentials. By default uses fixed profile wt-preview-test; only uses dynamic isolated profiles when explicitly requested ("开单独分支靶场").
-compatibility: macOS (Colima/Docker) or Windows host with WSL2 distro Ubuntu-24.04.
+description: Discover, synchronize, start, and end-to-end self-verify reusable local Mopheus integration-test previews on Linux and macOS from Git checkouts or worktrees. Use this whenever the user asks to start, prepare, bootstrap, reopen, or verify a Mopheus preview, integration-test environment, local worktree environment, runtime, daemon, or test login. Automatically synchronizes latest worktree/branch code, runs migrations, restarts backend/frontend/daemon, enables all registered features dynamically, executes autonomous browser/CLI end-to-end verification of the target feature/fix, and captures visual screenshot proof before reporting completion. By default uses fixed profile wt-preview-test; only uses dynamic isolated profiles when explicitly requested ("开单独分支靶场").
+compatibility: Linux (Ubuntu/Debian) or macOS (Colima/Docker).
 ---
 
 # Mopheus Integration Preview
 
-Start or refresh the local Mopheus integration preview environment on **macOS (Colima/Docker)** or **WSL Ubuntu-24.04**.
+Start or refresh the local Mopheus integration preview environment on **Linux** or **macOS**, then **proactively complete end-to-end functional testing and screenshot verification** before handing off to the user.
+
+> [!NOTE]
+> **原生 Linux / macOS 执行准则**：
+> Agent 直接运行在标准 Linux 或 macOS Shell 环境中，所有命令、脚本路径（如 `$HOME/...`）及服务访问地址（`http://localhost:3230`、`http://localhost:8230`）均直接使用本地原生路径与 `localhost`，**严禁**调用 `wsl.exe`、`powershell.exe` 或访问 `/mnt/c/...` 跨系统路径。
 
 ## Profile & Port Modes
 
 ### 1. Default Mode: Fixed Preview Profile (默认固定靶场模式)
 Unless explicitly instructed to open an isolated branch preview ("开单独分支靶场"), **ALWAYS** use the fixed preview profile and deterministic endpoints:
 - **CLI Profile**: `wt-preview-test`
-- **Backend Port**: `8230` (`http://localhost:8230` or `http://<WSL_IP>:8230`)
-- **Frontend Port**: `3230` (`http://localhost:3230` or `http://<WSL_IP>:3230`)
+- **Backend Port**: `8230` (`http://localhost:8230`)
+- **Frontend Port**: `3230` (`http://localhost:3230`)
 - **Database**: `mopheus_wt_preview_test` on `localhost:5432` (`mopheus-postgres-1`)
 - **Fixed Daemon ID**: `5864c916-5e33-4137-8244-d435fd451561`
 - **Test Accounts**:
-  - `alice@mopheus.dev` / `Mopheus@123` (Workspace Member & Owner in `dev-space`, **recommended for Daemon execution & regular member testing**)
+  - `alice@mopheus.dev` / `Mopheus@123` (Workspace Member & Owner in `dev-space`, **mandatory for Daemon execution & regular member testing**)
   - `admin@mopheus.dev` / `Mopheus@123` (System Admin, for system settings & user administration)
 - **Test Workspace**: `dev-space` (`bb08a9c4-9f3f-414d-8632-d23909bada79`)
 
@@ -51,76 +55,41 @@ Triggered **ONLY** when the user explicitly requests an isolated/dynamic branch 
 
 ---
 
-## macOS Execution Flow
+## Unified Execution Flow (Linux & macOS)
 
-1. **Verify Docker/Colima**: Ensure `colima status` is running and `docker compose up -d postgres` starts `mopheus-postgres-1`.
-2. **Init Environment & Migrate**:
-   ```bash
-   bash scripts/init-worktree-env.sh .env.worktree
-   bash scripts/ensure-postgres.sh .env.worktree
-   (cd server && DATABASE_URL="postgres://mopheus:mopheus@localhost:5432/mopheus_wt_preview_test?sslmode=disable" go run ./cmd/migrate up)
-   ```
-3. **Seed Preview Workspace & Owner Role**:
-   ```bash
-   docker exec mopheus-postgres-1 psql -U mopheus -d mopheus_wt_preview_test -c "
-   INSERT INTO workspace (id, name, slug, description, identifier_prefix)
-   VALUES ('bb08a9c4-9f3f-414d-8632-d23909bada79', 'Dev Space', 'dev-space', 'Development Workspace', 'DEV')
-   ON CONFLICT (id) DO NOTHING;
+Run the cross-platform launcher script `scripts/start_preview.sh`, passing the active feature worktree or repository directory as the first argument (defaults to `$PWD` if omitted):
 
-   INSERT INTO workspace_member (workspace_id, user_id, role)
-   SELECT 'bb08a9c4-9f3f-414d-8632-d23909bada79', u.id, CASE WHEN u.email = 'alice@mopheus.dev' THEN 0 ELSE 1 END
-   FROM \"user\" u
-   ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role;
+```bash
+bash ~/.gemini/config/skills/mopheus-integration-preview/scripts/start_preview.sh "<source-worktree-or-repo-dir>"
+```
 
-   INSERT INTO workspace_actor_role (workspace_id, actor_id, actor_type, role_id)
-   SELECT 'bb08a9c4-9f3f-414d-8632-d23909bada79', u.id, 0, 'f47ac10b-58cc-4372-a567-0e02b2c3d400'
-   FROM \"user\" u
-   ON CONFLICT DO NOTHING;
-
-   INSERT INTO workspace_feature (workspace_id, feature_id, enabled)
-   SELECT 'bb08a9c4-9f3f-414d-8632-d23909bada79', f.id, true
-   FROM feature f
-   ON CONFLICT (workspace_id, feature_id) DO UPDATE SET enabled = true;
-   "
-   ```
-4. **Login Profile & Set Active Workspace**:
-   Log in with the workspace test member (`alice@mopheus.dev`) rather than `admin` so runtimes registered by the daemon are owned by the workspace member:
-   ```bash
-   server/bin/mopheus --profile wt-preview-test --server_url http://localhost:8230 login --email alice@mopheus.dev --password Mopheus@123
-   server/bin/mopheus --profile wt-preview-test --server_url http://localhost:8230 workspace switch bb08a9c4-9f3f-414d-8632-d23909bada79
-   ```
-
-5. **Compile & Start Services**:
-   - **Backend**: `make bin` -> launch `server/bin/mopheusd` with `.env.worktree` (port 8230):
-     ```bash
-     bash -c "set -a && source .env.worktree && set +a && exec server/bin/mopheusd"
-     ```
-   - **Frontend**: Next.js development server (port 3230):
-     ```bash
-     bash -c "set -a && source .env.worktree && set +a && pnpm --filter @mopheus/web dev -p 3230"
-     ```
-   - **Daemon**: Local agent runtime daemon (discovers installed CLIs such as `agy`, `claude`, `codex` naturally; do NOT manually insert into `daemon_runtime`):
-     ```bash
-     PATH="$HOME/.local/bin:$PATH" server/bin/mopheus --profile wt-preview-test --server_url http://localhost:8230 daemon start --daemon-id 5864c916-5e33-4137-8244-d435fd451561 --sandbox-enabled=false --foreground
-     ```
-
-6. **Pre-seed Test Objects (Tickets, Agents, Tasks)**:
-   If creating or preparing test resources for preview verification, ensure commands run under the test member profile (`alice@mopheus.dev`) so that resources are owned by the user under test:
-   ```bash
-   # Objects created via wt-preview-test profile automatically have owner_id = alice
-   server/bin/mopheus --profile wt-preview-test --server_url http://localhost:8230 agent create --name "DevBot" ...
-   server/bin/mopheus --profile wt-preview-test --server_url http://localhost:8230 ticket create --title "..." ...
-   ```
-   If pre-existing agents were created by `admin`, transfer their ownership to the test user (`PUT /api/v1/agents/:id/owner`).
+### What `scripts/start_preview.sh` Performs Automatically (Linux & macOS)
+1. **Worktree Resolution & Sync**: Resolves the primary repository via `git rev-parse --git-common-dir`. If `.worktrees/preview-test` exists, syncs `<source-worktree-or-repo-dir>` into `.worktrees/preview-test` via `rsync`; otherwise runs directly in `<source-worktree-or-repo-dir>`.
+2. **Stale Process Cleanup**: Stops any existing `wt-preview-test` daemon and frees ports `8230` and `3230` via `lsof`.
+3. **Database & Migrations**: Starts Colima (on macOS if stopped) and `mopheus-postgres-1`, initializes `.env.worktree` if missing, ensures `mopheus_wt_preview_test` exists, and runs `go run ./cmd/migrate up`.
+4. **Build & Backend Startup**: Compiles `server/bin/mopheusd` and `server/bin/mopheus`, launches `mopheusd` detached via `start_detached.py`, and waits for `:8230`.
+5. **Deterministic Seed**: Resets `alice@mopheus.dev` and `admin@mopheus.dev` passwords to `Mopheus@123` (`must_change_password = false`), seeds `dev-space` (`bb08a9c4-9f3f-414d-8632-d23909bada79`) with `alice@mopheus.dev` as Owner (`role = 0`), enables all registered features in `workspace_feature`, and prunes offline/stale `daemon_runtime` entries.
+6. **Daemon & Frontend Startup**: Logs in CLI profile `wt-preview-test` as `alice@mopheus.dev`, switches workspace to `dev-space`, starts `mopheus daemon start --daemon-id 5864c916-5e33-4137-8244-d435fd451561 --sandbox-enabled=false --allow-root`, launches Next.js on `:3230` detached via `start_detached.py`, and waits until `:3230` is listening.
 
 ---
 
-## WSL Ubuntu-24.04 Execution Flow (Windows Host)
+## Mandatory Self-Test & Visual Verification Loop (强制自主测试与截图验证闭环)
 
-Run the launcher from PowerShell:
-```powershell
-& "C:\Users\kamus\.gemini\config\skills\mopheus-integration-preview\scripts\start_preview_wsl.ps1" -SourcePath "<source-dir>"
-```
+> [!IMPORTANT]
+> **切勿仅启动服务后就停手等待用户测试！**
+> 只要当前会话涉及任何功能开发、Bug 修复或 UI/CLI 变更（或者用户要求启动靶场进行验证），在靶场启动就绪后，Agent **必须自动执行以下完整测试与截图验证流程**，确保一切功能在真实靶场中验证无误后再向用户汇报。
+
+1. **构造真实测试场景与数据 (Seed Scenario under `alice@mopheus.dev`)**：
+   - 使用 `--profile wt-preview-test`（`alice@mopheus.dev` 身份）通过 CLI 或 API 创建验证本次改动所需的业务对象（如 Ticket、Widget 评论、Agent、Skill、Team 等）。
+   - 若存量测试 Agent 归属于 `admin`，先通过 `PUT /api/v1/agents/:id/owner` 将其所有权转移给 `alice@mopheus.dev`。
+2. **自主执行全链路交互测试 (End-to-End Interactive Self-Testing)**：
+   - 启动浏览器自动化工具（Playwright 或 Browser Subagent）访问 `http://localhost:3230`，使用 `alice@mopheus.dev` / `Mopheus@123` 登录进入 `dev-space` 工作区。
+   - 按照真实用户操作路径，逐项执行本次需求或修复的正向交互、状态流转与边界场景（如点击控件、提交表单、切换状态、验证提示文案与 i18n 渲染）。
+   - 检查网络请求响应与浏览器控制台（Console），确保无未捕获异常、无 `4xx/5xx` 非预期错误、无 i18n 裸 key 泄露。
+   - **若测试发现任何缺陷**：立即在源 Worktree 中修复代码 → 重新运行 `start_preview.sh` 同步并重启对应服务 → 重新执行浏览器验证，直至所有验证项 100% 通过。
+3. **关键状态截图取证 (Capture Visual Screenshot Evidence)**：
+   - 对验证通过的核心界面状态、交互前后对比及关键提示信息进行截图保存（存放于会话 Artifact 目录中，切勿提交到 Git 仓库）。
+   - 在最终回复或验证 Artifact 中直接内嵌展示验证截图，直观证明全部功能已实现无误。
 
 ---
 
@@ -128,7 +97,7 @@ Run the launcher from PowerShell:
 
 ```markdown
 ==================================================
-Mopheus Preview is ready!
+Mopheus Preview is ready & verified!
 - Frontend:    http://localhost:3230
 - Backend:     http://localhost:8230
 - Workspace:   http://localhost:3230/dev-space/dashboard
