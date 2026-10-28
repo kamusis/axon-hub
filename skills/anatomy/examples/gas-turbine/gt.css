@@ -1,0 +1,201 @@
+.gt {
+  --gt-button-hover: #232323;
+  --gt-button-ring: #ffffff14;
+  --gt-part-ring: #ffffff10;
+  --gt-part-hover: #ffffff0a;
+  --gt-lamp-off: #4a4a4a;
+  --gt-lamp-on: #f59e0b;
+  --gt-lamp-glow: #f59e0b88;
+}
+
+[data-theme="light"] .gt {
+  --gt-button-hover: #f0f0ed;
+  --gt-button-ring: #0000001a;
+  --gt-part-ring: #00000014;
+  --gt-part-hover: #0000000a;
+  --gt-lamp-off: #c4c4c4;
+  --gt-lamp-on: #d97706;
+  --gt-lamp-glow: #d9770655;
+}
+
+.gt .iso-plate {
+  padding: 52px 24px 64px;
+  overflow: hidden;
+}
+
+.gt-stage {
+  position: relative;
+  border-radius: 10px;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
+
+.gt-stage:focus-visible {
+  outline: 1px solid var(--anatomy-muted);
+  outline-offset: 6px;
+}
+
+.gt-stage > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.gt-front {
+  position: absolute;
+  inset: 0;
+  height: 100% !important;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.gt-front .it {
+  pointer-events: visiblePainted;
+}
+
+.gt-shadow {
+  opacity: 0.45;
+}
+
+.tb-body {
+  fill: var(--anatomy-shade-2);
+  stroke: none;
+}
+
+.tb-shine {
+  fill: var(--anatomy-top);
+  stroke: none;
+}
+
+.tb-shade {
+  fill: var(--anatomy-shade-0);
+  stroke: none;
+}
+
+.gt-stage[data-focus] .it:not([data-on]):not([data-piece="stand"]) {
+  --anatomy-hi: var(--anatomy-mid);
+  --anatomy-mid: var(--anatomy-lo);
+}
+
+.gt-stage[data-focus] .it[data-piece="stand"] {
+  --anatomy-mid: var(--anatomy-lo);
+}
+
+.it[data-on] {
+  --anatomy-hi: var(--anatomy-lit);
+  --anatomy-mid: var(--anatomy-hi);
+}
+
+.it[data-on] .iso-top,
+.it[data-on] .tb-shine {
+  fill: var(--anatomy-lit-top);
+}
+
+.it[data-on] .iso-shade,
+.it[data-on] .tb-body {
+  fill: var(--anatomy-lit-shade);
+}
+
+.it[data-on] [data-seamless] > .iso-shade {
+  stroke: var(--anatomy-lit-shade);
+}
+
+.it[data-on] [data-seamless] > .iso-top {
+  stroke: var(--anatomy-lit-top);
+}
+
+.gt-controls {
+  position: absolute;
+  left: 20px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--anatomy-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--anatomy-muted);
+}
+
+.gt-fire {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 13px 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--anatomy-face);
+  color: var(--anatomy-strong);
+  font: inherit;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--gt-button-ring);
+  transition: background 200ms var(--anatomy-ease), color 200ms var(--anatomy-ease), transform 160ms var(--anatomy-ease);
+}
+
+.gt-fire:hover {
+  background: var(--gt-button-hover);
+}
+
+.gt-fire:active {
+  transform: scale(0.97);
+}
+
+.gt-lamp {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gt-lamp-off);
+  transition: background 200ms var(--anatomy-ease), box-shadow 200ms var(--anatomy-ease);
+}
+
+.gt[data-running] .gt-lamp {
+  background: var(--gt-lamp-on);
+  box-shadow: 0 0 8px var(--gt-lamp-glow);
+}
+
+.gt-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.gt-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--anatomy-muted);
+  font-family: var(--anatomy-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--gt-part-ring);
+  transition: background 160ms var(--anatomy-ease), color 160ms var(--anatomy-ease);
+}
+
+.gt-part:hover {
+  background: var(--gt-part-hover);
+  color: var(--anatomy-strong);
+}
+
+.gt-part[data-on] {
+  background: var(--anatomy-face);
+  color: var(--anatomy-strong);
+}
+
+.gt-num {
+  color: var(--anatomy-faint);
+  font-variant-numeric: tabular-nums;
+}

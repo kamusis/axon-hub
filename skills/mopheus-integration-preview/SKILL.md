@@ -45,7 +45,17 @@ Unless explicitly instructed to open an isolated branch preview ("开单独分�
 > - **原因**：在 Mopheus 权限与隔离体系中，Agent 的所有权、私有 Runtime 的调度权以及任务重试权限均受用户身份约束。若测试 Agent 或工单由 Admin 创建，普通用户登录后不仅可能受限，还可能因 Agent Owner 不是当前用户而无法调度当前用户拥有的本地私有 Runtime（触发 `409 RUNTIME_OFFLINE` 或 `403 forbidden`）。
 > - **例外**：仅在明确测试系统管理员专属功能（如全局配置、用户邀请、系统审计日志等）时，才使用 `admin` 账号创建相关测试对象。
 
-### 3. Isolated Mode: Dynamic Worktree Profile (单独分支隔离靶场模式)
+### 3. Host CLI Isolation (禁止污染宿主正式 CLI)
+
+> [!CAUTION]
+> **严禁把 preview 编译产物接入宿主正式 CLI**：
+> - 绝不允许对 `~/.local/bin/mopheus`、`~/.local/bin/mop`、`/usr/local/bin/mopheus` 或任何 PATH 目录执行 `ln -s`、`cp`、`install`，把它们指向或替换为 `.worktrees/preview-test/server/bin/mopheus` 或任何临时编译产物。
+> - 正式 CLI 是生产工具，指向 `https://dev.mopheus.ai`；被 preview binary 覆盖后会静默改变工具行为与目标环境，且极难察觉。
+> - 所有靶场测试必须用**刚编译产物**的绝对路径调用：`"$PREVIEW_DIR/server/bin/mopheus" --profile wt-preview-test --server_url http://localhost:8230 ...`。
+> - `start_preview.sh` 会把 `$HOME/.local/bin` 前置到 `PATH`，因此裸写 `mopheus` / `mop` 命中的是**宿主正式 CLI**，绝不能用于靶场登录、建数据或启动 daemon。
+> - 若发现 `~/.local/bin/mop*` 解析到仓库或 worktree 内，先报告并恢复正式二进制，不要在旧软链上继续测试。
+
+### 4. Isolated Mode: Dynamic Worktree Profile (单独分支隔离靶场模式)
 Triggered **ONLY** when the user explicitly requests an isolated/dynamic branch environment (e.g. "开单独分支靶场", "动态Profile靶场", or `--dynamic`):
 - **CLI Profile**: `<worktree-slug>` (e.g. `feat_cli_ticket_labels`)
 - **Backend Port**: `18080 + offset` (e.g. `18153`)

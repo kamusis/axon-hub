@@ -151,18 +151,23 @@ Bad:
 - `executes private branch`
 - `increases coverage for Foo`
 
-### 6. Add Tests In Small Batches
+### 6. Scope To Concrete Target Cases And Add Tests In Cohesive File Batches
 
-Work in small vertical slices:
+Avoid running full-module coverage after every individual test—in large packages, repeated full-suite coverage runs waste compilation time, test execution time, and context window budget. Instead, work in bounded, file-scoped batches:
 
-1. Pick one behavior.
-2. Add one focused test.
-3. Run the focused test.
-4. Run nearby tests.
-5. Re-run coverage for the touched component.
-6. Repeat.
+1. **Scope Strictly to the Ticket or Prioritized Gap List (Do Not Chase Percentage Targets)**:
+   - When working from an audit ticket or issue that specifies concrete files, functions, and behavioral test scenarios, treat that list as the exact execution boundary. Do **not** scan unmentioned files to chase a module-wide coverage percentage.
+   - When working directly from an open-ended coverage report without a pre-scoped checklist, select a bounded batch of the highest-risk files/functions (typically 3–5 files) rather than attempting to close an entire module's percentage gap in one pass.
+2. **Batch Related Branches Per File With Table-Driven Tests**:
+   - Inspect all target uncovered branches in a file together before editing.
+   - When a function, handler, or service method has multiple uncovered validation, authorization, not-found, conflict, or error-mapping guards (especially 1–3 statement long-tail branches), group them into a single cohesive **table-driven test** (`t.Run(tc.name, ...)` in Go, `it.each(...)` in Vitest/Jest) in one edit pass per file rather than writing and executing separate micro-iterations for each branch.
+3. **Verify With Targeted Test Filters Only During Authoring**:
+   - After editing a test file, run **only** the newly added or modified test function/file (e.g., `go test -run '^TestTargetBehavior$' ./path/to/pkg` or `pnpm vitest run path/to/file.test.ts`).
+   - Do **not** run the full module test suite or `-coverprofile` after each individual test or file edit.
+4. **Run Module Verification Once After Completing the Planned Batch**:
+   - Once all planned file tests pass targeted verification, run the module's test/coverage verification command **once** at the end to confirm the suite passes cleanly.
 
-Do not add a large batch of speculative tests before verifying the first one. Coverage-driven work can easily drift into brittle implementation locking if done in bulk.
+Do not add speculative tests without verifying each file's targeted test first, and do not lock in brittle private implementation details when batching.
 
 ### 7. Apply The Mandatory Test Quality Gate
 

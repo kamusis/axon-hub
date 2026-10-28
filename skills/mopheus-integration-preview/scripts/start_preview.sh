@@ -42,8 +42,24 @@ else
     PREVIEW_DIR="$SOURCE_REAL"
 fi
 
+# Warn (never silently fix) if the host CLI was repointed at a repo/worktree build.
+# The host CLI is the production tool for https://dev.mopheus.ai and must stay independent.
+for host_cli in "$HOME/.local/bin/mopheus" "$HOME/.local/bin/mop"; do
+    [ -e "$host_cli" ] || continue
+    resolved="$(readlink -f "$host_cli" 2>/dev/null || true)"
+    case "$resolved" in
+        "$PRIMARY_REPO"/*)
+            echo "WARNING: $host_cli resolves to $resolved (inside the repository)." >&2
+            echo "WARNING: the host CLI must not point at a preview build; restore the installed binary." >&2
+            ;;
+    esac
+done
+
 kill_port() {
     local port="$1"
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k "${port}/tcp" >/dev/null 2>&1 || true
+    fi
     local pids
     pids="$(lsof -nP -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
     if [ -n "$pids" ]; then
@@ -54,11 +70,20 @@ kill_port() {
 
 is_port_listening() {
     local port="$1"
-    lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+    python3 - "$port" <<'PY' >/dev/null 2>&1
+import socket, sys
+port = int(sys.argv[1])
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.settimeout(0.5)
+    sys.exit(0 if s.connect_ex(("127.0.0.1", port)) == 0 else 1)
+PY
 }
 
 if [ "$SOURCE_REAL" != "$PREVIEW_DIR" ]; then
     echo "==> [0/6] Syncing code from $SOURCE_REAL to $PREVIEW_DIR..."
+    if [ ! -d "$SOURCE_REAL/apps/docs" ] && [ -d "$PREVIEW_DIR/apps/docs" ]; then
+        rm -rf "$PREVIEW_DIR/apps/docs"
+    fi
     rsync -a --delete \
         --exclude='.git' \
         --exclude='node_modules' \
@@ -81,7 +106,7 @@ cd "$PREVIEW_DIR"
 
 echo "==> [1/6] Stopping stale preview processes & daemon..."
 if [ -x "$PREVIEW_DIR/server/bin/mopheus" ]; then
-    "$PREVIEW_DIR/server/bin/mopheus" --profile wt-preview-test daemon stop --force --allow-root 2>/dev/null || true
+    "$PREVIEW_DIR/server/bin/mopheus" daemon stop --profile wt-preview-test --force 2>/dev/null || true
 fi
 kill_port 8230
 kill_port 3230

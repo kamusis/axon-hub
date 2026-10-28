@@ -87,9 +87,19 @@ echo "Mode: $MODE | Keep historical versions per repo: $KEEP_VERSIONS"
 echo ""
 
 # 1. Collect in-use image IDs and names (fail closed with directive if container listing fails)
+# Note: Docker CLI 'ps --format' does not expose '{{.ImageID}}' (Podman-only field),
+# so we query '{{.Image}}' via 'ps -a' and resolve full image IDs via 'inspect --format {{.Image}}',
+# which works identically across both Docker Engine and Podman.
 if ! PS_IMAGES_RAW=$(run_docker ps -a --format '{{.Image}}' 2>&1) \
-    || ! PS_IDS_RAW=$(run_docker ps -a --format '{{.ImageID}}' 2>&1); then
-    abort_for_agent "Failed to query container inventory via 'docker ps -a': ${PS_IMAGES_RAW} ${PS_IDS_RAW}"
+    || ! ALL_CONTAINER_IDS=$(run_docker ps -aq 2>&1); then
+    abort_for_agent "Failed to query container inventory via 'docker ps -a': ${PS_IMAGES_RAW} ${ALL_CONTAINER_IDS}"
+fi
+PS_IDS_RAW=""
+if [ -n "$ALL_CONTAINER_IDS" ]; then
+    # shellcheck disable=SC2086
+    if ! PS_IDS_RAW=$(run_docker inspect --format '{{.Image}}' $ALL_CONTAINER_IDS 2>&1); then
+        abort_for_agent "Failed to inspect container image IDs via 'docker inspect': ${PS_IDS_RAW}"
+    fi
 fi
 IN_USE_IMAGES=$(echo "$PS_IMAGES_RAW" | sort -u)
 IN_USE_IMAGE_IDS=$(echo "$PS_IDS_RAW" | sort -u)
@@ -106,11 +116,11 @@ is_in_use() {
     return 1
 }
 
-# Protected base image patterns (never delete unless dangling)
+# Protected base image patterns (never delete unless dangling; match both Docker short names and Podman registry-prefixed names)
 is_protected_base() {
     local repo="$1"
     case "$repo" in
-        alpine|golang|nginx|minio/minio|*pgvector*|*swissql-core*)
+        alpine|*/alpine|golang|*/golang|node|*/node|nginx|*/nginx|postgres|*/postgres|minio/minio|*/minio/minio|*pgvector*|*swissql-core*)
             return 0
             ;;
         *)
@@ -185,6 +195,39 @@ echo ""
 DANGLING_COUNT=$(run_docker images -f "dangling=true" -q 2>/dev/null | wc -l)
 echo "Dangling (<none>:<none>) images count: $DANGLING_COUNT"
 
+# 3. Inspect Toolchain & Build Caches (~/.cache/go-build, ~/.npm/_cacache)
+ROOT_USE_PCT=$(df -P / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $5}')
+ROOT_USE_PCT="${ROOT_USE_PCT:-0}"
+
+GOCACHE_DIR="${GOCACHE:-$HOME/.cache/go-build}"
+NPM_CACHE_DIR="$HOME/.npm/_cacache"
+
+GOCACHE_MB=0
+if [ -d "$GOCACHE_DIR" ]; then
+    GOCACHE_MB=$(du -sm "$GOCACHE_DIR" 2>/dev/null | awk '{print $1}')
+    GOCACHE_MB="${GOCACHE_MB:-0}"
+fi
+
+NPM_CACHE_MB=0
+if [ -d "$NPM_CACHE_DIR" ]; then
+    NPM_CACHE_MB=$(du -sm "$NPM_CACHE_DIR" 2>/dev/null | awk '{print $1}')
+    NPM_CACHE_MB="${NPM_CACHE_MB:-0}"
+fi
+
+# Dynamic watermark thresholds: tighter when root filesystem >= 75%
+if [ "$ROOT_USE_PCT" -ge 75 ]; then
+    GOCACHE_LIMIT_MB=1024
+    NPM_LIMIT_MB=512
+else
+    GOCACHE_LIMIT_MB=4096
+    NPM_LIMIT_MB=2048
+fi
+
+echo ""
+echo "--- Toolchain & Package Cache Status (Root FS: ${ROOT_USE_PCT}%) ---"
+echo "Go build cache ($GOCACHE_DIR): ${GOCACHE_MB} MB (threshold: ${GOCACHE_LIMIT_MB} MB)"
+echo "npm cache ($NPM_CACHE_DIR): ${NPM_CACHE_MB} MB (threshold: ${NPM_LIMIT_MB} MB)"
+
 if [ "$MODE" = "apply" ]; then
     echo ""
     echo "=== Executing Deletion ==="
@@ -205,7 +248,22 @@ if [ "$MODE" = "apply" ]; then
         run_docker image prune -f
     fi
 
-    echo "Pruning build cache older than 7 days..."
-    run_docker builder prune -f --filter "until=168h" 2>/dev/null || true
+    echo "Pruning build cache older than 24h..."
+    run_docker builder prune -f --filter "until=24h" 2>/dev/null || true
+
+    if [ "$GOCACHE_MB" -ge "$GOCACHE_LIMIT_MB" ] && [ -d "$GOCACHE_DIR" ]; then
+        echo "Cleaning Go build cache (${GOCACHE_MB} MB >= ${GOCACHE_LIMIT_MB} MB threshold)..."
+        go clean -cache 2>/dev/null || rm -rf "${GOCACHE_DIR:?}"/* 2>/dev/null || true
+    fi
+
+    if [ "$NPM_CACHE_MB" -ge "$NPM_LIMIT_MB" ] && [ -d "$NPM_CACHE_DIR" ]; then
+        echo "Cleaning npm cache (${NPM_CACHE_MB} MB >= ${NPM_LIMIT_MB} MB threshold)..."
+        rm -rf "${NPM_CACHE_DIR:?}" 2>/dev/null || true
+    fi
+
+    echo "Cleaning stale /tmp build and test residue..."
+    find /tmp -maxdepth 1 \( -name "go-build*" -o -name "e2e*" -o -name "playwright*" \) -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+    find /tmp -maxdepth 1 \( -name "mopheus-it-*" -o -name "preview-*" \) -mtime +3 -exec rm -rf {} + 2>/dev/null || true
+
     echo "=== Cleanup Execution Finished ==="
 fi

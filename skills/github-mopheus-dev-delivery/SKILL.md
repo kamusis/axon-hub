@@ -21,18 +21,36 @@ Treat explicit invocation as authorization for every write in this workflow: com
 
 ## Formal Mopheus CLI boundary
 
-Delivery updates durable records in `https://dev.mopheus.ai`. Never inherit disposable preview identities or execute unreleased repository CLI binaries:
-- Require the installed host `mopheus` executable (`command -v mopheus`); never substitute `mop`, `go run ./cmd/mopheus`, `make mopheus`, or `server/bin/mopheus`.
+Delivery updates durable records in `https://dev.mopheus.ai`. Never inherit disposable preview identities or execute unreleased repository CLI binaries.
+
+**Availability probe (positive evidence only):**
+
+Tool shells are frequently non-login and non-interactive, so `~/.local/bin` is commonly absent from `PATH`. A bare `command -v mopheus` in such a shell produces a false negative. Always probe through a login shell and make the CLI answer for itself:
+
+```bash
+bash -lc 'command -v mopheus || command -v mop'
+```
+
+- `mopheus` and `mop` are accepted aliases of the same installed host binary. Prefer `mopheus` in documented commands.
+- Reject any candidate whose resolved path (`readlink -f`) lies inside a repository checkout or worktree (for example `.worktrees/*/server/bin/mopheus` or `server/bin/mopheus`); that is an unreleased local build.
+- Confirm the binary actually works before concluding anything: `<cli> version`, then `profile ls` and `auth status`.
+
+**Configuration authority:**
+
+- `profile ls` and `auth status` are the only source of truth for profile and authentication state.
+- Never infer profile existence from filesystem layout. The `default` profile is stored at the config root (`~/.mopheus/auth.json` + `~/.mopheus/config.json`), not under `~/.mopheus/profiles/`, which holds only named non-default profiles.
 - Exclusively use the formal `--profile default`; unset preview environment variables (`MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, etc.).
 - Ensure configured server URL is `https://dev.mopheus.ai` (via `mopheus --profile default connect --server_url https://dev.mopheus.ai` or `config set server-url https://dev.mopheus.ai`) and verify with `auth status`.
 - Pass `--profile default --workspace-id <id>` explicitly to every Mopheus command.
+
+**When integration may be marked `SKIPPED`:** only with positive evidence — the probe ran, the selected binary answered, and `profile ls` or `auth status` explicitly failed (missing profile, invalid token, unreachable server). An empty `command -v` from a non-login shell, a missing profile directory, or any other negative filesystem probe is never sufficient grounds for `SKIPPED`; investigate further instead.
 
 ## 1. Resolve delivery context
 
 1. Resolve the git root, `origin`, current feature branch/worktree, default branch, and main worktree. Require `origin` to identify `enmotech/mopheus` through an accepted HTTPS or SSH URL before any Git or GitHub write; use it only as an identity and transport check, never to select the GitHub repository.
 2. Read repository instructions and identify the required full verification command.
 3. Attempt to resolve exactly one existing GitHub issue from explicit context, branch/PR data, or the Mopheus ticket's structured links. This workflow does not create a new issue. If none is found, record `github_issue=SKIPPED` and continue; stop only when multiple candidates are ambiguous.
-4. If Mopheus lookup is available, resolve the workspace before ticket lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. If no required workspace or ticket is found, record `mopheus_ticket=SKIPPED` and continue. Stop if candidates are ambiguous or formal CLI authentication/configuration is unsafe.
+4. If Mopheus lookup is available, resolve the workspace before ticket lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. If no required workspace or ticket is found, record `mopheus_ticket=SKIPPED` and continue. Stop if candidates are ambiguous or formal CLI authentication/configuration is unsafe. `SKIPPED` requires the positive evidence defined in the Formal Mopheus CLI boundary; a failed `command -v` alone is not evidence.
 5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --profile default --workspace-id <id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n>`. Do not create a ticket when this lookup returns no matching ticket.
 6. If the issue exists but no ticket is linked, record `mopheus_ticket=SKIPPED`; do not invoke a ticket-creation skill. If a ticket exists but no issue is found, record `github_issue=SKIPPED` and continue without issue-linking or issue-closing actions.
 7. Once a ticket is resolved, pass its workspace ID explicitly to every subsequent `mopheus` command. When `github_issue` is `SKIPPED`, omit only GitHub issue lookup, issue sync, and issue-link checks while still executing all Mopheus ticket PR sync, link verification, completion comment, and status closure steps. Omit Mopheus ticket writes only when `mopheus_ticket` is `SKIPPED`.
@@ -116,4 +134,4 @@ Perform this after the merge is verified whenever `mopheus_ticket` was resolved 
 
 On a blocker, leave completed external state intact and report the exact failed stage, evidence, and safe resume point. Do not mark the ticket Done. A missing issue or ticket is not a blocker: report the corresponding integration as `SKIPPED` and continue.
 
-On success, report only verified identifiers and URLs: commit, PR, merge SHA, cleanup result, and verification command. Include issue, ticket, and link state when resolved; otherwise report the exact `SKIPPED` reason for each missing record.
+On success, report only verified identifiers and URLs: commit, PR, merge SHA, cleanup result, and verification command. Include issue, ticket, and link state when resolved; otherwise report the exact `SKIPPED` reason for each missing record, including the command and exit code that actually proved it unreachable. A `SKIPPED` justified only by negative probes is a reporting defect and must be re-verified before it is published.
