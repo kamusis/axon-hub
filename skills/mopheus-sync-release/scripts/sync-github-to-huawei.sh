@@ -182,10 +182,21 @@ sync_single_image() {
 _tag_existing_manifest() {
   local src_image="$1"
   local dst_image="$2"
+  local orig_ghcr_image="${3:-}"
 
   local dst_repo="${dst_image%%:*}"
   dst_repo="${dst_repo#${SWR_REGISTRY}/}"
   local dst_tag="${dst_image##*:}"
+
+  # 1. Prefer crane tag if available (fastest and standard registry tag pointer)
+  if command -v crane >/dev/null 2>&1; then
+    echo "[INFO] Attempting to tag ${dst_image} via crane tag..."
+    if crane tag "${src_image}" "${dst_tag}" 2>/dev/null; then
+      echo "[INFO] Tagged ${dst_image} via crane tag"
+      return 0
+    fi
+    echo "[WARN] crane tag failed; attempting direct SWR registry PUT..." >&2
+  fi
 
   local scope="repository:${dst_repo}:push,pull"
   local token
@@ -197,41 +208,60 @@ _tag_existing_manifest() {
   local digest
   digest=$(crane digest "${src_image}" 2>/dev/null || true)
   if [[ -z "$digest" || -z "$token" ]]; then
-    echo "[WARN] could not resolve digest for ${src_image}; falling back to a full copy for ${dst_image}." >&2
-    sync_single_image "${src_image}" "${dst_image}"
-    return $?
+    if [[ -n "$orig_ghcr_image" ]]; then
+      echo "[WARN] could not resolve digest for ${src_image}; falling back to sync from GHCR for ${dst_image}." >&2
+      sync_single_image "${orig_ghcr_image}" "${dst_image}"
+      return $?
+    fi
+    echo "[ERROR] could not resolve digest or token for ${src_image} to tag ${dst_image}" >&2
+    return 1
   fi
 
   # Fetch the manifest body and re-push it under the new tag.
-  local tmp_manifest="${TMP_CLI_DIR:-/tmp}/manifest-tag-$$.json"
-  mkdir -p "$(dirname "$tmp_manifest")"
-  local ctype="application/vnd.docker.distribution.manifest.list.v2+json"
-  if ! curl -sS --max-time 60 -H "Authorization: Bearer ${token}" \
+  local tmp_manifest
+  tmp_manifest="$(mktemp /tmp/manifest-tag-XXXXXX.json)"
+  if ! curl -sSf --max-time 60 -H "Authorization: Bearer ${token}" \
       -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json" \
       -o "$tmp_manifest" \
       "https://${SWR_REGISTRY}/v2/${dst_repo}/manifests/${digest}"; then
-    echo "[WARN] could not read manifest ${digest}; falling back to a full copy for ${dst_image}." >&2
-    sync_single_image "${src_image}" "${dst_image}"
-    return $?
-  fi
-  if ! jq -e '.manifests' "$tmp_manifest" >/dev/null 2>&1; then
-    ctype="application/vnd.docker.distribution.manifest.v2+json"
+    rm -f "$tmp_manifest"
+    if [[ -n "$orig_ghcr_image" ]]; then
+      echo "[WARN] could not read manifest ${digest}; falling back to sync from GHCR for ${dst_image}." >&2
+      sync_single_image "${orig_ghcr_image}" "${dst_image}"
+      return $?
+    fi
+    echo "[ERROR] could not fetch manifest ${digest} for ${dst_image}" >&2
+    return 1
   fi
 
+  local ctype
+  ctype=$(jq -r '.mediaType // empty' "$tmp_manifest" 2>/dev/null || true)
+  if [[ -z "$ctype" ]]; then
+    if jq -e '.manifests' "$tmp_manifest" >/dev/null 2>&1; then
+      ctype="application/vnd.docker.distribution.manifest.list.v2+json"
+    else
+      ctype="application/vnd.docker.distribution.manifest.v2+json"
+    fi
+  fi
+
+  local resp_tmp
+  resp_tmp="$(mktemp /tmp/swr_tag_resp_XXXXXX.txt)"
   local code
   code=$(curl -sS --http1.1 --max-time 120 \
     -H "Authorization: Bearer ${token}" \
     -H "Content-Type: ${ctype}" \
     -X PUT --data-binary "@${tmp_manifest}" \
-    -o /tmp/swr_tag_resp.txt -w "%{http_code}" \
+    -o "$resp_tmp" -w "%{http_code}" \
     "https://${SWR_REGISTRY}/v2/${dst_repo}/manifests/${dst_tag}")
   rm -f "$tmp_manifest"
 
   if [[ "$code" == "201" || "$code" == "200" || "$code" == "202" ]]; then
     echo "[INFO] Tagged ${dst_image} -> ${digest} (HTTP ${code})"
+    rm -f "$resp_tmp"
     return 0
   fi
-  echo "[ERROR] tagging ${dst_image} failed [${code}]: $(head -c 200 /tmp/swr_tag_resp.txt)" >&2
+  echo "[ERROR] tagging ${dst_image} failed [${code}]: $(head -c 200 "$resp_tmp")" >&2
+  rm -f "$resp_tmp"
   return 1
 }
 
@@ -279,13 +309,13 @@ sync_images() {
     # Point the version tag at the manifest that was just pushed.
     if [[ "${VERSION}" != "${TAG}" ]]; then
       local dst_version_image="${SWR_REGISTRY}/${SWR_NAMESPACE}/${app}:${VERSION}"
-      _tag_existing_manifest "${dst_image}" "${dst_version_image}"
+      _tag_existing_manifest "${dst_image}" "${dst_version_image}" "${src_image}"
     fi
 
     # For stable releases, also update :latest tag
     if [[ "${IS_STABLE}" == "true" ]]; then
       local dst_latest_image="${SWR_REGISTRY}/${SWR_NAMESPACE}/${app}:latest"
-      _tag_existing_manifest "${dst_image}" "${dst_latest_image}"
+      _tag_existing_manifest "${dst_image}" "${dst_latest_image}" "${src_image}"
     fi
   done
   echo "[INFO] Container images successfully synced."
@@ -337,8 +367,11 @@ obs_put() {
     extra_headers+=(-H "Cache-Control: ${cache_control}")
   fi
 
+  local resp_tmp
+  resp_tmp="$(mktemp /tmp/obs_resp_XXXXXX.txt)"
+
   local http_code
-  http_code=$(curl -sS -o /tmp/obs_resp.txt -w "%{http_code}" \
+  http_code=$(curl -sS -o "$resp_tmp" -w "%{http_code}" \
     --connect-timeout 30 \
     --max-time "${OBS_UPLOAD_TIMEOUT:-1800}" \
     --speed-time 300 \
@@ -355,9 +388,11 @@ obs_put() {
     "${OBS_HTTP_BASE}/${key}")
 
   if [[ "${http_code}" != "200" ]]; then
-    echo "[ERROR] OBS upload failed [${http_code}] for ${key}: $(cat /tmp/obs_resp.txt)" >&2
+    echo "[ERROR] OBS upload failed [${http_code}] for ${key}: $(cat "$resp_tmp")" >&2
+    rm -f "$resp_tmp"
     return 1
   fi
+  rm -f "$resp_tmp"
   echo "  uploaded ${key} [${http_code}]"
 }
 
@@ -405,6 +440,8 @@ sync_cli() {
   local files_to_upload=()
   for f in "${TMP_CLI_DIR}"/mopheus_"${VERSION}"_*.tar.gz \
            "${TMP_CLI_DIR}"/mopheus_"${VERSION}"_*.zip \
+           "${TMP_CLI_DIR}"/mopheus-admin_"${VERSION}"_*.tar.gz \
+           "${TMP_CLI_DIR}"/mopheus-admin_"${VERSION}"_*.zip \
            "${TMP_CLI_DIR}"/checksums*.txt; do
     [[ -f "$f" ]] && files_to_upload+=("$f")
   done
@@ -418,7 +455,7 @@ sync_cli() {
 
   # Upload the assets. They go in parallel: on a slow link a serial upload of
   # 12 archives takes many times longer than the transfer itself.
-  export OBS_AK OBS_SK OBS_BUCKET OBS_REGION OBS_HTTP_BASE
+  export OBS_AK OBS_SK OBS_BUCKET OBS_REGION OBS_HTTP_BASE DRY_RUN OBS_UPLOAD_TIMEOUT VERSION
   _obs_put_one() {
     local f="$1"
     local fname
@@ -427,8 +464,7 @@ sync_cli() {
     echo "[INFO] Uploading ${fname} to ${key}..."
     obs_put "$f" "$key"
   }
-  export -f _obs_put_one
-  export VERSION
+  export -f _obs_put_one obs_put _obs_sign _require_obs_creds
 
   printf '%s\0' "${files_to_upload[@]}" \
     | xargs -0 -P "${OBS_UPLOAD_JOBS:-4}" -I{} bash -c '_obs_put_one "$@"' _ {}
@@ -444,7 +480,11 @@ sync_cli() {
     echo "[INFO] Rewriting and uploading ${manifest_name} to tools/mopheus/${manifest_name}..."
     local obs_manifest="${TMP_CLI_DIR}/manifest_for_obs.json"
     jq --arg base "${obs_tools_base}" --arg ver "${VERSION}" \
-      '.download_base = $base | .downloads |= with_entries(.value = "\($base)/\($ver)/\(.value | split("/") | last)")' \
+      '.download_base = $base
+       | .downloads |= with_entries(.value = "\($base)/\($ver)/\(.value | split("/") | last)")
+       | if (.admin_downloads | type) == "object" then
+           .admin_downloads |= with_entries(.value = "\($base)/\($ver)/\(.value | split("/") | last)")
+         else . end' \
       "${TMP_CLI_DIR}/${manifest_name}" > "${obs_manifest}"
     obs_put "${obs_manifest}" "tools/mopheus/${manifest_name}" "application/json" "no-cache, no-store"
   fi

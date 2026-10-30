@@ -21,9 +21,12 @@ itself:
 
 - `scripts/swr_sync_image.sh` walks the manifest list, HEADs every layer on
   SWR, uploads only the missing ones and then pushes the manifests.
-- `scripts/swr_push_blob.sh` uploads one blob. Blobs up to ~6 MiB use the
-  chunked session flow; larger blobs use a single PUT, because an SWR upload
-  session rejects more than ~6 MiB in total (`DIGEST_INVALID`).
+- `scripts/swr_push_blob.sh` uploads one blob. All blobs are uploaded with a single
+  monolithic PUT by default (`SWR_MONOLITHIC_THRESHOLD=0`) because SWR upload
+  sessions reject more than ~5.5 MiB in cumulative chunked uploads (`DIGEST_INVALID`)
+  and monolithic PUT minimizes round trips.
+- Tagging existing manifests (`:version` or `:latest`) uses `crane tag` directly
+  without transferring any layers.
 
 Blobs are content-addressed, so a re-run only pushes what is still missing.
 
@@ -65,7 +68,7 @@ bash "$SCRIPT_PATH" \
 | Variable | Default | Meaning |
 |---|---|---|
 | `SWR_UPLOAD_JOBS` | `4` | Layers uploaded in parallel. Keep it low on a slow link. |
-| `SWR_MONOLITHIC_THRESHOLD` | `6291456` | Blobs larger than this are uploaded with a single PUT. |
+| `SWR_MONOLITHIC_THRESHOLD` | `0` | Threshold in bytes for monolithic PUT (0 = monolithic for all sizes). |
 | `SWR_CHUNK_SIZE` | `262144` | Chunk size for the chunked path. |
 | `SWR_UPLOAD_TIMEOUT` | `3600` | Per-blob upload timeout in seconds. |
 | `OBS_UPLOAD_JOBS` | `4` | OBS assets uploaded in parallel. |

@@ -30,8 +30,8 @@ SWR_BASE="${SWR_BASE:-https://${SWR_REGISTRY}}"
 SWR_USER="${HUAWEICLOUD_SWR_USER:-${SWR_USER:-}}"
 SWR_PASSWORD="${HUAWEICLOUD_SWR_PASSWORD:-${SWR_PASSWORD:-}}"
 
-# Blobs larger than this are uploaded with a single PUT.
-MONOLITHIC_THRESHOLD="${SWR_MONOLITHIC_THRESHOLD:-6291456}"
+# Blobs larger than this are uploaded with a single PUT. Set to 0 to always use monolithic PUT.
+MONOLITHIC_THRESHOLD="${SWR_MONOLITHIC_THRESHOLD:-0}"
 
 # Chunk size for the chunked path. SWR caps a session at ~6 MiB regardless, so
 # this only needs to stay well under that limit.
@@ -73,7 +73,10 @@ _session_range() {
     -X GET -D - -o /dev/null "$1" | _hdr_of "range"
 }
 
-TOKEN="$(_get_token)"
+TOKEN="${SWR_TOKEN:-}"
+if [[ -z "$TOKEN" ]]; then
+  TOKEN="$(_get_token)"
+fi
 [[ -n "$TOKEN" ]] || { echo "[ERROR] could not obtain SWR registry token" >&2; exit 1; }
 
 # --- upload paths ------------------------------------------------------------
@@ -168,7 +171,7 @@ _upload_monolithic() {
 
 # --- main --------------------------------------------------------------------
 
-if [[ $SIZE -le $MONOLITHIC_THRESHOLD ]]; then
+if [[ $MONOLITHIC_THRESHOLD -gt 0 && $SIZE -le $MONOLITHIC_THRESHOLD ]]; then
   PATH_NAME="chunked"
   UPLOAD_FN="_upload_chunked"
 else

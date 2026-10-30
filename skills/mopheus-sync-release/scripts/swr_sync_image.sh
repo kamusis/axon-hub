@@ -203,7 +203,7 @@ if [[ "$MISSING_COUNT" -gt 0 ]]; then
     fi
   done < "$MISSING"
 
-  export BLOBS_DIR PUSH_BLOB SWR_REGISTRY SWR_BASE SWR_USER SWR_PASSWORD
+  export BLOBS_DIR PUSH_BLOB SWR_REGISTRY SWR_BASE SWR_USER SWR_PASSWORD SWR_TOKEN
   export HUAWEICLOUD_SWR_USER="$SWR_USER" HUAWEICLOUD_SWR_PASSWORD="$SWR_PASSWORD"
   export DST_REPO
 
@@ -229,27 +229,44 @@ fi
 
 # --- push manifests ----------------------------------------------------------
 
+# Refresh SWR token before pushing manifests to ensure token has not expired
+# during long-running multi-layer blob transfers.
+SWR_TOKEN=""
+_get_swr_token >/dev/null || {
+  echo "[ERROR] could not refresh SWR registry token before pushing manifests" >&2
+  exit 1
+}
+
 # The manifest list plus each per-arch manifest are small JSON documents, so a
 # single PUT is enough. Pushing the manifest list last makes the tag resolve
 # only once every layer is in place.
 push_manifest() {
   local ref="$1" json="$2"
-  local type="application/vnd.docker.distribution.manifest.list.v2+json"
-  if ! jq -e '.manifests' "$json" >/dev/null 2>&1; then
-    type="application/vnd.docker.distribution.manifest.v2+json"
+  local type
+  type=$(jq -r '.mediaType // empty' "$json" 2>/dev/null || true)
+  if [[ -z "$type" ]]; then
+    if jq -e '.manifests' "$json" >/dev/null 2>&1; then
+      type="application/vnd.docker.distribution.manifest.list.v2+json"
+    else
+      type="application/vnd.docker.distribution.manifest.v2+json"
+    fi
   fi
+  local resp_tmp
+  resp_tmp="$(mktemp /tmp/swr_manifest_resp_XXXXXX.txt)"
   local code
   code=$(curl -sS --http1.1 --max-time 120 \
     -H "Authorization: Bearer ${SWR_TOKEN}" \
     -H "Content-Type: ${type}" \
     -X PUT --data-binary "@${json}" \
-    -o /tmp/swr_manifest_resp.txt -w "%{http_code}" \
+    -o "$resp_tmp" -w "%{http_code}" \
     "${SWR_BASE}/v2/${DST_REPO}/manifests/${ref}")
   if [[ "$code" == "201" || "$code" == "200" || "$code" == "202" ]]; then
     echo "[swr] manifest ${ref} pushed (HTTP ${code})"
+    rm -f "$resp_tmp"
     return 0
   fi
-  echo "[ERROR] manifest ${ref} push failed [${code}]: $(head -c 200 /tmp/swr_manifest_resp.txt)" >&2
+  echo "[ERROR] manifest ${ref} push failed [${code}]: $(head -c 200 "$resp_tmp")" >&2
+  rm -f "$resp_tmp"
   return 1
 }
 
