@@ -8,6 +8,9 @@
 # ==============================================================================
 set -euo pipefail
 
+# Directory holding this script and the SWR upload helpers next to it.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Default settings
 REPO="enmotech/mopheus"
 TAG="nightly"
@@ -148,6 +151,18 @@ sync_single_image() {
     return 0
   fi
 
+  # `crane copy` streams every layer over one connection. On this link SWR
+  # aborts long-lived upload connections, so the 17-24 MiB binary layers fail
+  # with "PROTOCOL_ERROR / unexpected EOF" and the whole copy dies. swr_sync_image.sh
+  # pushes the layers individually instead, with a chunked path for small blobs
+  # and a single-request path for large ones, and it skips layers that already
+  # exist so a retry only pushes what is still missing.
+  if [[ -f "${SCRIPT_DIR}/swr_sync_image.sh" ]]; then
+    bash "${SCRIPT_DIR}/swr_sync_image.sh" "${src}" "${dst}"
+    return $?
+  fi
+
+  echo "[WARN] swr_sync_image.sh not found; falling back to crane copy (may fail on large layers)." >&2
   if command -v crane >/dev/null 2>&1; then
     crane copy "${src}" "${dst}"
   elif command -v skopeo >/dev/null 2>&1; then
@@ -160,6 +175,64 @@ sync_single_image() {
     echo "[ERROR] No container copying tool found (crane, skopeo, or docker required)." >&2
     return 1
   fi
+}
+
+# Attach an extra tag to the manifest that src_image already points at. This
+# reuses the uploaded layers instead of running a second full copy.
+_tag_existing_manifest() {
+  local src_image="$1"
+  local dst_image="$2"
+
+  local dst_repo="${dst_image%%:*}"
+  dst_repo="${dst_repo#${SWR_REGISTRY}/}"
+  local dst_tag="${dst_image##*:}"
+
+  local scope="repository:${dst_repo}:push,pull"
+  local token
+  token=$(curl -sS --retry 3 --retry-all-errors \
+    -u "${HUAWEICLOUD_SWR_USER:-${SWR_USER:-}}:${HUAWEICLOUD_SWR_PASSWORD:-${SWR_PASSWORD:-}}" \
+    "https://${SWR_REGISTRY}/swr/auth/v2/registry/auth/?service=dockyard&scope=${scope}" \
+    | jq -r '.token // empty')
+
+  local digest
+  digest=$(crane digest "${src_image}" 2>/dev/null || true)
+  if [[ -z "$digest" || -z "$token" ]]; then
+    echo "[WARN] could not resolve digest for ${src_image}; falling back to a full copy for ${dst_image}." >&2
+    sync_single_image "${src_image}" "${dst_image}"
+    return $?
+  fi
+
+  # Fetch the manifest body and re-push it under the new tag.
+  local tmp_manifest="${TMP_CLI_DIR:-/tmp}/manifest-tag-$$.json"
+  mkdir -p "$(dirname "$tmp_manifest")"
+  local ctype="application/vnd.docker.distribution.manifest.list.v2+json"
+  if ! curl -sS --max-time 60 -H "Authorization: Bearer ${token}" \
+      -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json" \
+      -o "$tmp_manifest" \
+      "https://${SWR_REGISTRY}/v2/${dst_repo}/manifests/${digest}"; then
+    echo "[WARN] could not read manifest ${digest}; falling back to a full copy for ${dst_image}." >&2
+    sync_single_image "${src_image}" "${dst_image}"
+    return $?
+  fi
+  if ! jq -e '.manifests' "$tmp_manifest" >/dev/null 2>&1; then
+    ctype="application/vnd.docker.distribution.manifest.v2+json"
+  fi
+
+  local code
+  code=$(curl -sS --http1.1 --max-time 120 \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: ${ctype}" \
+    -X PUT --data-binary "@${tmp_manifest}" \
+    -o /tmp/swr_tag_resp.txt -w "%{http_code}" \
+    "https://${SWR_REGISTRY}/v2/${dst_repo}/manifests/${dst_tag}")
+  rm -f "$tmp_manifest"
+
+  if [[ "$code" == "201" || "$code" == "200" || "$code" == "202" ]]; then
+    echo "[INFO] Tagged ${dst_image} -> ${digest} (HTTP ${code})"
+    return 0
+  fi
+  echo "[ERROR] tagging ${dst_image} failed [${code}]: $(head -c 200 /tmp/swr_tag_resp.txt)" >&2
+  return 1
 }
 
 sync_images() {
@@ -198,18 +271,21 @@ sync_images() {
     local src_image="${GHCR_REGISTRY}/${GHCR_NAMESPACE}/${app}:${TAG}"
     local dst_image="${SWR_REGISTRY}/${SWR_NAMESPACE}/${app}:${TAG}"
 
+    # One sync per app. The version and latest tags are attached to the same
+    # manifest afterwards, so the layers are uploaded only once instead of
+    # once per tag.
     sync_single_image "${src_image}" "${dst_image}"
 
-    # Also push version tag if version != tag
+    # Point the version tag at the manifest that was just pushed.
     if [[ "${VERSION}" != "${TAG}" ]]; then
       local dst_version_image="${SWR_REGISTRY}/${SWR_NAMESPACE}/${app}:${VERSION}"
-      sync_single_image "${src_image}" "${dst_version_image}"
+      _tag_existing_manifest "${dst_image}" "${dst_version_image}"
     fi
 
     # For stable releases, also update :latest tag
     if [[ "${IS_STABLE}" == "true" ]]; then
       local dst_latest_image="${SWR_REGISTRY}/${SWR_NAMESPACE}/${app}:latest"
-      sync_single_image "${src_image}" "${dst_latest_image}"
+      _tag_existing_manifest "${dst_image}" "${dst_latest_image}"
     fi
   done
   echo "[INFO] Container images successfully synced."
@@ -226,6 +302,9 @@ _require_obs_creds() {
 }
 
 _obs_sign() {
+  # OBS Signature V1 string to sign:
+  #   VERB \n Content-Type \n Date \n CanonicalizedResource
+  # The canonicalized resource always starts with a leading slash.
   local string_to_sign="$1
 
 $2
@@ -261,7 +340,10 @@ obs_put() {
   local http_code
   http_code=$(curl -sS -o /tmp/obs_resp.txt -w "%{http_code}" \
     --connect-timeout 30 \
-    --max-time 600 \
+    --max-time "${OBS_UPLOAD_TIMEOUT:-1800}" \
+    --speed-time 300 \
+    --speed-limit 512 \
+    --http1.1 \
     --retry 3 \
     --retry-delay 3 \
     -X PUT \
@@ -334,13 +416,22 @@ sync_cli() {
     done
   fi
 
-  for f in "${files_to_upload[@]}"; do
+  # Upload the assets. They go in parallel: on a slow link a serial upload of
+  # 12 archives takes many times longer than the transfer itself.
+  export OBS_AK OBS_SK OBS_BUCKET OBS_REGION OBS_HTTP_BASE
+  _obs_put_one() {
+    local f="$1"
     local fname
     fname="$(basename "$f")"
     local key="tools/mopheus/${VERSION}/${fname}"
     echo "[INFO] Uploading ${fname} to ${key}..."
     obs_put "$f" "$key"
-  done
+  }
+  export -f _obs_put_one
+  export VERSION
+
+  printf '%s\0' "${files_to_upload[@]}" \
+    | xargs -0 -P "${OBS_UPLOAD_JOBS:-4}" -I{} bash -c '_obs_put_one "$@"' _ {}
 
   # 2. Upload manifest JSON (rewrite download_base and download URLs to OBS endpoints)
   local obs_tools_base="${OBS_HTTP_BASE%/}/tools/mopheus"
