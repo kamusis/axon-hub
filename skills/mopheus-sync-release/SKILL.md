@@ -11,25 +11,6 @@ Synchronize Mopheus build artifacts (container images and CLI binaries) from Git
 
 This skill provides `scripts/sync-github-to-huawei.sh` to mirror multi-arch Docker images from GHCR to Huawei Cloud SWR, and download CLI release assets from GitHub Releases to upload them to Huawei Cloud OBS.
 
-### Upload path
-
-`crane copy` cannot be used for the image mirror: it streams every layer over a
-single connection, and SWR aborts long-lived upload connections on this link,
-so the 17-24 MiB binary layers always fail with
-`PROTOCOL_ERROR / unexpected EOF`. The script therefore pushes the layers
-itself:
-
-- `scripts/swr_sync_image.sh` walks the manifest list, HEADs every layer on
-  SWR, uploads only the missing ones and then pushes the manifests.
-- `scripts/swr_push_blob.sh` uploads one blob. All blobs are uploaded with a single
-  monolithic PUT by default (`SWR_MONOLITHIC_THRESHOLD=0`) because SWR upload
-  sessions reject more than ~5.5 MiB in cumulative chunked uploads (`DIGEST_INVALID`)
-  and monolithic PUT minimizes round trips.
-- Tagging existing manifests (`:version` or `:latest`) uses `crane tag` directly
-  without transferring any layers.
-
-Blobs are content-addressed, so a re-run only pushes what is still missing.
-
 ## Execution
 
 Locate and execute `sync-github-to-huawei.sh` provided in this skill's `scripts/` directory:
@@ -59,17 +40,5 @@ bash "$SCRIPT_PATH" \
 ### Environment & Prerequisites
 
 - **Container Image Mirroring**: Requires `crane`, `skopeo`, or `docker` on the host, with push access to Huawei Cloud SWR (`swr.cn-north-4.myhuaweicloud.com`).
-- **SWR Credentials**: `HUAWEICLOUD_SWR_USER` and `HUAWEICLOUD_SWR_PASSWORD` (or `SWR_USER` / `SWR_PASSWORD`). The upload sessions need a Bearer token from `/swr/auth/v2/registry/auth/`; Basic auth is not accepted on the blob upload path.
 - **OBS Upload**: Requires `OBS_AK` and `OBS_SK` (or `OBS_ACCESS_KEY_ID` and `OBS_SECRET_ACCESS_KEY`).
 - **CLI Download**: Uses `gh release download` (requires authenticated GitHub CLI access to `enmotech/mopheus`).
-
-### Tunables
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `SWR_UPLOAD_JOBS` | `4` | Layers uploaded in parallel. Keep it low on a slow link. |
-| `SWR_MONOLITHIC_THRESHOLD` | `0` | Threshold in bytes for monolithic PUT (0 = monolithic for all sizes). |
-| `SWR_CHUNK_SIZE` | `262144` | Chunk size for the chunked path. |
-| `SWR_UPLOAD_TIMEOUT` | `3600` | Per-blob upload timeout in seconds. |
-| `OBS_UPLOAD_JOBS` | `4` | OBS assets uploaded in parallel. |
-| `OBS_UPLOAD_TIMEOUT` | `1800` | Per-asset upload timeout in seconds. |
