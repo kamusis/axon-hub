@@ -1,6 +1,6 @@
 ---
 name: verification-before-completion
-description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - audits the current change set or PR diff against architectural rules, coding standards, and quality guardrails; strictly scoped to modified lines without expanding to pre-existing repository code or executing test commands
+description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - runs unified dual-engine audit (ponytail-review for lean/caller blast radius + architectural guardrails like mopheus-code-review); strictly scoped to current diff and its direct caller impact without expanding to unrelated code or executing test suites
 ---
 
 # Verification Before Completion (Diff-Scoped Code Review)
@@ -24,20 +24,27 @@ Always inspect the current diff (`git diff`, staged changes, or branch diff) lin
 ## Scoping Rules (Diff-First)
 
 1. **Audit Only What You Changed**: Inspect only modified, added, or deleted lines in the current change set.
-2. **Never Audit Pre-Existing Code**: If an untouched file or adjacent pre-existing code violates a convention, ignore it. Do not attempt drive-by cleanups.
-3. **Clean Up Only Your Mess**: Check that your change did not leave orphaned imports, unused variables, or broken call sites in touched code.
+2. **Trace Caller Impact (Blast Radius)**: A change can break code it does not touch. When a function signature, return value, or behavior changes, grep its callers across the codebase to ensure outside call sites are not broken.
+3. **Never Audit Pre-Existing Code**: If an untouched file or adjacent pre-existing code violates a convention, ignore it. Do not attempt drive-by cleanups.
+4. **Clean Up Only Your Mess**: Check that your change did not leave orphaned imports, unused variables, or broken call sites in touched code.
 
-## The Review Gate
+## The Review Gate (Dual-Engine Pipeline)
 
 ```
 BEFORE claiming any status, completion, or committing/opening a PR:
 
 1. INSPECT CURRENT DIFF: Review modified/added/deleted lines (git diff / git diff HEAD~1).
-2. ROUTE & AUDIT MODIFIED CODE:
-   - If working in `enmotech/mopheus`: Read and apply the `mopheus-code-review` skill (`Step 1: 1A–1G` component checklists matched to touched file paths) as the single source of truth.
+2. PHASE A: PONYTAIL LEAN & CALLER AUDIT (`ponytail-review`)
+   - Caller Blast Radius: Grep callers of every modified function/signature; ensure outside code is not broken.
+   - Lean & Anti-Bloat: Smallest complete change. Check if newly added lines can be eliminated, simplified, or use existing helpers (Lean: -N lines). Reject speculative abstractions.
+   - Concurrency & Scale: Check check-then-write races, N+1 queries, memory growth, unrecovered goroutines/workers under expected load.
+   - Risky Logic & Tests: Risky new logic (branches, parsers, security, writes) must have focused behavioral tests.
+3. PHASE B: ARCHITECTURAL COMPLIANCE AUDIT
+   - If working in `enmotech/mopheus`: Read and apply `mopheus-code-review` (`Step 1: 1A–1G` component checklists matched to touched file paths) as the single source of truth.
    - For all other repositories: Check the diff against the Universal Quality & Architectural Review Checklist below and the repository's `AGENTS.md` / `CLAUDE.md`.
-3. VERIFY SURGICAL PRECISION: Confirm every changed line traces directly to the task. Reject unrequested abstractions or formatting churn.
-4. RESOLVE OWN VIOLATIONS: If your changes introduce an anti-pattern or rule violation, fix it immediately.
+4. RESOLVE OWN VIOLATIONS & VERDICT:
+   - Fix all [Blocking] defects and unnecessary bloat before claiming completion.
+   - Both Phase A and Phase B must pass (Ship / Approved).
 
 Skip any step = incomplete review
 ```
