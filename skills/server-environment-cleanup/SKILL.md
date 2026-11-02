@@ -26,7 +26,7 @@ Over time, server environments accumulate obsolete Docker images from daily cont
     ```
     `scripts/detect-docker-images.sh` automatically detects this and uses `systemd-run --user --pipe --wait --quiet -- docker`. If both direct `docker info` and `systemd-run --user` fail, abort the Docker cleanup step immediately and report the error—never attempt any namespace/mount workaround.
 - **Protected Resources (Never Delete)**:
-  - Any Docker image in active use by running or stopped containers (`docker ps -a`), or base toolchain/infra images (`alpine`, `golang`, `nginx`, `minio`, `pgvector`, `swissql-core`, etc.).
+  - Any Docker image in active use by running or stopped containers (`docker ps -a`), or internal organization images (`*mopheus/*`, `*moclaw/*`).
   - The main repository worktree and main/master branches.
   - Worktrees with uncommitted, untracked, or unique changes.
   - Remote Git branches (`git push --delete` is strictly forbidden).
@@ -39,10 +39,11 @@ Over time, server environments accumulate obsolete Docker images from daily cont
 
 ### A. Protected Resources (Never Delete)
 1. **In-Use Images**: Any image associated with a running or stopped container (marked `In Use` or present in `docker ps -a`).
-2. **Base Infrastructure & Toolchain Images**:
-   - `alpine:*`, `golang:*`, `nginx:*`, `minio/minio:*`
-   - `*pgvector:*`, `*swissql-core:*`
-   - Any base image required for local compilers, daemons, or database testing.
+2. **Organization Infrastructure & Base Images**:
+   - Any repository under `*mopheus/*` or `*moclaw/*` (e.g., `pgvector`, `swissql-core`, `redis`, `new-api`, `nginx`) is protected as an internal infrastructure base image (excluding rolling application builds).
+   - Core database engine images (`*pgvector:*`, `*swissql-core:*`).
+3. **Unused External Images (Auto-Cleaned)**:
+   - External third-party images (e.g., `golang:*`, `minio/minio:*`, `alpine:*`, `mysql:*`, `percona:*`) that have no active or stopped container referencing them are classified as **CLEANUP CANDIDATES** and automatically pruned.
 
 ### B. Daily / Beta Build Image Retention Rules
 For application service images built during daily iterations (e.g., `mopheus-backend:v*`, `mopheus-web:v*`):

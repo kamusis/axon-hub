@@ -116,11 +116,17 @@ is_in_use() {
     return 1
 }
 
-# Protected base image patterns (never delete unless dangling; match both Docker short names and Podman registry-prefixed names)
+# Protected base image patterns (never delete unless dangling)
+# Any repository belonging to the organization (*mopheus/* or *moclaw/*) that is not a rolling application build (backend/web),
+# or core database infrastructure (*pgvector*, *swissql-core*), is protected as a base/infrastructure image.
 is_protected_base() {
     local repo="$1"
     case "$repo" in
-        alpine|*/alpine|golang|*/golang|node|*/node|nginx|*/nginx|postgres|*/postgres|minio/minio|*/minio/minio|*pgvector*|*swissql-core*)
+        *mopheus-backend*|*mopheus-web*)
+            # Application build repositories follow rollback keep count policy
+            return 1
+            ;;
+        *mopheus/*|*moclaw/*|*pgvector*|*swissql-core*)
             return 0
             ;;
         *)
@@ -152,7 +158,34 @@ for repo in $REPOS; do
         continue
     fi
 
-    # For application/build repos (e.g. mopheus-backend, mopheus-web)
+    # Check if this repository is a designated rolling application build repo (e.g. backend/web)
+    is_app_build_repo=false
+    case "$repo" in
+        *mopheus-backend*|*mopheus-web*)
+            is_app_build_repo=true
+            ;;
+    esac
+
+    # Check if this repository has at least one tag currently in use by a container
+    repo_has_in_use=false
+    while IFS=$'\t' read -r r tag id size created; do
+        [ -z "$tag" ] && continue
+        if is_in_use "${r}:${tag}" "$id"; then
+            repo_has_in_use=true
+            break
+        fi
+    done <<< "$TAG_ROWS"
+
+    if [ "$is_app_build_repo" = false ] && [ "$repo_has_in_use" = false ]; then
+        # Unused external/ad-hoc image repository: no active container and not an internal base image.
+        while IFS=$'\t' read -r r tag id size created; do
+            [ -z "$tag" ] && continue
+            CANDIDATES_TO_REMOVE="${CANDIDATES_TO_REMOVE}${r}:${tag}\t${id}\t${size}\tUnused external image (no active container)\n"
+        done <<< "$TAG_ROWS"
+        continue
+    fi
+
+    # For application/build repos or repos with active containers:
     # Deduplicate by unique Image ID so multiple tags pointing to the same image ID do not consume multiple keep slots.
     # In-use images are active and do not consume historical rollback buffer slots.
     declare -A repo_id_rank=()
