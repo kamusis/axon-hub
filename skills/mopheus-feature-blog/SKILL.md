@@ -87,7 +87,8 @@ Best for: AIDevOps (unifying Dev, Ops, and ITSM), Polymorphic Assignees, Multi-A
 
 - **File Location**: Save articles as Markdown under `docs/blog/<slug>.md`.
 - **Language**: Default to natural, high-signal Chinese for prose when requested in Chinese, while keeping all code, CLI commands, identifiers, configuration keys, and error names in verbatim English.
-- **Intellectual Property & Internal Design Protection (知识产权与内部设计防护)**:
+- **Intellectual Property & Sensitive Data Protection (知识产权、客户数据与机密防护 — 强制安全红线)**:
+  - **客户真实身份与敏感信息绝对脱敏（Mandatory Customer & Sensitive Data De-identification）**：严禁在博客正文、代码块、CLI 输出、日志、工单标题、图片或架构图中出现任何**真实客户/商业机构名称**（如企业全称、简称、证券/信托/银行等真实客户品牌）、生产 IP、内部域名、凭证密钥或未公开业务数据。所有来自生产环境的真实工单与交互记录，必须 100% 执行前置脱敏与泛化（例如将真实工单名 `中铁信托-测试环境MySQL5.7.28升级...` 统一泛化替换为 `某金融机构-测试环境MySQL5.7.28升级...` 或 `某大型客户-...`），严防违反客户保密协议（NDA）与数据合规底线。
   - **严禁暴露内部数据库 DDL**：严禁在博客正文、代码块或配图中直接贴出底层数据库的 `CREATE TABLE`、`ALTER TABLE`、内部索引名或内部 Migration 迁移脚本。
   - **采用抽象概念模型与实体关系图**：若需阐述数据架构或存储机制，必须使用通过 `diagram-design` 绘制的抽象实体模型图（ER/Data Model）、YAML 声明式清单、公开 REST API 或 CLI 原语进行说明，严禁将私有工程源码中的数据库物理表实现细节逐行抄入公开博客。
   - **严禁公开私有代码库链接**：Mopheus 为商业专有软件（Private Repository），严禁在文章中提供指向 `enmotech/mopheus` 的 GitHub 源码链接或私有 issue/PR 编号。
