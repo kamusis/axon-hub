@@ -153,19 +153,34 @@ for repo in $REPOS; do
     fi
 
     # For application/build repos (e.g. mopheus-backend, mopheus-web)
-    kept_count=0
+    # Deduplicate by unique Image ID so multiple tags pointing to the same image ID do not consume multiple keep slots.
+    # In-use images are active and do not consume historical rollback buffer slots.
+    declare -A repo_id_rank=()
+    kept_rollback_count=0
+
     while IFS=$'\t' read -r r tag id size created; do
         [ -z "$tag" ] && continue
         full_ref="${r}:${tag}"
 
         if is_in_use "$full_ref" "$id"; then
             PROTECTED_IMAGES="${PROTECTED_IMAGES}${full_ref}\t${id}\t${size}\tCurrently In-Use (Container active)\n"
-            ((kept_count++))
-        elif [ "$kept_count" -lt "$KEEP_VERSIONS" ]; then
-            PROTECTED_IMAGES="${PROTECTED_IMAGES}${full_ref}\t${id}\t${size}\tRecent rollback version (rank $((kept_count+1)))\n"
-            ((kept_count++))
         else
-            CANDIDATES_TO_REMOVE="${CANDIDATES_TO_REMOVE}${full_ref}\t${id}\t${size}\tOutdated build (exceeds keep count ${KEEP_VERSIONS})\n"
+            existing_rank="${repo_id_rank[$id]:-}"
+            if [ -n "$existing_rank" ]; then
+                if [ "$existing_rank" -le "$KEEP_VERSIONS" ]; then
+                    PROTECTED_IMAGES="${PROTECTED_IMAGES}${full_ref}\t${id}\t${size}\tRecent rollback version (rank ${existing_rank})\n"
+                else
+                    CANDIDATES_TO_REMOVE="${CANDIDATES_TO_REMOVE}${full_ref}\t${id}\t${size}\tOutdated build (exceeds keep count ${KEEP_VERSIONS})\n"
+                fi
+            elif [ "$kept_rollback_count" -lt "$KEEP_VERSIONS" ]; then
+                ((kept_rollback_count++))
+                repo_id_rank["$id"]="$kept_rollback_count"
+                PROTECTED_IMAGES="${PROTECTED_IMAGES}${full_ref}\t${id}\t${size}\tRecent rollback version (rank ${kept_rollback_count})\n"
+            else
+                ((kept_rollback_count++))
+                repo_id_rank["$id"]="$kept_rollback_count"
+                CANDIDATES_TO_REMOVE="${CANDIDATES_TO_REMOVE}${full_ref}\t${id}\t${size}\tOutdated build (exceeds keep count ${KEEP_VERSIONS})\n"
+            fi
         fi
     done <<< "$TAG_ROWS"
 done
