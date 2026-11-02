@@ -33,6 +33,7 @@ This skill chains the full developer lifecycle from an incoming ticket to peer-r
           │
           ▼
 [Phase 3: Implement & Verify Scoped Changes]
+  - Explore symbols and callers via `codegraph` CLI instead of bare grep
   - Surgical edits matching project guidelines (Simplicity First, TDD)
   - Run diff-scoped verification (backend/frontend/docs tests)
           │
@@ -126,13 +127,23 @@ Follow the rules of `using-git-worktrees` strictly:
 
 ## Phase 3: Goal-Driven Coding & Diff-Scoped Verification
 
-1. **Coding Discipline**:
+1. **Code Intelligence & Architecture Exploration (`codegraph` CLI)**:
+   Before modifying or writing code, explore existing architecture, symbol definitions, and caller impact using `codegraph` CLI instead of blindly guessing or relying solely on plain text `grep`:
+   - **Symbol Lookup**: `codegraph query <symbol>` (semantic AST resolution, bypassing comments/fixtures).
+   - **Area Context**: `codegraph explore <query>` (captures relevant symbols and call paths in one shot).
+   - **Caller Blast Radius**: `codegraph callers <symbol>` (traces external call sites of modified functions).
+   - **Callee Dependencies**: `codegraph callees <symbol>` (inspects downstream dependencies).
+   - **Impact Analysis**: `codegraph impact <symbol>` (evaluates blast radius before changing public signatures).
+   - **Affected Tests**: `codegraph affected <file...>` (identifies test suites covering changed files).
+   *Fallback rule: Only use `grep` / `rg` for non-code files (markdown, YAML, config) or when the project has not initialized a CodeGraph index.*
+
+2. **Coding Discipline**:
    - **Think Before Coding**: Surface assumptions and verify existing patterns.
    - **Simplicity First**: Minimum code that solves the problem. No speculative abstractions.
    - **Surgical Changes**: Touch only necessary lines. Match existing codebase style.
    - **TDD / Regression Tests**: Add or update tests verifying the new behavior or reproduction of the fixed bug.
 
-2. **Execute Diff-Scoped Verification**:
+3. **Execute Diff-Scoped Verification**:
    Analyze changed files (`git status --porcelain` or `git diff --name-only origin/main...HEAD`) and run scoped checks:
    - **Mopheus Backend Go** (`server/**`, `cmd/**`):
      ```bash
@@ -150,7 +161,7 @@ Follow the rules of `using-git-worktrees` strictly:
    - **General Repositories**:
      Execute the repository's native test / typecheck / lint command as specified in `AGENTS.md` or `package.json` / `Makefile`.
 
-3. **Verification Guardrail**:
+4. **Verification Guardrail**:
    - Require exit code 0 and confirm zero failure markers in test output.
    - Inspect `git diff` line-by-line to ensure no accidental changes, leftover debugging statements, or commented-out code.
 
