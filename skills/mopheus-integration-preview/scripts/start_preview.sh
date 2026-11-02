@@ -140,9 +140,9 @@ echo "==> [3/6] Running database migrations..."
 echo "==> [4/6] Building backend & CLI binaries..."
 (cd server && mkdir -p bin && go build -o bin/mopheusd ./cmd/mopheusd && go build -o bin/mopheus ./cmd/mopheus)
 
-# Start backend detached using cross-platform Python helper
+# Start backend detached using native bash helper
 rm -f "$PREVIEW_DIR/backend.log"
-python3 "$SCRIPT_DIR/start_detached.py" \
+bash "$SCRIPT_DIR/start_detached.sh" \
     --cwd "$PREVIEW_DIR" \
     --log "$PREVIEW_DIR/backend.log" \
     --pid-file "$PREVIEW_DIR/backend.pid" \
@@ -201,7 +201,9 @@ echo y | "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server
 "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server_url "http://localhost:${BACKEND_PORT}" daemon start --daemon-id "$FIXED_DAEMON_ID" --sandbox-enabled=false --allow-root
 
 rm -f "$PREVIEW_DIR/frontend.log"
-python3 "$SCRIPT_DIR/start_detached.py" \
+echo "==> Cleaning stale Next.js cache to avoid Turbopack chunk reuse..."
+rm -rf "$PREVIEW_DIR/apps/web/.next"
+bash "$SCRIPT_DIR/start_detached.sh" \
     --cwd "$PREVIEW_DIR" \
     --log "$PREVIEW_DIR/frontend.log" \
     --pid-file "$PREVIEW_DIR/frontend.pid" \
