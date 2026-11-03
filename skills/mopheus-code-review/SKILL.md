@@ -44,7 +44,7 @@ Activate **only** the component checklists whose path patterns match the changed
 | `.agents/skills/**` | **1F. Agent Skills** |
 | `tests/e2e/**` or `playwright*.config.ts` | **1G. Playwright E2E Tests (`tests/e2e/**`)** |
 
-If a component's path pattern is **not** present in the diff, skip its checklist completely.
+If a component's path pattern is **not** present in the diff, skip its checklist completely — **EXCEPT** when Go changes under `server/models/` introduce new persisted config keys (`ConfigKey*`), tables, or enum values; in that case, the reviewer MUST verify that **1A. Database Migrations** is activated and satisfied.
 
 ### 1A. Database Migrations (`server/migrations/**`)
 - **No FK / No CHECK**: Migrations must not contain `FOREIGN KEY`, `REFERENCES`, or `CHECK` constraints; all validation belongs in application code.
@@ -53,6 +53,7 @@ If a component's path pattern is **not** present in the diff, skip its checklist
 - **Multi-tenancy & Types**: Workspace-scoped tables must include `workspace_id UUID NOT NULL`. Status/enum columns use `INT` (with named Go types and `fmt.Stringer` in `server/models/`). Standard `VARCHAR` lengths: short=50, medium=100, email/URL=255, long URLs=512/1024, descriptions=TEXT.
 
 ### 1B. Go Backend & CLI (`server/**`)
+- **Config Keys & Migration Completeness**: If `server/models/config_keys.go` adds or modifies `ConfigKey*` constants, or if a new channel/integration platform is introduced, verify that the PR includes a new sequential SQL migration under `server/migrations/*.up.sql` that seeds default values into the `config` table (`INSERT INTO config (key, value, description) VALUES (...) ON CONFLICT (key) DO NOTHING;`) with a corresponding `.down.sql`. Missing migrations for new config keys or persisted channels must trigger `[Blocking] CHANGES REQUESTED`.
 - **Workspace Isolation (`workspace_id`)**: Every database query on a workspace-scoped entity in `server/internal/repo/` must filter by `workspace_id`. Never leak data across workspace boundaries.
 - **Leaf-First Cascade Deletes**: Entity deletion in `server/internal/repo/` must explicitly delete dependent records within the same transaction, leaf tables first. Adding a table referencing an existing entity requires updating that entity's delete path.
 - **Goroutine Panic Recovery**: Every background goroutine (cron loops, watchers, schedulers, WebSocket pumps, hub loops, service/daemon goroutines) must use `util.SafeGo(logger, func())`.

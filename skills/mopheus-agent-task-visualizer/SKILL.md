@@ -5,7 +5,7 @@ description: >
   从指定 Mopheus 工作区中增量拉取全量 agent task 及 transcript 消息，
   深入解析思维耗时 (Thinking Duration)、工具调用分布 (tool:Bash, tool:TaskCreate, tool:TaskUpdate, tool:WebFetch, tool:WebSearch 等) 及成功率/失败率，
   沉淀 stage 结构化数据并生成自包含、高交互性的现代化数据可视化 HTML 报告。
-  
+
   触发关键词：agent task统计、agent task可视化、智能体任务统计、task数据可视化、
   agent task 看板、task transcript 统计、agent task 报告、智能体任务分析、
   task thinking 统计、tool 调用统计。
@@ -77,7 +77,7 @@ python3 scripts/run_visualizer.py -w <workspace_slug>
 ```
 常用选项：
 - `-w, --workspace <slug>`: 指定目标工作区（默认 `dev` 或根据当前配置）。
-- `-p, --profile <profile>`: 指定 Mopheus CLI Profile。
+- `-p, --profile <profile>`: 指定 Mopheus CLI Profile（未指定时优先读取 `MOPHEUS_DEV_PROFILE` 环境变量，或通过 `mopheus profile list` 动态探测匹配开发环境的 Profile）。
 - `-o, --output <path.html>`: 指定 HTML 报告输出路径。
 - `--force`: 强制全量重新抓取并更新已完成的历史任务。
 - `--open`: 生成后自动在默认浏览器中打开 HTML 报告。

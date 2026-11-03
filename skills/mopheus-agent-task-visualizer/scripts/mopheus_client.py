@@ -26,7 +26,14 @@ class MopheusClient:
         server_url: Optional[str] = None,
         token: Optional[str] = None,
     ):
-        self.profile = profile or os.environ.get("MOPHEUS_PROFILE", "")
+        resolved_profile = (
+            profile
+            or os.environ.get("MOPHEUS_DEV_PROFILE", "")
+            or os.environ.get("MOPHEUS_PROFILE", "")
+        )
+        if not resolved_profile:
+            resolved_profile = self._detect_dev_profile()
+        self.profile = resolved_profile
         self.config_dir = self._resolve_config_dir()
         self.config = self._load_config()
 
@@ -59,6 +66,47 @@ class MopheusClient:
         )
         self.workspace_id: Optional[str] = None
         self._resolve_workspace()
+
+    @classmethod
+    def _detect_dev_profile(cls, target_url: str = "https://dev.mopheus.ai") -> str:
+        """Dynamically detect local profile pointing to target_url with priority rules."""
+        dev_env = os.environ.get("MOPHEUS_DEV_PROFILE", "").strip()
+        if dev_env:
+            return dev_env
+        for cli in ("mopheus", "mop"):
+            try:
+                res = subprocess.run(
+                    [cli, "profile", "list", "-o", "json"],
+                    capture_output=True,
+                    text=True,
+                    errors="replace",
+                )
+                if res.returncode == 0 and res.stdout:
+                    profiles = json.loads(res.stdout)
+                    if isinstance(profiles, list):
+                        target = target_url.rstrip("/")
+                        matched = [
+                            p for p in profiles
+                            if isinstance(p, dict) and (p.get("serverUrl") or "").rstrip("/") == target
+                        ]
+                        authed = [p for p in matched if p.get("hasToken")]
+                        candidates = authed if authed else matched
+                        if candidates:
+                            exact_dev = [p for p in candidates if p.get("name") == "dev"]
+                            if exact_dev:
+                                return exact_dev[0]["name"]
+                            contains_dev = [
+                                p for p in candidates if "dev" in (p.get("name") or "").lower()
+                            ]
+                            if contains_dev:
+                                return contains_dev[0]["name"]
+                            default_p = [p for p in candidates if p.get("name") == "default"]
+                            if default_p:
+                                return default_p[0]["name"]
+                            return candidates[0].get("name", "")
+            except Exception:
+                pass
+        return ""
 
     def _resolve_config_dir(self) -> Path:
         home = Path.home()

@@ -120,20 +120,38 @@ git worktree add "$path" -b "$BRANCH_NAME" main
 cd "$path"
 ```
 
-### 4. Stop at Git Isolation
+### 4. Link CodeGraph Index from Main (If Synced)
 
-Creating a worktree ends after `git worktree add` and changing into the new directory. Do not automatically install dependencies, build code, run tests, create environment files, start containers or services, create databases, or run migrations.
+If the main worktree has an initialized and synced CodeGraph index, link its database into the new worktree:
+
+```bash
+main_worktree=$(git worktree list | head -n 1 | awk '{print $1}')
+if [ -s "$main_worktree/.codegraph/codegraph.db" ]; then
+  mkdir -p "$path/.codegraph"
+  ln -sf "$main_worktree/.codegraph/codegraph.db" "$path/.codegraph/codegraph.db"
+fi
+```
+
+**Why link the DB file instead of the folder:**
+- Git tracks `.codegraph/.gitignore` in the repository, so `git worktree add` already checks out a `.codegraph/` directory.
+- Running `ln -s` on an existing directory would either nest it (`.codegraph/.codegraph`) or deleting it would mark `.codegraph/.gitignore` as deleted in Git (`D .codegraph/.gitignore`), dirtying `git status`.
+- Linking `codegraph.db` directly inside `.codegraph/` leaves Git status 100% clean and gives instant AST intelligence without slow re-indexing or duplicating ~300MB disk usage.
+
+### 5. Stop at Git Isolation
+
+Creating a worktree ends after `git worktree add`, linking pre-existing index files (`.codegraph`), and changing into the new directory. Do not automatically install dependencies, build code, run tests, create environment files, start containers or services, create databases, or run migrations.
 
 Treat every environment preparation or verification command as a separate task action. Run it only when the user's request requires it, after inspecting what the command does and confirming that its mutations stay within the authorized scope.
 
-### 5. Report Location
+### 6. Report Location
 
 ```
 Worktree ready at <full-path>
 Branch: <branch-name> (based on main @ <short-sha>)
+CodeGraph: linked from main (.codegraph ready) / not initialized
 ```
 
-### 6. Delivery Boundaries (No Unauthorized Commit / Push / Merge)
+### 7. Delivery Boundaries (No Unauthorized Commit / Push / Merge)
 
 Developing code in a dedicated worktree typically indicates non-trivial or substantial feature work. Never commit, push, create a pull request, or merge a pull request automatically upon finishing code implementation.
 
@@ -153,7 +171,8 @@ When working inside a worktree:
 | Directory not ignored | Add to .gitignore + commit |
 | Before `git worktree add` | Sync local `main` with `origin/main` (fast-forward only) |
 | Creating worktree | Always branch explicitly from `main`: `git worktree add "$path" -b "$BRANCH_NAME" main` |
-| Worktree created | Report path, branch, and base commit; stop |
+| Main .codegraph synced | Link codegraph.db into new worktree: `mkdir -p "$path/.codegraph" && ln -sf "$main_worktree/.codegraph/codegraph.db" "$path/.codegraph/codegraph.db"` |
+| Worktree created | Report path, branch, base commit, and CodeGraph status; stop |
 
 ## Common Mistakes
 
@@ -205,6 +224,7 @@ Branch: feature/auth (based on main @ a1b2c3d)
 **Always:**
 - Sync local `main` with `origin/main` (fast-forward only) before creating the worktree
 - Explicitly branch the new worktree from `main` (`git worktree add "$path" -b "$BRANCH_NAME" main`)
+- Probe main worktree for synced `.codegraph/codegraph.db` and link into the new worktree
 - Follow directory priority: existing > CLAUDE.md > ask
 - Verify directory is ignored for project-local
 - Stop after creating the worktree and report its path, branch, and base commit

@@ -29,6 +29,7 @@ This skill chains the full developer lifecycle from an incoming ticket to peer-r
   - Sync local `main` with `origin/main` (fast-forward only)
   - Verify `.worktrees/` is in `.gitignore`
   - Create isolated branch & worktree: `git worktree add .worktrees/<branch> -b <branch> main`
+  - Link synced `.codegraph` from main worktree into new worktree
   - Switch to worktree directory
           │
           ▼
@@ -119,7 +120,18 @@ Follow the rules of `using-git-worktrees` strictly:
      cd .worktrees/<branch-name>
      ```
 
-5. **Stop at Git Isolation**:
+5. **Link Synced CodeGraph Index from Main Worktree**:
+   Probe the main worktree for an existing, synced `.codegraph` database:
+   ```bash
+   main_worktree=$(git worktree list | head -n 1 | awk '{print $1}')
+   if [ -s "$main_worktree/.codegraph/codegraph.db" ]; then
+     mkdir -p .codegraph
+     ln -sf "$main_worktree/.codegraph/codegraph.db" .codegraph/codegraph.db
+   fi
+   ```
+   *Benefit*: Equips the isolated worktree with instant semantic code intelligence for Phase 3 without slow re-indexing or duplicating database disk consumption (~300MB). Preserves git cleanliness for `.codegraph/.gitignore`.
+
+6. **Stop at Git Isolation**:
    - Do NOT run heavy monolithic builds, dependency reinstalls, or container migrations during worktree creation.
    - Only execute targeted setup/verification commands when needed during development.
 

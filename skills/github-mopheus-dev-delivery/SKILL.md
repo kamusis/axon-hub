@@ -35,13 +35,26 @@ bash -lc 'command -v mopheus || command -v mop'
 - Reject any candidate whose resolved path (`readlink -f`) lies inside a repository checkout or worktree (for example `.worktrees/*/server/bin/mopheus` or `server/bin/mopheus`); that is an unreleased local build.
 - Confirm the binary actually works before concluding anything: `<cli> version`, then `profile ls` and `auth status`.
 
-**Configuration authority:**
+**Configuration authority and profile resolution:**
 
 - `profile ls` and `auth status` are the only source of truth for profile and authentication state.
-- Never infer profile existence from filesystem layout. The `default` profile is stored at the config root (`~/.mopheus/auth.json` + `~/.mopheus/config.json`), not under `~/.mopheus/profiles/`, which holds only named non-default profiles.
-- Exclusively use the formal `--profile default`; unset preview environment variables (`MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, etc.).
-- Ensure configured server URL is `https://dev.mopheus.ai` (via `mopheus --profile default connect --server_url https://dev.mopheus.ai` or `config set server-url https://dev.mopheus.ai`) and verify with `auth status`.
-- Pass `--profile default --workspace-id <id>` explicitly to every Mopheus command.
+- Never infer profile existence from filesystem layout.
+- Unset preview environment variables (`MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, etc.).
+- **Resolve the formal dev profile (`<dev-profile>`)**:
+  1. **Check `MOPHEUS_DEV_PROFILE`**: If `MOPHEUS_DEV_PROFILE` environment variable is set (e.g. `export MOPHEUS_DEV_PROFILE=dev`), use its value as `<dev-profile>`.
+  2. **Dynamic URL probe**: If `MOPHEUS_DEV_PROFILE` is unset, run `mopheus profile list -o json` (or `mop profile list -o json`) and filter profiles matching `serverUrl == "https://dev.mopheus.ai"`:
+     - Prioritize profiles with `hasToken: true`.
+     - When multiple authenticated profiles match, prioritize exact `dev` > name containing `dev` (e.g. `mop-dev`) > `default` > first matching profile.
+     - If all matching profiles have `hasToken: false`, pick the best candidate (e.g. `dev` or `default`) and instruct the user to run `mopheus --profile <name> login`.
+     - If no profile points to `https://dev.mopheus.ai`, **do NOT overwrite the user's `default` profile**. Prompt the user to configure one:
+       ```bash
+       export MOPHEUS_DEV_PROFILE=dev
+       mopheus profile create dev --server_url https://dev.mopheus.ai
+       mopheus --profile dev login
+       ```
+  3. **Verify authentication**: Run `mopheus --profile <dev-profile> auth status` to ensure valid token status.
+- Set `<target-connection-args>` to `--profile <dev-profile>`.
+- Pass `<target-connection-args> --workspace-id <id>` explicitly to every Mopheus command.
 
 **When integration may be marked `SKIPPED`:** only with positive evidence — the probe ran, the selected binary answered, and `profile ls` or `auth status` explicitly failed (missing profile, invalid token, unreachable server). An empty `command -v` from a non-login shell, a missing profile directory, or any other negative filesystem probe is never sufficient grounds for `SKIPPED`; investigate further instead.
 
@@ -51,7 +64,7 @@ bash -lc 'command -v mopheus || command -v mop'
 2. Read repository instructions and identify the required full verification command.
 3. Attempt to resolve exactly one existing GitHub issue from explicit context, branch/PR data, or the Mopheus ticket's structured links. This workflow does not create a new issue. If none is found, record `github_issue=SKIPPED` and continue; stop only when multiple candidates are ambiguous.
 4. If Mopheus lookup is available, resolve the workspace before ticket lookup: explicit task workspace first, then a workspace matching the repository name, then the current workspace only when it contains a matching project. If no required workspace or ticket is found, record `mopheus_ticket=SKIPPED` and continue. Stop if candidates are ambiguous or formal CLI authentication/configuration is unsafe. `SKIPPED` requires the positive evidence defined in the Formal Mopheus CLI boundary; a failed `command -v` alone is not evidence.
-5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus --profile default --workspace-id <id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n>`. Do not create a ticket when this lookup returns no matching ticket.
+5. Resolve the ticket in this order: explicit ticket ID, `MOPHEUS_TICKET_ID`, current task context, then `mopheus <target-connection-args> --workspace-id <id> repo links --repo https://github.com/enmotech/mopheus.git --type git_issue --number <n>`. Do not create a ticket when this lookup returns no matching ticket.
 6. If the issue exists but no ticket is linked, record `mopheus_ticket=SKIPPED`; do not invoke a ticket-creation skill. If a ticket exists but no issue is found, record `github_issue=SKIPPED` and continue without issue-linking or issue-closing actions.
 7. Once a ticket is resolved, pass its workspace ID explicitly to every subsequent `mopheus` command. When `github_issue` is `SKIPPED`, omit only GitHub issue lookup, issue sync, and issue-link checks while still executing all Mopheus ticket PR sync, link verification, completion comment, and status closure steps. Omit Mopheus ticket writes only when `mopheus_ticket` is `SKIPPED`.
 
@@ -118,15 +131,22 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
   5. Delete only its local feature branch; use `-D` solely for a detector-confirmed squash merge. Prune remote tracking and stale worktree metadata.
   6. Verify the path, local branch, and remote branch are absent and `main` is clean and synchronized.
   7. Check whether a standing preview harness worktree (`preview-test` or `.worktrees/preview-test`) exists. If present, update this disposable test harness to `origin/main` (in both Windows and WSL environments when applicable) so the standing preview test environment stays synchronized with the latest delivered commit.
+  8. Sync CodeGraph index on main (if initialized):
+     ```bash
+     if [ -d "$main_worktree/.codegraph" ] && command -v codegraph >/dev/null 2>&1; then
+       (cd "$main_worktree" && codegraph sync)
+     fi
+     ```
+     Ensures the local `main` branch's CodeGraph index is always up to date with the newly delivered commit, so subsequent `/go` worktrees inherit a fresh AST index without re-indexing.
 
 ## 6. Synchronize and close the Mopheus ticket when a ticket is resolved
 
 Perform this after the merge is verified whenever `mopheus_ticket` was resolved (even when `github_issue` is `SKIPPED`). Skip this section only when `mopheus_ticket` is `SKIPPED`.
 
 1. Add one completion comment with clickable Markdown links to the PR and merge commit (plus the GitHub issue link when `github_issue` was resolved); summarize delivered behavior and fresh verification evidence.
-2. When `github_issue` was resolved (not `SKIPPED`), refresh and formally link the issue with `mopheus --profile default --workspace-id <workspace-id> repo issue sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` using its actual state. When `github_issue=SKIPPED`, skip only this issue-sync step.
-3. Refresh and formally link the PR with `mopheus --profile default --workspace-id <workspace-id> repo pr sync --repo https://github.com/enmotech/mopheus.git --ticket <id>`, including actual title, author, refs, additions, deletions, changed files, closed state (`--state closed`), and merged flag (`--merged`).
-4. Read `mopheus --profile default --workspace-id <workspace-id> repo links --ticket <id>` and require the merged `git_pull_request` entry (and require the `git_issue` entry only when `github_issue` was resolved).
+2. When `github_issue` was resolved (not `SKIPPED`), refresh and formally link the issue with `mopheus <target-connection-args> --workspace-id <workspace-id> repo issue sync --repo https://github.com/enmotech/mopheus.git --ticket <id>` using its actual state. When `github_issue=SKIPPED`, skip only this issue-sync step.
+3. Refresh and formally link the PR with `mopheus <target-connection-args> --workspace-id <workspace-id> repo pr sync --repo https://github.com/enmotech/mopheus.git --ticket <id>`, including actual title, author, refs, additions, deletions, changed files, closed state (`--state closed`), and merged flag (`--merged`).
+4. Read `mopheus <target-connection-args> --workspace-id <workspace-id> repo links --ticket <id>` and require the merged `git_pull_request` entry (and require the `git_issue` entry only when `github_issue` was resolved).
 5. Set the ticket to `done` (if not already `done`) only after the comment and required structured link(s) succeed.
 6. Re-read the ticket and links; confirm Done, correct URLs, merged PR state, and closed issue state when an issue exists.
 

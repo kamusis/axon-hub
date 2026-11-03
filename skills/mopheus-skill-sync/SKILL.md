@@ -14,7 +14,18 @@ Require both inputs:
 - a local skill directory containing exactly one `SKILL.md`;
 - a target Mopheus workspace name, slug, or UUID.
 
+Optional input / configuration:
+- target profile name or `MOPHEUS_DEV_PROFILE` environment variable (when targeting the development environment `https://dev.mopheus.ai`).
+
 Do not infer the target workspace from the active CLI profile when the user did not specify one. Do not modify the local skill directory. Use the installed `mopheus` executable from the host PATH; do not use a repository-built CLI or a preview binary.
+
+**Profile resolution**:
+1. If the user explicitly provided a profile, use it.
+2. If the target workspace indicates the dev environment (e.g. `dev`, `dev-space`) or targeting `https://dev.mopheus.ai`:
+   - Prioritize `MOPHEUS_DEV_PROFILE` environment variable if set.
+   - Otherwise detect via `mopheus profile list -o json` filtering for `serverUrl == "https://dev.mopheus.ai"` (preferring `hasToken: true`, then name `dev` > containing `dev` > `default` > first matching profile).
+   - Verify token with `mopheus --profile <name> auth status`.
+3. Set `<target-connection-args>` to `--profile <profile>` when a profile is resolved; otherwise leave empty.
 
 Stop before writing when the local path is missing, `SKILL.md` has no valid frontmatter or `name`, the workspace is missing or ambiguous, the repository/API identity is unexpected, or more than one same-name workspace skill is returned.
 
@@ -24,28 +35,28 @@ Stop before writing when the local path is missing, `SKILL.md` has no valid fron
    - the local skill name;
    - all local frontmatter keys;
    - the local body after the closing `---`.
-2. Run `mopheus workspace list --output json` and resolve the target by exact UUID, name, or slug. Stop on zero or multiple matches.
-3. Pass `--workspace-id <workspace-id>` explicitly to every subsequent Mopheus command.
-4. Run `mopheus --workspace-id <workspace-id> skill list --output json` and find an exact case-sensitive match for the local frontmatter `name`. Do not match by description, slug, substring, or fuzzy search.
+2. Run `mopheus <target-connection-args> workspace list --output json` and resolve the target by exact UUID, name, or slug. Stop on zero or multiple matches.
+3. Pass `<target-connection-args> --workspace-id <workspace-id>` explicitly to every subsequent Mopheus command.
+4. Run `mopheus <target-connection-args> --workspace-id <workspace-id> skill list --output json` and find an exact case-sensitive match for the local frontmatter `name`. Do not match by description, slug, substring, or fuzzy search.
 
 ## 2. No same-name skill: create it
 
 When no exact same-name skill exists, create it directly from the local skill metadata and complete content:
 
 ```bash
-mopheus --workspace-id <workspace-id> skill create \
+mopheus <target-connection-args> --workspace-id <workspace-id> skill create \
   --name <local-name> \
   --description <local-description> \
   --content <complete-local-SKILL.md-content>
 ```
 
-Do not pass `--update` in this branch. Preserve the complete local `SKILL.md`, including its local frontmatter. If shell argument length or attached files make direct creation unsafe, use `mopheus skill import --path <local-skill-directory>` as the bounded create fallback; still do not pass `--update`.
+Do not pass `--update` in this branch. Preserve the complete local `SKILL.md`, including its local frontmatter. If shell argument length or attached files make direct creation unsafe, use `mopheus <target-connection-args> skill import --path <local-skill-directory>` as the bounded create fallback; still do not pass `--update`.
 
 ## 3. Same-name skill: merge before updating
 
 When an exact same-name skill exists:
 
-1. Fetch the complete remote skill with `mopheus --workspace-id <workspace-id> skill get <skill-id> --output json`.
+1. Fetch the complete remote skill with `mopheus <target-connection-args> --workspace-id <workspace-id> skill get <skill-id> --output json`.
 2. Extract the remote `content` field, which contains the remote `SKILL.md` and its YAML frontmatter.
 3. Merge only the top-level frontmatter keys:
    - Local keys override remote values. This includes shared fields such as `name` and `description`.
@@ -56,7 +67,7 @@ When an exact same-name skill exists:
 5. Copy the local skill directory to a temporary staging directory, replace only its staged `SKILL.md` with the merged file, and update the existing skill:
 
 ```bash
-mopheus --workspace-id <workspace-id> skill import --path <staging-directory> --update
+mopheus <target-connection-args> --workspace-id <workspace-id> skill import --path <staging-directory> --update
 ```
 
 The staging directory must contain only the selected skill directory. Remove only the temporary staging directory after verification; never remove the user's local skill directory.

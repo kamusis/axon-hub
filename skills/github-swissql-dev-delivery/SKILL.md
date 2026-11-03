@@ -18,13 +18,26 @@ Treat explicit invocation as authorization for every write in this workflow: com
 - Keep GitHub content and commit messages in English. Match the Mopheus ticket's language in comments (typically Chinese).
 - Preserve partial success on failure. Verify whether an external write succeeded before retrying it.
 
-## Formal Mopheus CLI boundary
+## Formal Mopheus CLI boundary and profile resolution
 
 Delivery updates durable records in `https://dev.mopheus.ai`. Never inherit disposable preview identities:
 - Require the installed host `mopheus` or `mop` executable (`command -v mopheus` or `command -v mop`).
-- Exclusively use the formal `--profile default`; unset preview environment variables (`MOPHEUS_PROFILE`, `MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, etc.).
-- Ensure configured server URL is `https://dev.mopheus.ai` (verify with `mop auth status`).
-- Pass `--profile default --workspace-id <id>` (or ensure active workspace is `dev` / `dev-space`) explicitly to Mopheus commands when needed.
+- Unset preview environment variables (`MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, etc.).
+- **Resolve the formal dev profile (`<dev-profile>`)**:
+  1. **Check `MOPHEUS_DEV_PROFILE`**: If the `MOPHEUS_DEV_PROFILE` environment variable is set (e.g. `export MOPHEUS_DEV_PROFILE=dev`), use its value as `<dev-profile>`.
+  2. **Dynamic URL probe**: If `MOPHEUS_DEV_PROFILE` is unset, run `mopheus profile list -o json` (or `mop profile list -o json`) and filter profiles matching `serverUrl == "https://dev.mopheus.ai"`:
+     - Prioritize profiles with `hasToken: true`.
+     - When multiple authenticated profiles match, prioritize exact `dev` > name containing `dev` (e.g. `mop-dev`) > `default` > first matching profile.
+     - If all matching profiles have `hasToken: false`, prompt the user to log in (`mopheus --profile <name> login`).
+     - If no profile points to `https://dev.mopheus.ai`, **do NOT overwrite the user's `default` profile**. Prompt the user to configure one:
+       ```bash
+       export MOPHEUS_DEV_PROFILE=dev
+       mopheus profile create dev --server_url https://dev.mopheus.ai
+       mopheus --profile dev login
+       ```
+  3. **Verify authentication**: Run `mopheus --profile <dev-profile> auth status` to ensure valid token status.
+- Set `<target-connection-args>` to `--profile <dev-profile>`.
+- Pass `<target-connection-args> --workspace-id <id>` explicitly to Mopheus commands when needed.
 
 ---
 

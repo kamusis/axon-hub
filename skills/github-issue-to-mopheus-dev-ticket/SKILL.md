@@ -79,11 +79,24 @@ Use this mode only when authoritative task/runtime context identifies the caller
 #### External caller mode
 Use this mode for Codex, Claude, Antigravity, or any invocation without trustworthy Mopheus task workspace context:
 - Server URL: `https://dev.mopheus.ai`
-- Profile: `default`
+- **Resolve the formal dev profile (`<dev-profile>`)**:
+  1. **Check `MOPHEUS_DEV_PROFILE`**: If `MOPHEUS_DEV_PROFILE` environment variable is set (e.g. `export MOPHEUS_DEV_PROFILE=dev`), use its value as `<dev-profile>`.
+  2. **Dynamic URL probe**: If `MOPHEUS_DEV_PROFILE` is unset, run `mopheus profile list -o json` (or `mop profile list -o json`) and filter profiles matching `serverUrl == "https://dev.mopheus.ai"`:
+     - Prioritize profiles with `hasToken: true`.
+     - When multiple authenticated profiles match, prioritize exact `dev` > name containing `dev` (e.g. `mop-dev`) > `default` > first matching profile.
+     - If all matching profiles have `hasToken: false`, pick the best candidate (e.g. `dev` or `default`) and instruct the user to run `mopheus --profile <name> login`.
+     - If no profile points to `https://dev.mopheus.ai`, **do NOT overwrite the user's `default` profile**. Prompt the user to configure one:
+       ```bash
+       export MOPHEUS_DEV_PROFILE=dev
+       mopheus profile create dev --server_url https://dev.mopheus.ai
+       mopheus --profile dev login
+       ```
+  3. **Verify authentication**: Run `mopheus --profile <dev-profile> auth status` to ensure valid token status.
+- Target connection arguments: `<target-connection-args>` = `--profile <dev-profile>`
 - Workspace Name: `dev`
 - Workspace Slug: `dev-space`
 - Workspace ID: `a43acd83-25f4-43ea-bdfd-d179fb272172`
-- Command arguments: `--profile default --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172`
+- Command arguments: `<target-connection-args> --workspace-id a43acd83-25f4-43ea-bdfd-d179fb272172`
 
 ### 3. Auto-Resolve Project by Repository Name
 
