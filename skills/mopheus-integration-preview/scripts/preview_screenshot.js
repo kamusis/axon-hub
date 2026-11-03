@@ -28,7 +28,10 @@ function parseArgs() {
     output: '',
     selector: null,
     hover: null,
+    click: null,
+    clickAfter: null,
     wait: 1000,
+    viewport: { width: 1280, height: 960 },
     backend: 'http://localhost:8230',
     frontend: 'http://localhost:3230',
     email: 'alice@mopheus.dev',
@@ -42,7 +45,14 @@ function parseArgs() {
     else if (key === '--output') { options.output = val; i++; }
     else if (key === '--selector') { options.selector = val; i++; }
     else if (key === '--hover') { options.hover = val; i++; }
+    else if (key === '--click') { options.click = val; i++; }
+    else if (key === '--click-after') { options.clickAfter = val; i++; }
     else if (key === '--wait') { options.wait = parseInt(val, 10); i++; }
+    else if (key === '--viewport') {
+      const [w, h] = val.split('x').map((n) => parseInt(n, 10));
+      if (w && h) options.viewport = { width: w, height: h };
+      i++;
+    }
     else if (key === '--backend') { options.backend = val; i++; }
     else if (key === '--frontend') { options.frontend = val; i++; }
     else if (key === '--email') { options.email = val; i++; }
@@ -131,7 +141,7 @@ async function main() {
 
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 960 },
+    viewport: opts.viewport,
   });
 
   // 3. Inject auth cookie
@@ -139,7 +149,7 @@ async function main() {
     {
       name: 'mopheus_auth',
       value: accessToken,
-      domain: 'localhost',
+      domain: new URL(opts.frontend).hostname,
       path: '/',
     },
   ]);
@@ -170,7 +180,23 @@ async function main() {
     await page.waitForTimeout(opts.wait);
   }
 
-  // 6. Optional hover action
+  // 6. Optional click action
+  if (opts.click) {
+    console.log(`==> Clicking: ${opts.click}`);
+    const clickEl = page.locator(opts.click).first();
+    await clickEl.click();
+    await page.waitForTimeout(Math.max(opts.wait, 2500)); // Wait for modal open animation and React Query fetch
+  }
+
+  // 6a. Optional second click action (e.g. select a node inside dialog)
+  if (opts.clickAfter) {
+    console.log(`==> Clicking after: ${opts.clickAfter}`);
+    const clickAfterEl = page.locator(opts.clickAfter).first();
+    await clickAfterEl.click();
+    await page.waitForTimeout(600);
+  }
+
+  // 6b. Optional hover action
   if (opts.hover) {
     console.log(`==> Hovering over: ${opts.hover}`);
     const hoverEl = page.locator(opts.hover).first();

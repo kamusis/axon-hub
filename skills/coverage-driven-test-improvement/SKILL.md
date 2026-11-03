@@ -29,7 +29,7 @@ This workflow starts from an existing coverage report, so it is not strict test-
 4. Make the smallest production change only if the test exposes a real bug.
 5. Re-run focused tests, relevant broader tests, and coverage.
 
-If the user asks for a new feature or bug fix rather than coverage improvement, use the `test-driven-development` skill first.
+If the user asks for a new feature or bug fix rather than coverage improvement, use the `tdd` skill first.
 
 ## Workflow
 

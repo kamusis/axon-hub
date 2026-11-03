@@ -114,3 +114,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 # Tools
 - Use `mop` / `mopheus` CLI for managing workspaces, tickets, agents, teams, and skills in Mopheus.
 - Use `gh-wrapper` for github operations if it is in the current PATH; otherwise use `gh` directly. Do not search for it outside PATH.
+
+# UI 原型与设计截图
+- 所有 UI 原型设计、交互演示及工单截图，默认必须使用浅色版本（Light theme），严禁默认使用深色/暗黑模式截图。

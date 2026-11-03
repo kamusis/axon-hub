@@ -1,6 +1,6 @@
 ---
 name: verification-before-completion
-description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - runs unified dual-engine audit (ponytail-review for lean/caller blast radius + architectural guardrails like mopheus-code-review); strictly scoped to current diff and its direct caller impact without expanding to unrelated code or executing test suites
+description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - runs unified triple-engine audit (Phase A: ponytail-review for lean/caller blast radius; Phase B: architectural guardrails like mopheus-code-review; Phase C: physical evidence chain audit & adversarial verification with zero-noise execute-to-prove rule)
 ---
 
 # Verification Before Completion (Diff-Scoped Code Review)
@@ -9,17 +9,17 @@ description: Use when about to claim work is complete, fixed, or passing, before
 
 Claiming work is complete without auditing the change set against established rules creates bugs and regressions.
 
-**Core principle:** Strict code review focused entirely on the **current change set / commit / PR diff**.
+**Core principle:** Strict code review focused entirely on the **current change set / commit / PR diff** and its **physical verification evidence**.
 - **Diff-scoped only:** Audit what you changed. Do NOT expand the review to pre-existing repository code or audit untouched files.
-- **Review only:** Verify architectural compliance and code quality — **do not execute test suites or act as a test runner**.
+- **Evidence-first review:** Verify architectural compliance, audit provided runtime proof, and test suspected defects adversarially — **do not duplicate full happy-path test runs**.
 
 ## The Iron Law
 
 ```
-NO COMPLETION CLAIMS WITHOUT DIFF AUDIT AND RULE COMPLIANCE REVIEW
+NO COMPLETION CLAIMS WITHOUT DIFF AUDIT, ARCHITECTURAL COMPLIANCE, AND PHYSICAL VERIFICATION EVIDENCE
 ```
 
-Always inspect the current diff (`git diff`, staged changes, or branch diff) line-by-line against project rules before claiming work is finished.
+Always inspect the current diff (`git diff`, staged changes, or branch diff) line-by-line and audit the author's physical runtime evidence before claiming work is finished.
 
 ## Scoping Rules (Diff-First)
 
@@ -28,28 +28,47 @@ Always inspect the current diff (`git diff`, staged changes, or branch diff) lin
 3. **Never Audit Pre-Existing Code**: If an untouched file or adjacent pre-existing code violates a convention, ignore it. Do not attempt drive-by cleanups.
 4. **Clean Up Only Your Mess**: Check that your change did not leave orphaned imports, unused variables, or broken call sites in touched code.
 
-## The Review Gate (Dual-Engine Pipeline)
+## The Review Gate (Triple-Engine Pipeline)
 
 ```
 BEFORE claiming any status, completion, or committing/opening a PR:
 
 1. INSPECT CURRENT DIFF: Review modified/added/deleted lines (git diff / git diff HEAD~1).
+
 2. PHASE A: PONYTAIL LEAN & CALLER AUDIT (`ponytail-review`)
    - Caller Blast Radius: Grep callers of every modified function/signature; ensure outside code is not broken.
    - Lean & Anti-Bloat: Smallest complete change. Check if newly added lines can be eliminated, simplified, or use existing helpers (Lean: -N lines). Reject speculative abstractions.
    - Concurrency & Scale: Check check-then-write races, N+1 queries, memory growth, unrecovered goroutines/workers under expected load.
    - Risky Logic & Tests: Risky new logic (branches, parsers, security, writes) must have focused behavioral tests.
+
 3. PHASE B: ARCHITECTURAL COMPLIANCE AUDIT
    - If working in `enmotech/mopheus`: Read and apply `mopheus-code-review` (`Step 1: 1A–1G` component checklists matched to touched file paths) as the single source of truth.
    - For all other repositories: Check the diff against the Universal Quality & Architectural Review Checklist below and the repository's `AGENTS.md` / `CLAUDE.md`.
-4. RESOLVE OWN VIOLATIONS & VERDICT:
+
+4. PHASE C: PHYSICAL EVIDENCE AUDIT & ADVERSARIAL VERIFICATION (Proof-First Audit)
+   - Evidence Chain Integrity:
+     * Check whether the author supplied non-empty physical evidence of runtime execution:
+       1) Exact test command output with Exit Code 0 (unit/integration tests);
+       2) For bug fixes: Sequence-Verifiable-Units proof (failing reproduction log/commit before fix, and passing log/commit after fix; reject any unproven blind edits);
+       3) For user-visible UI/web changes: Local preview screenshot path (e.g. `/tmp/mopheus-verify-<slug>.png` via `verify-mopheus`) or Playwright report;
+       4) For DB/API mutations: Verifiable DB row assertion or API response payload;
+       5) For new/altered user journeys: Synced feature map (`features/<domain>.md`) in the project's verification skill.
+     * HARD GATE: If the author claims "tests pass" without providing command output, logs, or screenshot artifacts, IMMEDIATELY REJECT:
+       `Verdict: CHANGES REQUESTED (1 blocking: Missing physical verification evidence - run tests/verify-mopheus and supply real logs/artifacts)`.
+   - Adversarial Verification (Interrogate Rule):
+     * The reviewer does NOT duplicate happy-path test execution.
+     * If the reviewer suspects an edge-case bug, race condition, or behavioral flaw:
+       THE REVIEWER MUST EXECUTE A RUN TO PROVE IT (e.g. write a minimal repro script, run a failing test, or run a command showing the defect).
+     * ZERO-NOISE DROP RULE: Any finding that the reviewer cannot prove with an executable run (hypothetical "might fail" concerns, style nitpicks, speculative risks) MUST BE DROPPED. No unverified warnings.
+
+5. RESOLVE OWN VIOLATIONS & VERDICT:
    - Fix all [Blocking] defects and unnecessary bloat before claiming completion.
-   - Both Phase A and Phase B must pass (Ship / Approved).
+   - All phases (A, B, C) must pass.
+   - Verdict format: `Verdict: APPROVED` or `Verdict: CHANGES REQUESTED (N blocking)`.
+     Every blocking item must cite the exact failing command/repro and actual output.
 
 Skip any step = incomplete review
 ```
-
-*(Note: Test execution is handled by dedicated test workflows or CI pipelines, not by this review skill).*
 
 ## Repository-Specific Routing: `enmotech/mopheus`
 

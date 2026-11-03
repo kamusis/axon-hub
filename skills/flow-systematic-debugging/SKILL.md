@@ -96,7 +96,7 @@ flowchart TD
 ### Phase 4: Implementation
 
 **Required sequence:**
-1. Create failing test case first (use test-driven-development skill)
+1. Create failing test case first (use tdd skill)
 2. Implement SINGLE fix (no "while I'm here")
 3. Verify fix (tests pass, no new issues)
 
@@ -179,6 +179,6 @@ At each phase transition, answer:
 
 ## Related Skills
 
-- `/skill:test-driven-development` - For Phase 4 test creation
+- `/skill:tdd` - For Phase 4 test creation
 - `/skill:verification-before-completion` - For fix verification
 - `/skill:systematic-debugging` - Original knowledge-base version (reference)
