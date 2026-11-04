@@ -303,9 +303,10 @@ Present a clear, high-signal summary report:
    - **Qoder Peer Review**: `Verdict: APPROVED` (Transmission ID, round count, key review highlights)
 
 2. **Iron Boundary (Safety Rule)**:
-   - **DO NOT commit, push, create a pull request, or merge automatically.**
+   - **DO NOT push to remote, create a pull request, or merge automatically.**
+   - All worktree local commits (Sequence-Verifiable-Units) should already be completed and verified by Qoder peer review.
    - Developing in a worktree represents substantial feature work.
    - **STOP here** and hand control back to the user with actionable next options:
      - Preview testing in local environment (e.g. `make start` or preview harness)
-     - Staging and committing changes (`/git-commit` or `git commit`)
      - Complete delivery pipeline (`/github-mopheus-dev-delivery` or `git-commit-and-push`)
+     - Manual inspection / diff check (`git log -p`)

@@ -13,7 +13,7 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
-- When asked an investigatory question without explicit instructions for follow-up actions, investigate, identify root cause, and report findings to the user first. Never presumptuously execute follow-up modifications, builds, deployments, or remediation unprompted.
+- When asked an investigatory question without explicit instructions for follow-up actions, investigate, identify root cause, and report findings to the user first. Never presumptuously execute follow-up modifications, builds, deployments, or remediation unprompted. Distinguish this from explicit execution/development tasks (e.g. /go, ticket implementation) where end-to-end sandbox implementation and in-worktree commits are explicitly authorized.
 
 ## 2. Simplicity First
 
@@ -91,10 +91,24 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Add meaningful comments for complex logic.
 - Always use context7 when I need code generation, setup or configuration steps, or library/API documentation. This means you should automatically use the Context7 MCP tools to resolve library id and get library docs without me having to explicitly ask.
 
-# Git hygiene
+# Git hygiene & safety boundaries
 - When asked to initializing a repo (`git init`), always create a `.gitignore` at the same time.
 - Always add standard recommended items to `.gitignore` based on the project's programming language.
 - When performing a `git init` operation, the default branch name must always be configured or created as `main`, not `master`.
+- Strictly separate in-worktree local progression from outward release actions:
+  - **Strict Red Lines (NEVER execute without explicit user instruction)**:
+    - NEVER `git push` to any remote branch.
+    - NEVER create or update pull requests (`gh pr create`, `mop pr`).
+    - NEVER merge or rebase into `main` or long-lived branches (`git merge`, `git rebase`).
+    - NEVER trigger deployment, production release, or close remote issues/tickets automatically.
+    - When reaching the delivery boundary, STOP and request explicit user confirmation.
+  - **Encouraged Local Actions (Isolated Worktree / Task Branch)**:
+    - Inside an isolated feature worktree (`.worktrees/feat-*`), local atomic commits are explicitly PERMITTED and ENCOURAGED.
+    - Follow TDD and Sequence-Verifiable-Units: commit failing reproduction (RED), commit fix (GREEN), commit atomic feature layers, and commit review fixes.
+    - Local commits in isolated worktrees preserve evidence for peer review (Relay/Qoder) and do NOT pollute the main branch or remote repository.
+  - **Context Differentiation**:
+    - **Investigatory Mode** ("investigate X", "is this a bug?"): Read-only. Find root cause, report findings, STOP. Never modify code or commit.
+    - **Execution Mode** (explicit task invocation, `/go`, approved ticket implementation): Execute end-to-end development, including in-worktree local commits and peer review, stopping strictly before push/PR/merge.
 
 # Mopheus CLI (mop / mopheus)
 - Directly use `mop` (or `mopheus`) CLI when asked to query workspaces, manage Mopheus workspaces, handle tickets/tasks in workspaces (e.g., dev workspace / dev-space), manage skills, agents, teams, or tokens.
