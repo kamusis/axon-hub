@@ -1,6 +1,10 @@
 ---
 name: verification-before-completion
-description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - runs unified triple-engine audit (Phase A: ponytail-review for lean/caller blast radius; Phase B: architectural guardrails like mopheus-code-review; Phase C: physical evidence chain audit & adversarial verification with zero-noise execute-to-prove rule)
+description: >
+  Use when about to claim work is complete, fixed, or passing, before committing or creating PRs -
+  runs unified triple-engine audit (Phase A: ponytail-review for lean/caller blast radius;
+  Phase B: architectural guardrails like mopheus-code-review;
+  Phase C: physical evidence chain audit & adversarial verification with zero-noise execute-to-prove rule)
 ---
 
 # Verification Before Completion (Diff-Scoped Code Review)

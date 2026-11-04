@@ -1,6 +1,10 @@
 ---
 name: tdd
-description: Use when implementing any feature, bugfix, refactor, or behavior change before writing implementation code. Enforces Repro-First (reproducing broken behavior before editing production code), Sequence-Verifiable-Units (commit order that proves the work: red then green for bug fixes), and testing observable behavior over implementation details. Also use when asked for test-driven-development, tdd, red-green-refactor, regression tests, or test-first development.
+description: >
+  Use when implementing any feature, bugfix, refactor, or behavior change before writing implementation code.
+  Enforces Repro-First (reproducing broken behavior before editing production code), Sequence-Verifiable-Units
+  (commit order that proves the work: red then green for bug fixes), and testing observable behavior over implementation
+  details. Also use when asked for test-driven-development, tdd, red-green-refactor, regression tests, or test-first development.
 ---
 
 # Test-Driven Development (TDD) & Repro-First
