@@ -15,6 +15,9 @@
  *   --frontend <url>         Frontend base URL (default: http://localhost:3230)
  *   --email <email>          Login email (default: alice@mopheus.dev)
  *   --password <pwd>         Login password (default: Mopheus@123)
+ *   --cdp-log <path>         Destination JSON path for CDP audit log (default: <output>.cdp.json)
+ *   --strict-cdp             Fail with exit code 1 if console/page errors detected (default: true)
+ *   --no-strict-cdp          Disable strict exit code on console/page errors
  */
 
 const fs = require('fs');
@@ -36,6 +39,8 @@ function parseArgs() {
     frontend: 'http://localhost:3230',
     email: 'alice@mopheus.dev',
     password: 'Mopheus@123',
+    cdpLog: null,
+    strictCdp: true,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -57,12 +62,20 @@ function parseArgs() {
     else if (key === '--frontend') { options.frontend = val; i++; }
     else if (key === '--email') { options.email = val; i++; }
     else if (key === '--password') { options.password = val; i++; }
+    else if (key === '--cdp-log') { options.cdpLog = val; i++; }
+    else if (key === '--strict-cdp') { options.strictCdp = true; }
+    else if (key === '--no-strict-cdp') { options.strictCdp = false; }
   }
 
   if (!options.url || !options.output) {
-    console.error('Usage: preview_screenshot.js --url <url> --output <output.png> [--selector <css>] [--hover <css>]');
+    console.error('Usage: preview_screenshot.js --url <url> --output <output.png> [--selector <css>] [--hover <css>] [--cdp-log <log.json>]');
     process.exit(1);
   }
+
+  if (!options.cdpLog && options.output) {
+    options.cdpLog = `${options.output}.cdp.json`;
+  }
+
   return options;
 }
 
@@ -156,6 +169,77 @@ async function main() {
 
   const page = await context.newPage();
 
+  // Initialize CDP audit report
+  const cdpReport = {
+    targetUrl: opts.url,
+    timestamp: new Date().toISOString(),
+    consoleErrors: [],
+    consoleWarnings: [],
+    pageErrors: [],
+    failedRequests: [],
+    httpErrors: [],
+    passed: true,
+  };
+
+  // Attach CDP-level listeners to inspect browser runtime behavior
+  page.on('console', (msg) => {
+    const type = msg.type();
+    const text = msg.text();
+    const location = msg.location();
+
+    // Ignore known benign noise
+    if (text.includes('Download the React DevTools for a better development experience')) return;
+
+    if (type === 'error') {
+      const entry = { text, location, timestamp: new Date().toISOString() };
+      cdpReport.consoleErrors.push(entry);
+      console.error(`[CDP Console Error] ${text} (${location.url || 'inline'}:${location.lineNumber || 0})`);
+    } else if (type === 'warning') {
+      const entry = { text, location, timestamp: new Date().toISOString() };
+      cdpReport.consoleWarnings.push(entry);
+      console.warn(`[CDP Console Warning] ${text}`);
+    }
+  });
+
+  page.on('pageerror', (err) => {
+    const entry = {
+      message: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString(),
+    };
+    cdpReport.pageErrors.push(entry);
+    console.error(`[CDP Page Runtime Error] ${err.message}\n${err.stack || ''}`);
+  });
+
+  page.on('requestfailed', (req) => {
+    const failureText = req.failure()?.errorText || 'Unknown failure';
+    if (failureText === 'net::ERR_ABORTED') return; // Ignore intentional user navigations/aborts
+    const entry = {
+      url: req.url(),
+      method: req.method(),
+      failure: failureText,
+      timestamp: new Date().toISOString(),
+    };
+    cdpReport.failedRequests.push(entry);
+    console.error(`[CDP Network Failed] ${entry.method} ${entry.url} -> ${failureText}`);
+  });
+
+  page.on('response', (resp) => {
+    const status = resp.status();
+    const url = resp.url();
+    if (status >= 400) {
+      if (url.includes('/api/v1/auth/session') && status === 401) return; // benign login check probe
+      const entry = {
+        url,
+        status,
+        statusText: resp.statusText(),
+        timestamp: new Date().toISOString(),
+      };
+      cdpReport.httpErrors.push(entry);
+      console.warn(`[CDP HTTP Error] ${status} ${resp.statusText()} on ${url}`);
+    }
+  });
+
   // 4. Inject localStorage state via initial page visit
   await page.goto(`${opts.frontend}/login`, { waitUntil: 'domcontentloaded' });
   await page.evaluate(
@@ -222,8 +306,30 @@ async function main() {
     await page.screenshot({ path: outPath });
   }
 
+  // 8. Finalize CDP audit report & write evidence file
+  const hasErrors =
+    cdpReport.consoleErrors.length > 0 ||
+    cdpReport.pageErrors.length > 0 ||
+    cdpReport.failedRequests.length > 0;
+  cdpReport.passed = !hasErrors;
+
+  if (opts.cdpLog) {
+    const cdpLogPath = path.resolve(opts.cdpLog);
+    fs.mkdirSync(path.dirname(cdpLogPath), { recursive: true });
+    fs.writeFileSync(cdpLogPath, JSON.stringify(cdpReport, null, 2), 'utf-8');
+    console.log(`✓ CDP audit report written to: ${cdpLogPath}`);
+  }
+
   await browser.close();
   console.log(`✓ Screenshot captured successfully: ${outPath}`);
+
+  // Enforce CDP hard gate if strict mode is active
+  if (opts.strictCdp && hasErrors) {
+    console.error(
+      `\n❌ [CDP Hard Gate Failed] Detected ${cdpReport.consoleErrors.length} console error(s), ${cdpReport.pageErrors.length} page runtime error(s), and ${cdpReport.failedRequests.length} network failure(s).`
+    );
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

@@ -210,30 +210,40 @@ Follow the rules of `using-git-worktrees` strictly:
    - **General Repositories**:
      Execute the repository's native test / typecheck / lint command as specified in `AGENTS.md` or `package.json` / `Makefile`.
 
-4. **Targeted Feature E2E Verification & Feature Map Gate (Mandatory Gate Before Qoder Review)**:
-   Before submitting code to Qoder for the first review, **you must execute the corresponding E2E / runtime test locally for any modified or newly added feature**, ensuring the end-to-end user journey passes completely and physical evidence is captured. Never proceed to review with unverified claims:
-   - **Feature Map Synchronization**:
-     - Check the verification skill (e.g. `verify-mopheus`, inspecting `features/` directory):
-     - If touching an existing mapped domain (such as `ticket-lifecycle.md`), execute its driving recipe.
-     - If introducing a new user-facing domain or materially altering user flows/contracts: **synchronously add or update features/<domain>.md in verify-mopheus** (recording Sub-features, User POV entry points, Driving commands, and Gotchas).
-   - **Identify or Synchronously Add/Update the E2E Spec**:
-     - Locate the spec file under `tests/e2e/services/<domain>/` covering the touched feature, API, or UI component;
-     - For new features or altered workflows/contracts, synchronously write or update the corresponding E2E spec (in strict compliance with `AGENTS.md` E2E synchronization rules).
-   - **Execute Local Feature E2E & Runtime Verification**:
-     - **Direct Preview Driving via `verify-mopheus`**:
-       Use `verify-mopheus` to drive the preview instance (`:8230`/`:3230`), execute API mutations, assert DB state, and capture local verification screenshots via `preview_screenshot.js` to `/tmp/mopheus-verify-<ticket-id>.png`.
-     - **Direct External-Services Playwright Mode**: If local dev or preview services are already running (e.g. `localhost:3000` / `localhost:8080`), run directly in seconds:
+4. **Surface-Aware Verification & Feature Map Gate (Mandatory Gate Before Qoder Review)**:
+   Before submitting code to Qoder for review, **execute the physical verification strictly matching the touched interaction surface**, ensuring the real behavior is proven with concrete evidence. Never run browser verification for non-browser changes, and never skip CDP runtime verification when Web UI is touched:
+   - **Case A: Web UI Surface (`apps/web/**` touched)**:
+     - **CDP Runtime Sensor & Zero Console Error Gate**:
+       Drive the local preview instance via `verify-mopheus` with CDP sensors active:
        ```bash
-       E2E_SKIP_SETUP=1 \
-       E2E_FRONTEND_URL=http://localhost:3000 \
-       E2E_BACKEND_URL=http://localhost:8080 \
-       pnpm exec playwright test --config=playwright.full.config.ts --project=external-services tests/e2e/services/<domain>/<spec-file>.spec.ts
+       node ~/.gemini/config/skills/mopheus-integration-preview/scripts/preview_screenshot.js \
+         --url "<feature-route>" \
+         --output "/tmp/verify-<slug>.png" \
+         --cdp-log "/tmp/verify-<slug>.cdp.json" \
+         --strict-cdp
        ```
-     - **Isolated Container Mode**: Run the target spec in an isolated container environment:
+       *Hard Gate*: Requires exit code 0, 0 unhandled console errors/warnings, 0 page runtime exceptions, and verified PNG screenshot.
+     - **Feature Map & E2E**:
+       - If introducing or modifying a user-facing workflow, synchronously update `features/<domain>.md` in `verify-mopheus`.
+       - Run targeted Playwright spec:
+         ```bash
+         E2E_SKIP_SETUP=1 \
+         E2E_FRONTEND_URL=http://localhost:3230 \
+         E2E_BACKEND_URL=http://localhost:8230 \
+         pnpm exec playwright test --config=playwright.full.config.ts --project=external-services tests/e2e/services/<domain>/<spec-file>.spec.ts
+         ```
+   - **Case B: CLI Surface (`cmd/**` or `server/cmd/**` touched)**:
+     - **Terminal Subshell Assertion**: Execute the CLI binary with real arguments, capture actual stdout/stderr, test invalid flags (asserting Usage and non-zero exit code), and validate successful command execution with exit code 0.
+     - *Hard Rule*: Browser CDP is strictly NOT invoked for CLI-only changes.
+   - **Case C: Backend / DB Surface (`server/internal/**`, `migrations/**` touched)**:
+     - **API & DB State Assertion**: Execute package-focused `go test -race <package>`, curl the API endpoint, and verify row mutations directly in PostgreSQL:
        ```bash
-       make test-e2e-full ARGS="tests/e2e/services/<domain>/<spec-file>.spec.ts"
+       docker exec mopheus-postgres-1 psql -U mopheus -d mopheus_wt_preview_test -c "SELECT ... FROM <table> WHERE ...;"
        ```
-   - **Hard Gate**: Require exit code 0, zero test failures, and non-empty physical evidence (console test log, screenshot paths, DB query result). If verification fails, fix locally until clean before dispatching to Phase 4.
+     - *Hard Rule*: Browser CDP is strictly NOT invoked for backend-only changes.
+   - **Case D: Documentation / CI (`packages/docs-content/**`, `.github/**` touched)**:
+     - Run `make check-docs-nav` or `make check-workflows`.
+   - **Hard Gate**: Require exit code 0, zero test failures, and non-empty physical evidence matching the affected surface. If verification fails, fix locally until clean before dispatching to Phase 4.
 
 5. **Verification Guardrail**:
    - Require exit code 0 and confirm zero failure markers in unit tests, typecheck, and the targeted feature E2E / runtime output.
@@ -243,7 +253,7 @@ Follow the rules of `using-git-worktrees` strictly:
 
 ## Phase 4: Autonomous Peer Review via Relay (`relay`)
 
-Once local changes, diff-scoped checks, and the feature's targeted E2E test pass, automatically invoke the peer-review gate with Qoder. Do not ask the user for permission to start the review — this is an integral part of `/go`.
+Once local changes, diff-scoped checks, and the feature's targeted surface verification pass, automatically invoke the peer-review gate with Qoder. Do not ask the user for permission to start the review — this is an integral part of `/go`.
 
 1. **Resolve Sessions and Links**:
    ```bash
@@ -261,9 +271,9 @@ Once local changes, diff-scoped checks, and the feature's targeted E2E test pass
    ```
 
 2. **Dispatch Review Request to Qoder (Template Mode: `-t review`)**:
-   Send the structured review prompt (including confirmed passing unit tests, feature map sync, and physical proof evidence):
+   Send the structured review prompt (including confirmed passing unit tests, surface-matched evidence, and physical proof):
    ```bash
-   relay send <link-name> --to qoder -t review -m "工单: <工单标题/ID>\nURL: <工单URL>\nWorktree: <worktree_path>\n分支: <branch_name>\n【重点关注与改动说明】\n<简述改动核心逻辑>\n【物理验证证据】\n- 单测/E2E 结果: <测试通过日志与退出码 0>\n- 复现时序证明 (Bug修复时必填): <红灯提交 SHA 与复现失败日志 -> 绿灯提交 SHA 与通过日志>\n- 预览截图/接口断言: <截图路径 /tmp/...png 或 DB 查询记录>\n- 特性地图同步: <新增/更新的 features/*.md 路径>"
+   relay send <link-name> --to qoder -t review -m "工单: <工单标题/ID>\nURL: <工单URL>\nWorktree: <worktree_path>\n分支: <branch_name>\n【重点关注与改动说明】\n<简述改动核心逻辑>\n【物理验证证据】\n- 单测/E2E 结果: <测试通过日志与退出码 0>\n- 复现时序证明 (Bug修复时必填): <红灯提交 SHA 与复现失败日志 -> 绿灯提交 SHA 与通过日志>\n- 交互表面证据:\n  * UI 改动: 截图 /tmp/...png + CDP 审计 /tmp/...cdp.json (0 console errors)\n  * CLI 改动: 终端调用完整 stdout/stderr 与 exit code 0\n  * 后端改动: API 响应 JSON + DB 查询落盘记录\n- 特性地图同步: <新增/更新的 features/*.md 路径>"
    ```
    *Execution note: `relay send` will wait for Qoder's headless execution to finish (typically 30–60s).*
 

@@ -50,14 +50,15 @@ BEFORE claiming any status, completion, or committing/opening a PR:
    - For all other repositories: Check the diff against the Universal Quality & Architectural Review Checklist below and the repository's `AGENTS.md` / `CLAUDE.md`.
 
 4. PHASE C: PHYSICAL EVIDENCE AUDIT & ADVERSARIAL VERIFICATION (Proof-First Audit)
-   - Evidence Chain Integrity:
-     * Check whether the author supplied non-empty physical evidence of runtime execution:
+   - Surface-Aware Evidence Chain Integrity:
+     * Check whether the author supplied non-empty physical evidence matching the affected interaction surface:
        1) Exact test command output with Exit Code 0 (unit/integration tests);
        2) For bug fixes: Sequence-Verifiable-Units proof (failing reproduction log/commit before fix, and passing log/commit after fix; reject any unproven blind edits);
-       3) For user-visible UI/web changes: Local preview screenshot path (e.g. `/tmp/mopheus-verify-<slug>.png` via `verify-mopheus`) or Playwright report;
-       4) For DB/API mutations: Verifiable DB row assertion or API response payload;
-       5) For new/altered user journeys: Synced feature map (`features/<domain>.md`) in the project's verification skill.
-     * HARD GATE: If the author claims "tests pass" without providing command output, logs, or screenshot artifacts, IMMEDIATELY REJECT:
+       3) For user-visible UI/web changes (`apps/web/**`): Local preview screenshot path (e.g. `/tmp/mopheus-verify-<slug>.png`) AND CDP audit report (`cdp_audit.json` / `<slug>.cdp.json`) proving 0 unhandled `console.error`, 0 page runtime exceptions, and 0 network failures;
+       4) For CLI changes: Real terminal command execution transcript with expected stdout/stderr and exit code 0; strictly do NOT require browser CDP for CLI-only diffs;
+       5) For DB/API mutations: Verifiable DB row assertion or API response payload; strictly do NOT require browser CDP for backend-only diffs;
+       6) For new/altered user journeys: Synced feature map (`features/<domain>.md`) in the project's verification skill.
+     * HARD GATE: If the author claims "tests pass" without providing command output, logs, or screenshot/CDP artifacts matching the affected surface, IMMEDIATELY REJECT:
        `Verdict: CHANGES REQUESTED (1 blocking: Missing physical verification evidence - run tests/verify-mopheus and supply real logs/artifacts)`.
    - Adversarial Verification (Interrogate Rule):
      * The reviewer does NOT duplicate happy-path test execution.

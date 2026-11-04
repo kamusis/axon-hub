@@ -71,13 +71,15 @@ bash ~/.gemini/config/skills/verify-mopheus/scripts/doctor.sh
 
 ## 4. Drive
 
-### A. Web UI Driving & Local Screenshot Capture
-Use the authenticated headless Playwright driver:
+### A. Web UI Driving & CDP Full-Spectrum Audit
+Use the authenticated headless Chromium driver with native Chrome DevTools Protocol (CDP) sensors:
 
 ```bash
 node ~/.gemini/config/skills/mopheus-integration-preview/scripts/preview_screenshot.js \
   --url "/dev-space/tickets" \
   --output "/tmp/verify-<slug>.png" \
+  --cdp-log "/tmp/verify-<slug>.cdp.json" \
+  [--strict-cdp] \
   [--selector "<css-selector>"] \
   [--hover "<css-selector>"] \
   [--click "<css-selector>"] \
@@ -85,6 +87,12 @@ node ~/.gemini/config/skills/mopheus-integration-preview/scripts/preview_screens
 ```
 
 - **Authentication**: Injects `mopheus_auth` cookie and `localStorage` session as `alice@mopheus.dev`.
+- **CDP Runtime Sensor**:
+  - Automatically captures browser `console.error` and `console.warn` via CDP event streams.
+  - Automatically monitors uncaught JS runtime errors and React component crashes (`pageerror`).
+  - Automatically records failed network requests (`requestfailed`, CORS, 4xx/5xx).
+  - `--strict-cdp`: Enabled by default; halts with exit code 1 if unhandled browser console/page errors occur.
+  - `--cdp-log`: Writes machine-readable CDP audit evidence JSON (`/tmp/verify-<slug>.cdp.json`).
 - **Target Selection**: Pass `--selector` to capture a specific component (e.g. `[data-ticket-description]` or `table`) or omit for full viewport.
 - **Interactions**: Pass `--hover` to trigger tooltips or dropdowns before capturing; pass `--click` to trigger tabs or accordions.
 
@@ -114,16 +122,22 @@ pnpm exec playwright test --config=playwright.full.config.ts --project=external-
 
 ---
 
-## 5. Evidence Standards
+## 5. Evidence Standards (Surface-Aware Verification)
 
-A task is verified ONLY when physical evidence is captured and preserved:
-1. **Physical Artifacts**:
-   - UI changes: Capture a local PNG screenshot via `preview_screenshot.js` and verify it with `read_file`.
-   - API / Backend changes: Capture exact terminal command, response JSON, and exit code 0.
-   - Data mutations: Run an independent query verifying the stored value in PostgreSQL:
-     ```bash
-     docker exec mopheus-postgres-1 psql -U mopheus -d mopheus_wt_preview_test -c "SELECT ... FROM <table> WHERE ...;"
-     ```
+A task is verified ONLY when physical evidence matching the touched interaction surface is captured and preserved:
+
+1. **Surface-Aware Physical Artifacts**:
+   - **Web UI Surface (`apps/web/**`)**:
+     - *Visual Evidence*: High-resolution PNG screenshot captured via `preview_screenshot.js` and verified with `read_file`.
+     - *CDP Audit Evidence*: Structured `cdp_audit.json` proving 0 console errors, 0 runtime exceptions, and 0 network failures during user interaction.
+   - **CLI Surface (`cmd/**`, `server/cmd/**`)**:
+     - *Terminal Evidence*: Terminal execution transcript, exit code 0, and expected stdout/stderr. Do NOT run browser CDP for pure CLI changes.
+   - **Backend / Database Surface (`server/internal/**`, `migrations/**`)**:
+     - *API / DB Evidence*: `go test -race` pass log, API curl response JSON, and direct PostgreSQL query row assertions:
+       ```bash
+       docker exec mopheus-postgres-1 psql -U mopheus -d mopheus_wt_preview_test -c "SELECT ... FROM <table> WHERE ...;"
+       ```
+       Do NOT run browser CDP for pure backend changes.
 2. **Zero External Upload Rule**:
    - Never upload temporary verification screenshots to external image hosts (e.g. `see-uploader`). Keep evidence local in `/tmp/` or the task artifact directory.
 3. **Evidence Reporting**:
