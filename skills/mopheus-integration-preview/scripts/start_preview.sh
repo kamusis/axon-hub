@@ -195,8 +195,14 @@ docker exec mopheus-postgres-1 psql -U mopheus -d "$POSTGRES_DB" -c "
     DELETE FROM daemon_runtime WHERE daemon_id != '$FIXED_DAEMON_ID' OR status = 0;
 " >/dev/null
 
+PREVIEW_LOGIN_PASSWORD="${MOPHEUS_TEST_PASSWORD:-${ADMIN_PASSWORD:-}}"
+if [ -z "$PREVIEW_LOGIN_PASSWORD" ]; then
+    echo "ERROR: Neither MOPHEUS_TEST_PASSWORD nor ADMIN_PASSWORD could be resolved from .env.worktree" >&2
+    exit 1
+fi
+
 echo "==> [6/6] Logging in as alice@mopheus.dev, switching workspace & launching daemon + frontend..."
-echo y | "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server_url "http://localhost:${BACKEND_PORT}" login --email alice@mopheus.dev --password "Mopheus@123" >/dev/null
+echo y | "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server_url "http://localhost:${BACKEND_PORT}" login --email alice@mopheus.dev --password "$PREVIEW_LOGIN_PASSWORD" >/dev/null
 "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server_url "http://localhost:${BACKEND_PORT}" workspace switch "$DEV_SPACE_ID" >/dev/null
 "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server_url "http://localhost:${BACKEND_PORT}" daemon start --daemon-id "$FIXED_DAEMON_ID" --sandbox-enabled=false --allow-root
 
@@ -234,7 +240,7 @@ echo " Skills:      http://localhost:${FRONTEND_PORT}/dev-space/skills"
 echo " Runtimes:    http://localhost:${FRONTEND_PORT}/dev-space/settings/runtimes"
 echo " Profile:     ${MOPHEUS_PROFILE}"
 echo " Database:    ${POSTGRES_DB}"
-echo " Test Member: alice@mopheus.dev / Mopheus@123 (Daemon owner & regular workspace testing)"
-echo " Admin User:  admin@mopheus.dev / Mopheus@123 (System settings)"
+echo " Test Member: alice@mopheus.dev (Password resolved via .env.worktree / ADMIN_PASSWORD)"
+echo " Admin User:  admin@mopheus.dev (Password resolved via .env.worktree / ADMIN_PASSWORD)"
 echo " Daemon:      Online (ID: ${FIXED_DAEMON_ID})"
 echo "=================================================="

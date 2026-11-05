@@ -7,7 +7,7 @@ This directory is the maintained source for verifying user-facing behaviors in M
 - **Backend API**: Healthy at `http://localhost:8230/api/v1/health` (HTTP 200).
 - **Frontend Web**: Healthy at `http://localhost:3230/login` (HTTP 200).
 - **Database**: PostgreSQL `mopheus_wt_preview_test` on `localhost:5432` (`mopheus-postgres-1`).
-- **Default Actor**: `alice@mopheus.dev` / `Mopheus@123` (Owner of `dev-space`).
+- **Default Actor**: `alice@mopheus.dev` (Owner of `dev-space`; password resolved from `.env.worktree` / `MOPHEUS_TEST_PASSWORD`).
 - **Default Workspace**: `dev-space` (`bb08a9c4-9f3f-414d-8632-d23909bada79`).
 - **Health Gate**: Run `~/.gemini/config/skills/verify-mopheus/scripts/doctor.sh` and confirm exit code 0 before driving any feature.
 

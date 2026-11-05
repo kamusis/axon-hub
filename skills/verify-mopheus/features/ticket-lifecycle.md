@@ -36,7 +36,7 @@ node ~/.gemini/config/skills/mopheus-integration-preview/scripts/preview_screens
 # Obtain auth token
 TOKEN=$(curl -s -X POST http://localhost:8230/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@mopheus.dev","password":"Mopheus@123"}' | jq -r .data.accessToken)
+  -d "{\"email\":\"alice@mopheus.dev\",\"password\":\"\${MOPHEUS_TEST_PASSWORD:-\${ADMIN_PASSWORD}}\"}" | jq -r .data.accessToken)
 
 # Create ticket via REST API
 CREATE_RESP=$(curl -s -X POST http://localhost:8230/api/v1/tickets \

@@ -14,7 +14,7 @@
  *   --backend <url>          Backend API URL (default: http://localhost:8230)
  *   --frontend <url>         Frontend base URL (default: http://localhost:3230)
  *   --email <email>          Login email (default: alice@mopheus.dev)
- *   --password <pwd>         Login password (default: Mopheus@123)
+ *   --password <pwd>         Login password (defaults to MOPHEUS_TEST_PASSWORD or ADMIN_PASSWORD in .env.worktree)
  *   --cdp-log <path>         Destination JSON path for CDP audit log (default: <output>.cdp.json)
  *   --strict-cdp             Fail with exit code 1 if console/page errors detected (default: true)
  *   --no-strict-cdp          Disable strict exit code on console/page errors
@@ -22,6 +22,39 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
+
+function resolveDefaultPassword() {
+  if (process.env.MOPHEUS_TEST_PASSWORD) return process.env.MOPHEUS_TEST_PASSWORD;
+  if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
+
+  const searchDirs = [process.cwd()];
+  try {
+    const toplevel = execSync('git rev-parse --show-toplevel', { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+    if (toplevel && !searchDirs.includes(toplevel)) searchDirs.push(toplevel);
+    const commonDir = execSync('git rev-parse --git-common-dir', { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+    if (commonDir) {
+      const parent = path.resolve(commonDir, '..');
+      if (!searchDirs.includes(parent)) searchDirs.push(parent);
+    }
+  } catch {}
+
+  for (const dir of searchDirs) {
+    for (const file of ['.env.worktree', '.env']) {
+      const fullPath = path.join(dir, file);
+      try {
+        if (fs.existsSync(fullPath)) {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const match = content.match(/^(?:MOPHEUS_TEST_PASSWORD|ADMIN_PASSWORD)=(.+)$/m);
+          if (match) {
+            return match[1].trim().replace(/^['"]|['"]$/g, '');
+          }
+        }
+      } catch {}
+    }
+  }
+  return '';
+}
 
 // Parse CLI arguments
 function parseArgs() {
@@ -37,8 +70,8 @@ function parseArgs() {
     viewport: { width: 1280, height: 960 },
     backend: 'http://localhost:8230',
     frontend: 'http://localhost:3230',
-    email: 'alice@mopheus.dev',
-    password: 'Mopheus@123',
+    email: process.env.MOPHEUS_TEST_EMAIL || 'alice@mopheus.dev',
+    password: resolveDefaultPassword(),
     cdpLog: null,
     strictCdp: true,
   };
@@ -131,6 +164,9 @@ async function main() {
   const executablePath = findChromiumExecutable();
 
   // 1. Authenticate with backend API
+  if (!opts.password) {
+    throw new Error('Test password not found. Set MOPHEUS_TEST_PASSWORD or ADMIN_PASSWORD in environment or .env.worktree');
+  }
   console.log(`==> Authenticating as ${opts.email}...`);
   const loginRes = await fetch(`${opts.backend}/api/v1/auth/login`, {
     method: 'POST',

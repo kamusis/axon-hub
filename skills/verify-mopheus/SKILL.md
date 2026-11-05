@@ -16,7 +16,7 @@ All verification operations run against fixed local ports and database instances
 - **Database**: PostgreSQL `mopheus_wt_preview_test` on `localhost:5432` (`mopheus-postgres-1`)
 - **Default Test Workspace**: `dev-space` (`bb08a9c4-9f3f-414d-8632-d23909bada79`)
 - **Fixed Daemon ID**: `5864c916-5e33-4137-8244-d435fd451561`
-- **Test Credentials**: `alice@mopheus.dev` / `Mopheus@123` (Owner of `dev-space`)
+- **Test Credentials**: `alice@mopheus.dev` (Password resolved automatically from `.env.worktree` / `ADMIN_PASSWORD` / `MOPHEUS_TEST_PASSWORD`)
 
 ---
 
@@ -100,7 +100,7 @@ node ~/.gemini/config/skills/mopheus-integration-preview/scripts/preview_screens
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8230/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@mopheus.dev","password":"Mopheus@123"}' | jq -r .data.accessToken)
+  -d "{\"email\":\"alice@mopheus.dev\",\"password\":\"${MOPHEUS_TEST_PASSWORD:-${ADMIN_PASSWORD}}\"}" | jq -r .data.accessToken)
 
 curl -s -f http://localhost:8230/api/v1/workspaces/bb08a9c4-9f3f-414d-8632-d23909bada79/<endpoint> \
   -H "Authorization: Bearer ${TOKEN}"

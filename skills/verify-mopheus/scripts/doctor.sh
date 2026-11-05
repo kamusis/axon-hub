@@ -8,7 +8,33 @@ set -euo pipefail
 BACKEND_URL="${MOPHEUS_BACKEND_URL:-http://localhost:8230}"
 FRONTEND_URL="${MOPHEUS_FRONTEND_URL:-http://localhost:3230}"
 TEST_EMAIL="${MOPHEUS_TEST_EMAIL:-alice@mopheus.dev}"
-TEST_PASSWORD="${MOPHEUS_TEST_PASSWORD:-Mopheus@123}"
+TEST_PASSWORD="${MOPHEUS_TEST_PASSWORD:-${ADMIN_PASSWORD:-}}"
+
+if [ -z "${TEST_PASSWORD}" ]; then
+  search_dirs=( "." )
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    search_dirs+=( "$(git rev-parse --show-toplevel)" )
+  fi
+  if git rev-parse --git-common-dir >/dev/null 2>&1; then
+    search_dirs+=( "$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)" )
+  fi
+  for dir in "${search_dirs[@]}"; do
+    for env_file in "${dir}/.env.worktree" "${dir}/.env"; do
+      if [ -f "${env_file}" ]; then
+        parsed_pwd="$(grep -E '^(MOPHEUS_TEST_PASSWORD|ADMIN_PASSWORD)=' "${env_file}" 2>/dev/null | head -n1 | cut -d'=' -f2- | tr -d '\"'\'' ' || true)"
+        if [ -n "${parsed_pwd}" ]; then
+          TEST_PASSWORD="${parsed_pwd}"
+          break 2
+        fi
+      fi
+    done
+  done
+fi
+
+if [ -z "${TEST_PASSWORD}" ]; then
+  echo "[✗] Neither MOPHEUS_TEST_PASSWORD nor ADMIN_PASSWORD could be resolved from environment or .env.worktree" >&2
+  exit 1
+fi
 
 echo "==> [verify-mopheus] Running doctor check against preview environment..."
 

@@ -17,8 +17,8 @@ All preview operations run against deterministic local endpoints:
 - **Database**: `mopheus_wt_preview_test` on `localhost:5432` (`mopheus-postgres-1`)
 - **Fixed Daemon ID**: `5864c916-5e33-4137-8244-d435fd451561`
 - **Test Accounts**:
-  - `alice@mopheus.dev` / `Mopheus@123` (Dev Space Owner, regular testing & daemon runner)
-  - `admin@mopheus.dev` / `Mopheus@123` (System Admin)
+  - `alice@mopheus.dev` (Dev Space Owner, regular testing & daemon runner; password resolved from `.env.worktree` / `ADMIN_PASSWORD`)
+  - `admin@mopheus.dev` (System Admin; password resolved from `.env.worktree` / `ADMIN_PASSWORD`)
 - **Default Workspace**: `dev-space` (`bb08a9c4-9f3f-414d-8632-d23909bada79`)
 
 ---

@@ -26,7 +26,7 @@ Preconditions:
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8230/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@mopheus.dev","password":"Mopheus@123"}' | jq -r .data.accessToken)
+  -d "{\"email\":\"alice@mopheus.dev\",\"password\":\"\${MOPHEUS_TEST_PASSWORD:-\${ADMIN_PASSWORD}}\"}" | jq -r .data.accessToken)
 
 AGENTS_RESP=$(curl -s http://localhost:8230/api/v1/workspaces/bb08a9c4-9f3f-414d-8632-d23909bada79/agents \
   -H "Authorization: Bearer ${TOKEN}")
