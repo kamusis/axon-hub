@@ -206,27 +206,31 @@ echo y | "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server
 "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server_url "http://localhost:${BACKEND_PORT}" workspace switch "$DEV_SPACE_ID" >/dev/null
 "$PREVIEW_DIR/server/bin/mopheus" --profile "$MOPHEUS_PROFILE" --server_url "http://localhost:${BACKEND_PORT}" daemon start --daemon-id "$FIXED_DAEMON_ID" --sandbox-enabled=false --allow-root
 
-rm -f "$PREVIEW_DIR/frontend.log"
-echo "==> Cleaning stale Next.js cache to avoid Turbopack chunk reuse..."
-rm -rf "$PREVIEW_DIR/apps/web/.next"
-bash "$SCRIPT_DIR/start_detached.sh" \
-    --cwd "$PREVIEW_DIR" \
-    --log "$PREVIEW_DIR/frontend.log" \
-    --pid-file "$PREVIEW_DIR/frontend.pid" \
-    pnpm --filter @mopheus/web dev -p "$FRONTEND_PORT"
+if [ "${SKIP_FRONTEND:-false}" = "true" ]; then
+    echo "==> Skipping frontend launch as requested (SKIP_FRONTEND=true)..."
+else
+    rm -f "$PREVIEW_DIR/frontend.log"
+    echo "==> Cleaning stale Next.js cache to avoid Turbopack chunk reuse..."
+    rm -rf "$PREVIEW_DIR/apps/web/.next"
+    bash "$SCRIPT_DIR/start_detached.sh" \
+        --cwd "$PREVIEW_DIR" \
+        --log "$PREVIEW_DIR/frontend.log" \
+        --pid-file "$PREVIEW_DIR/frontend.pid" \
+        pnpm --filter @mopheus/web dev -p "$FRONTEND_PORT"
 
-echo "==> Waiting for frontend (:${FRONTEND_PORT}) to be ready..."
-for _ in $(seq 1 45); do
-    if is_port_listening "$FRONTEND_PORT"; then
-        echo "Frontend is ready on :${FRONTEND_PORT}"
-        break
+    echo "==> Waiting for frontend (:${FRONTEND_PORT}) to be ready..."
+    for _ in $(seq 1 45); do
+        if is_port_listening "$FRONTEND_PORT"; then
+            echo "Frontend is ready on :${FRONTEND_PORT}"
+            break
+        fi
+        sleep 1
+    done
+    if ! is_port_listening "$FRONTEND_PORT"; then
+        echo "ERROR: Frontend failed to listen on :${FRONTEND_PORT}. Check $PREVIEW_DIR/frontend.log" >&2
+        tail -n 30 "$PREVIEW_DIR/frontend.log" >&2 || true
+        exit 1
     fi
-    sleep 1
-done
-if ! is_port_listening "$FRONTEND_PORT"; then
-    echo "ERROR: Frontend failed to listen on :${FRONTEND_PORT}. Check $PREVIEW_DIR/frontend.log" >&2
-    tail -n 30 "$PREVIEW_DIR/frontend.log" >&2 || true
-    exit 1
 fi
 
 echo ""

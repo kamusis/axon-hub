@@ -191,17 +191,33 @@ async function main() {
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
     viewport: opts.viewport,
+    colorScheme: 'light',
   });
 
-  // 3. Inject auth cookie
-  await context.addCookies([
+  // 3. Inject auth & CSRF cookies
+  const cookiesToAdd = [
     {
       name: 'mopheus_auth',
       value: accessToken,
       domain: new URL(opts.frontend).hostname,
       path: '/',
     },
-  ]);
+  ];
+
+  const setCookies = loginRes.headers.getSetCookie ? loginRes.headers.getSetCookie() : [];
+  for (const sc of setCookies) {
+    const m = sc.match(/mopheus_csrf=([^;]+)/);
+    if (m) {
+      cookiesToAdd.push({
+        name: 'mopheus_csrf',
+        value: m[1],
+        domain: new URL(opts.frontend).hostname,
+        path: '/',
+      });
+    }
+  }
+
+  await context.addCookies(cookiesToAdd);
 
   const page = await context.newPage();
 
@@ -280,6 +296,7 @@ async function main() {
   await page.goto(`${opts.frontend}/login`, { waitUntil: 'domcontentloaded' });
   await page.evaluate(
     ({ user, accessToken }) => {
+      localStorage.setItem('theme', 'light');
       localStorage.setItem(
         'mopheus-auth',
         JSON.stringify({

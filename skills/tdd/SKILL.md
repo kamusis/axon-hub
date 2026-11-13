@@ -81,6 +81,7 @@ Bad tests:
 Favor the narrowest test that still exercises real behavior.
 Mock only at true system boundaries (external third-party APIs, remote payment gateways, real clocks).
 Never mock your own domain services, repositories, or internal collaborators just to satisfy a unit test count.
+Exception: when a repository provides an established boundary test double (such as `pgxmock` / `dbmock` simulating the database driver boundary, or a standard harness like `newMockService(t)` explicitly specified by a ticket), reuse that boundary double while still refusing to mock internal helpers or logic of the unit under test.
 
 If writing a unit test requires:
 - Deeply nested mocks of owned classes,
@@ -273,7 +274,7 @@ Before claiming the work is complete:
 - [ ] (Bug fix) Two sequential commits exist in feature worktree (`test: ...` -> `fix: ...`)
 - [ ] Implementation was scoped strictly to the tested behavior (no speculative abstractions)
 - [ ] New tests verify observable behavior through public interfaces
-- [ ] Mocks are strictly limited to external system boundaries (no internal mocks)
+- [ ] Mocks are limited to external system boundaries or established repository boundary test doubles (no internal mocks)
 - [ ] Relevant focused checks pass cleanly
 - [ ] Relevant broader checks pass or any inability to run them is reported
 - [ ] Refactors, if any, happened only after green
