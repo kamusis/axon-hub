@@ -192,7 +192,12 @@ docker exec mopheus-postgres-1 psql -U mopheus -d "$POSTGRES_DB" -c "
     FROM feature f
     ON CONFLICT (workspace_id, feature_id) DO UPDATE SET enabled = true;
 
-    DELETE FROM daemon_runtime WHERE daemon_id != '$FIXED_DAEMON_ID' OR status = 0;
+    DELETE FROM daemon_runtime
+    WHERE daemon_id != '$FIXED_DAEMON_ID'
+      AND status = 0
+      AND provider != 'qoder_cloud'
+      AND COALESCE(config->>'protocol', '') != 'cloud'
+      AND daemon_id NOT LIKE 'qoder-managed-%';
 " >/dev/null
 
 PREVIEW_LOGIN_PASSWORD="${MOPHEUS_TEST_PASSWORD:-${ADMIN_PASSWORD:-}}"

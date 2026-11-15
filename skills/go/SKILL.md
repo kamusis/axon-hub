@@ -271,11 +271,11 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
    ```
 
 2. **Dispatch Review Request to Qoder (Template Mode: `-t review`)**:
-   Send the structured review prompt (including confirmed passing unit tests, surface-matched evidence, and physical proof):
+   Send the structured review prompt (including confirmed passing unit tests, surface-matched evidence, and physical proof). Always set `RELAY_DELIVERY_TIMEOUT=900s` to prevent Qoder deep multi-tool reviews from hitting `relay`'s default 300s timeout:
    ```bash
-   relay send <link-name> --to qoder -t review -m "工单: <工单标题/ID>\nURL: <工单URL>\nWorktree: <worktree_path>\n分支: <branch_name>\n【重点关注与改动说明】\n<简述改动核心逻辑>\n【物理验证证据】\n- 单测/E2E 结果: <测试通过日志与退出码 0>\n- 复现时序证明 (Bug修复时必填): <红灯提交 SHA 与复现失败日志 -> 绿灯提交 SHA 与通过日志>\n- 交互表面证据:\n  * UI 改动: 截图 /tmp/...png + CDP 审计 /tmp/...cdp.json (0 console errors)\n  * CLI 改动: 终端调用完整 stdout/stderr 与 exit code 0\n  * 后端改动: API 响应 JSON + DB 查询落盘记录\n- 特性地图同步: <新增/更新的 features/*.md 路径>"
+   RELAY_DELIVERY_TIMEOUT=900s relay send <link-name> --to qoder -t review -m "工单: <工单标题/ID>\nURL: <工单URL>\nWorktree: <worktree_path>\n分支: <branch_name>\n【重点关注与改动说明】\n<简述改动核心逻辑>\n【物理验证证据】\n- 单测/E2E 结果: <测试通过日志与退出码 0>\n- 复现时序证明 (Bug修复时必填): <红灯提交 SHA 与复现失败日志 -> 绿灯提交 SHA 与通过日志>\n- 交互表面证据:\n  * UI 改动: 截图 /tmp/...png + CDP 审计 /tmp/...cdp.json (0 console errors)\n  * CLI 改动: 终端调用完整 stdout/stderr 与 exit code 0\n  * 后端改动: API 响应 JSON + DB 查询落盘记录\n- 特性地图同步: <新增/更新的 features/*.md 路径>"
    ```
-   *Execution note: `relay send` will wait for Qoder's headless execution to finish (typically 30–60s).*
+   *Execution note: `relay send` will wait for Qoder's headless execution to finish (typically 1–3m, capped at 900s by `RELAY_DELIVERY_TIMEOUT`).*
 
 3. **Retrieve Review Verdict into Antigravity**:
    ```bash
@@ -293,7 +293,7 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
      - Re-run local verification commands to confirm tests pass.
      - Dispatch followup review using `-t followup`:
        ```bash
-       relay send <link-name> --to qoder -t followup -m "已针对上一轮意见整改：\n1. <修复点1>\n2. <修复点2>\n本地验证已通过，请复核终审裁决。"
+       RELAY_DELIVERY_TIMEOUT=900s relay send <link-name> --to qoder -t followup -m "已针对上一轮意见整改：\n1. <修复点1>\n2. <修复点2>\n本地验证已通过，请复核终审裁决。"
        ```
      - Retrieve updated verdict: `relay send <link-name> --to agy`.
      - Repeat until `Verdict: APPROVED`.

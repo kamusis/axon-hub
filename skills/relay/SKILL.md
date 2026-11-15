@@ -90,9 +90,9 @@ When the user asks to **"把 agy 某个会话的工作成果发给 qoder 审核"
 ### Step 4: Execute the Relay to Qoder
 1. Send the review request from Antigravity to Qoder:
    - **For Standard Code Review (Mandatory for Review Gate)**:
-     Use **Template mode (`-t review`)** to automatically drive `/verification-before-completion` (Phase A `ponytail-review` + Phase B `mopheus-code-review` / repository guardrails):
+     Use **Template mode (`-t review`)** to automatically drive `/verification-before-completion` (Phase A `ponytail-review` + Phase B `mopheus-code-review` / repository guardrails), with `RELAY_DELIVERY_TIMEOUT=900s` to avoid `relay`'s 300s default timeout during deep multi-tool inspections:
      ```bash
-     relay send <link-name> --to qoder -t review -m "工单: <工单标题/ID>\nWorktree: <worktree_path>\n分支: <branch_name>\n【重点关注】<关注模块或改动说明>"
+     RELAY_DELIVERY_TIMEOUT=900s relay send <link-name> --to qoder -t review -m "工单: <工单标题/ID>\nWorktree: <worktree_path>\n分支: <branch_name>\n【重点关注】<关注模块或改动说明>"
      ```
    - **For Free / Ad-hoc Messaging**:
      `-m` is completely freeform and unrestricted when `-t` is omitted:
@@ -135,7 +135,7 @@ If Qoder requested changes or found blocking bugs in Round 1:
    - Run verification (e.g. `go test`, `pnpm typecheck`, `vitest`).
 2. **Send Round 2+ Fix Evidence to Qoder via `-t followup`**:
    ```bash
-   relay send <link-name> --to qoder -t followup -m "已针对上一轮评审意见完成整改：1. ...; 2. ...。验证已全部通过，请核验阻断项闭环并给出终审裁决。"
+   RELAY_DELIVERY_TIMEOUT=900s relay send <link-name> --to qoder -t followup -m "已针对上一轮评审意见完成整改：1. ...; 2. ...。验证已全部通过，请核验阻断项闭环并给出终审裁决。"
    ```
 3. **Retrieve Round 2 Verdict back to Antigravity**:
    ```bash
