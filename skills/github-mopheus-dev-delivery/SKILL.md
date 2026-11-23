@@ -19,7 +19,7 @@ Treat explicit invocation as authorization for every write in this workflow: com
 - Keep GitHub content and commit messages in English. Match the Mopheus ticket's language in comments.
 - Preserve partial success on failure. Verify whether an external write succeeded before retrying it.
 
-## Formal Mopheus CLI boundary
+## Formal Mopheus CLI boundary and profile resolution
 
 Delivery updates durable records in `https://dev.mopheus.ai`. Never inherit disposable preview identities or execute unreleased repository CLI binaries.
 
@@ -31,22 +31,22 @@ Tool shells are frequently non-login and non-interactive, so `~/.local/bin` is c
 bash -lc 'command -v mopheus || command -v mop'
 ```
 
-- `mopheus` and `mop` are accepted aliases of the same installed host binary. Prefer `mopheus` in documented commands.
-- Reject any candidate whose resolved path (`readlink -f`) lies inside a repository checkout or worktree (for example `.worktrees/*/server/bin/mopheus` or `server/bin/mopheus`); that is an unreleased local build.
-- Confirm the binary actually works before concluding anything: `<cli> version`, then `profile ls` and `auth status`.
+- `mopheus` and `mop` are accepted aliases of the same formally installed host binary. Prefer `mopheus` in documented commands.
+- Never execute unreleased or local development builds (`go run ./cmd/mopheus`, `make mopheus`, `make cli`, `./server/bin/mopheus`, any binary inside a repository checkout or `.worktrees/` directory, or a temporary build).
+- Reject any candidate whose resolved path (`readlink -f`) lies inside a repository checkout or worktree (for example `.worktrees/*/server/bin/mopheus` or `server/bin/mopheus`); if the first `mopheus`/`mop` on `PATH` symlinks into a repo or worktree, invoke the host-installed binary directly by path (e.g. `~/.local/bin/mopheus`) or stop and report the conflict.
+- Confirm the binary actually works before concluding anything: `<cli> version`, then `profile list` and `auth status`.
 
 **Configuration authority and profile resolution:**
 
-- `profile ls` and `auth status` are the only source of truth for profile and authentication state.
-- Never infer profile existence from filesystem layout.
+- `profile list` and `auth status` are the only source of truth for profile and authentication state. Never infer profile existence from filesystem layout.
 - Unset preview environment variables (`MOPHEUS_SERVER_URL`, `MOPHEUS_WORKSPACE_ID`, etc.).
 - **Resolve the formal dev profile (`<dev-profile>`)**:
-  1. **Check `MOPHEUS_DEV_PROFILE`**: If `MOPHEUS_DEV_PROFILE` environment variable is set (e.g. `export MOPHEUS_DEV_PROFILE=dev`), use its value as `<dev-profile>`.
+  1. **Check `MOPHEUS_DEV_PROFILE`**: If the `MOPHEUS_DEV_PROFILE` environment variable is set (e.g. `export MOPHEUS_DEV_PROFILE=dev`), use its value as `<dev-profile>`.
   2. **Dynamic URL probe**: If `MOPHEUS_DEV_PROFILE` is unset, run `mopheus profile list -o json` (or `mop profile list -o json`) and filter profiles matching `serverUrl == "https://dev.mopheus.ai"`:
      - Prioritize profiles with `hasToken: true`.
      - When multiple authenticated profiles match, prioritize exact `dev` > name containing `dev` (e.g. `mop-dev`) > `default` > first matching profile.
      - If all matching profiles have `hasToken: false`, pick the best candidate (e.g. `dev` or `default`) and instruct the user to run `mopheus --profile <name> login`.
-     - If no profile points to `https://dev.mopheus.ai`, **do NOT overwrite the user's `default` profile**. Prompt the user to configure one:
+     - If no profile points to `https://dev.mopheus.ai`, **do NOT overwrite the user's `default` profile**. Halt and prompt the user to configure one:
        ```bash
        export MOPHEUS_DEV_PROFILE=dev
        mopheus profile create dev --server_url https://dev.mopheus.ai
@@ -56,7 +56,7 @@ bash -lc 'command -v mopheus || command -v mop'
 - Set `<target-connection-args>` to `--profile <dev-profile>`.
 - Pass `<target-connection-args> --workspace-id <id>` explicitly to every Mopheus command.
 
-**When integration may be marked `SKIPPED`:** only with positive evidence — the probe ran, the selected binary answered, and `profile ls` or `auth status` explicitly failed (missing profile, invalid token, unreachable server). An empty `command -v` from a non-login shell, a missing profile directory, or any other negative filesystem probe is never sufficient grounds for `SKIPPED`; investigate further instead.
+**When integration may be marked `SKIPPED`:** only with positive evidence — the probe ran, the selected binary answered, and `profile list` or `auth status` explicitly failed (missing profile, invalid token, unreachable server). An empty `command -v` from a non-login shell, a missing profile directory, or any other negative filesystem probe is never sufficient grounds for `SKIPPED`; investigate further instead.
 
 ## 1. Resolve delivery context
 
@@ -85,7 +85,7 @@ Stop on multiple candidate issues/tickets, an `origin` that does not identify `e
      Run `make check-workflows` and/or `make check-scripts`.
    - **Full-stack / cross-cutting changes** (both `server/` and `apps/web/` modified, or root build configs):
      Run the complete verification pipeline (`make check`).
-   
+
    **Verification Guardrails**:
    - **Log capture standard**: **NEVER pipe test output directly to `tail -100` or `head -40`** (e.g. `make check | tail -100`); truncated output discards early failure stacks, hiding the failing test name and misleading the agent into blind loops. Redirect output to a log file (`make test > /tmp/dev-test.log 2>&1`) and inspect exit code. Locate failures with anchored regex: `grep -E "^--- FAIL:|^FAIL\b" /tmp/dev-test.log`.
    - **Failure triage & pre-existing defect isolation**: If a test fails, **NEVER re-run the entire monolithic suite immediately**. Isolate the specific test function or file. Verify if the failure pre-exists on `origin/main` (e.g. via `git stash` and running against clean `origin/main`). If confirmed pre-existing on `origin/main` and unrelated to the current feature branch, document it in the PR description as a known pre-existing issue on main, rather than blocking delivery or attempting unprompted refactors.

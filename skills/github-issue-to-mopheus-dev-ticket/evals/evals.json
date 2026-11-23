@@ -28,7 +28,7 @@
     {
       "id": 5,
       "prompt": "预览环境已经登录了 local profile，直接用当前 go run 的 CLI 把 GitHub issue 同步到 dev 工单。",
-      "expected_output": "The skill refuses the preview CLI and local profile, requires the host-installed mopheus executable, resolves and verifies the formal profile (via MOPHEUS_DEV_PROFILE or dynamic server URL detection) against exactly https://dev.mopheus.ai, and uses the fixed dev workspace ID explicitly before any Mopheus write.",
+      "expected_output": "The skill refuses the preview CLI (including any repository/worktree build or symlink pointing into a worktree) and local profile, requires a formally installed host Mopheus CLI binary (mopheus or its standard installed mop alias resolved outside any repo/worktree), resolves and verifies the formal profile (via MOPHEUS_DEV_PROFILE or dynamic server URL detection) against exactly https://dev.mopheus.ai, and uses the fixed dev workspace ID explicitly before any Mopheus write.",
       "files": []
     },
     {

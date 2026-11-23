@@ -71,7 +71,12 @@ Always resolve the target repository from the current Git directory:
 
 ### 2. Resolve Mopheus Target & Workspace
 
-Require the host-installed `mopheus` executable from PATH in all modes. Never use `mop`, `go run ./cmd/mopheus`, `make mopheus`, a repository/worktree binary, or a temporary build.
+Require a formally installed host Mopheus CLI binary (`mopheus` or its standard installed alias `mop`) in all modes. Never execute unreleased or local development builds (`go run ./cmd/mopheus`, `make mopheus`, `make cli`, `./server/bin/mopheus`, any binary inside a repository checkout or `.worktrees/` directory, or a temporary build).
+
+Before running Mopheus commands, probe via a login shell when needed (non-login tool shells may omit `~/.local/bin` from `PATH`) and verify the resolved target path (`readlink -f`):
+- Run `bash -lc 'command -v mopheus || command -v mop'` and check `readlink -f` on the candidate.
+- The resolved path must point to a standard host installation location (such as `~/.local/bin/mopheus` or `/usr/local/bin/mopheus`), not inside any Git checkout or worktree.
+- If the first `mopheus`/`mop` on `PATH` symlinks to a repository or worktree binary (such as a preview worktree), invoke the host-installed binary directly by path (e.g. `~/.local/bin/mopheus`) or stop and report the conflict—never fall back to the development build.
 
 #### Internal Mopheus-agent mode
 Use this mode only when authoritative task/runtime context identifies the caller as a Mopheus agent task and supplies that task's workspace ID:
