@@ -6,7 +6,7 @@ Agent Tasks represent automated execution jobs triggered on tickets or standalon
 
 - `task-dispatch`: Queue a new task for an agent on a specific ticket or workspace.
 - `task-lifecycle`: Transition status through `queued` (10) -> `dispatched` (20) -> `running` (30) -> `completed` (40) or `failed` (50).
-- `task-transcript`: Display streaming thoughts, tool calls (Bash, TaskCreate, etc.), and step outputs in the Web UI.
+- `task-transcript`: Display streaming thoughts, tool calls (Bash, TaskCreate, etc.), step outputs, and metadata chips (including clickable `[data-testid="transcript-runtime-chip"]` navigating to `/<workspace>/runtimes/<runtimeId>` with archived/inaccessible fallback) in the Web UI.
 - `task-comment-linkage`: Automatically post or associate task completion comments in the ticket discussion timeline.
 - `task-run-history`: Render the run history drawer with duration, token counts, and trigger summaries.
 

@@ -1,6 +1,6 @@
 ---
 name: github-issue-to-mopheus-dev-ticket
-description: "Create a complete, detailed Chinese Mopheus dev ticket as the primary implementation entry and a paired concise English GitHub issue in the current repository's remote GitHub repository. Ensures the GitHub issue links to the Mopheus ticket using the full Ticket UUID. Strictly enforces single authoritative implementation design with zero ambiguity (strictly banning '或'/or/alternatives in design specifications), pre-creation user clarification for open design choices, and post-creation ambiguity verification."
+description: "Create a Chinese Mopheus dev ticket that states confirmed user requirements, concrete scenarios, and observable acceptance criteria, plus a concise linked English GitHub issue in the current repository. Use when converting a user request, bug report, or existing GitHub issue into linked implementation work."
 ---
 
 # GitHub Issue to Mopheus Dev Ticket
@@ -10,15 +10,18 @@ This skill bridges user requests, bug reports, and feature specifications betwee
 ## Core Philosophy & Weighting
 
 - **Universal & Repository-Aware**: Automatically resolves the target GitHub repository from the current working directory's Git remote origin (`<owner>/<repo>`), and auto-associates the Mopheus ticket with the matching repository project.
-- **Mopheus Dev Ticket (Primary & Authoritative)**: The Mopheus dev ticket is the **primary, authoritative internal implementation specification**. It must be written in **clear, natural, professional written Chinese** (avoiding awkward translationese, bureaucratic jargon, stacked pre-modifiers, and colloquial slang), covering the background, exact code locations/root cause, concrete changes, and acceptance criteria.
+- **Mopheus Dev Ticket (Primary & Authoritative)**: The Mopheus dev ticket is the **primary, authoritative internal implementation specification**. It must be written in **clear, natural, professional written Chinese**. Put the user need and concrete scenario first; keep background to only the context needed to understand them. Include code locations/root cause only when verified, then state concrete changes and acceptance criteria.
 - **GitHub Issue (Concise & Linked)**: The GitHub issue is the **external tracking issue** written in **concise English**. It must capture the core summary, proposed change, and acceptance criteria, and **MUST include a direct link to the Mopheus Dev Ticket using the Ticket UUID**.
 - **Writing Style & Scope Discipline (行文风格与按需裁剪规范)**:
+  - **人机兼顾的工程设计表达 (Human-Friendly Architecture & Agent-Precise Implementation)**: 工单既是 AI Agent 执行代码变更的严格契约，也是人类工程师与审查者理解系统演进的核心载体。严禁仅机械罗列干瘪的代码行级指令。在具体的模块改动前，必须包含《方案设计与机理推导》章节，通过清晰直观的心智模型、ASCII 拓扑/时序图解、物理机制阐述以及改造前后对比表，将“为什么从底层能根治”、“各层系统如何受力”以及“故障与防护边界如何改变”阐述透彻，使人类与 AI 均能建立完整、统一的架构心智。
   - **自然专业的工程书面语**: 用清晰、简练的中文工程书面语编写工单。严禁机器翻译腔、公文套话和多重前置定语堆叠（例如：写“使用 `tokenAlphabet` 构造的 Base64 编码器”，不写“由 `tokenAlphabet` 构造的无填充严格编码器”）；同时保持正式规范，不使用俚语口语（如“挂了”）。
   - **按需裁剪章节 (Omit Untouched Layers)**: 只写本次改动实际涉及的模块。如果不涉及 CLI、前端 UI、数据库迁移或 E2E 测试，**直接省略对应小节**，严禁保留空章节或编写免责套话段落去解释“为什么不改前端 / 为什么不写 E2E”。
+  - **需求优先，背景从简 (Need Before Context)**: 工单首先回答“谁在什么场景下要完成什么事”或“用户做了什么、实际发生什么、预期是什么”。背景最多用 1 段或 3 个要点，只保留理解需求所必需的业务上下文；不复述项目介绍、问题分析过程、已有功能清单或用户原话中的铺垫。删掉不改变需求理解、实现边界或验收判断的信息。
+  - **事实与推断分开 (Facts Before Assumptions)**: 不得用概括性背景代替需求。只记录输入、代码、日志或复现证据能够支持的事实；未知项明确标为待确认，不臆造用户、流程、影响范围、根因、代码位置或验收结果。若缺少的信息会改变需求范围或验收方式，创建前向用户追问；若不影响实现契约，则省略。
 - **Zero Ambiguity & Single Authoritative Design (严格禁止模棱两可与方案二选一)**:
   - **方案必须绝对唯一 (Single Concrete Design)**: 工单是具体的工程执行契约与验收基准，不是发散性设计讨论稿。每一个涉及架构设计、CLI 命令/参数名、HTTP API 契约、数据模型字段、状态流转逻辑、默认行为的环节，必须且只能给出**唯一确定**的实现方案。
   - **严禁模棱两可词汇 (Strict Ban on Ambiguous Phrasing)**: 工单正文严禁出现“方案 A 或 方案 B”、“可采用 X 或者 Y”、“使用 A 或 B”、“亦可考虑”、“也可以选择”、“备选方案”、“两种方式”等让实现者二次做选择题的推诿或未决措辞。
-  - **不确定时前置追问，决策闭环 (Clarify Before Creation)**: 如果在分析过程中发现存在多种可行技术路线或权衡点（Trade-offs），且无法 100% 确定哪种更合适，**必须在生成工单前立即停止，并向用户提出明确追问**。待用户决策闭环并锁定唯一方案后，方可创建工单。绝对不可将“二选一/多选一”的未决设计直接写入工单或 Issue！
+  - **不确定时前置追问，决策闭环 (Clarify Before Creation)**: 如果实现路线会改变用户可见行为、兼容性、数据保留或验收边界，且请求、现有代码和仓库约定无法确定应采用的路线，**必须在生成工单前向用户追问并锁定行为契约**。若差异仅是内部实现细节，依据现有架构和代码约定选定一条路线，不把技术选择题交给用户。工单和 Issue 不得留下未决设计。
 
 > [!IMPORTANT]
 > **Ticket Link URL Rule (Mandatory Ticket UUID)**:
@@ -30,7 +33,7 @@ This skill bridges user requests, bug reports, and feature specifications betwee
 
 1. **New-report mode (Default)**:
    - Detect current repository's remote origin and project name.
-   - Create the comprehensive Chinese Mopheus ticket first to acquire the new **Ticket UUID** and number, associating it with the matching repository project.
+   - Create the Chinese Mopheus ticket from the confirmed requirements to acquire the new **Ticket UUID** and number, associating it with the matching repository project.
    - Create the paired concise English GitHub issue in the target repository containing the Mopheus ticket UUID link.
    - Link the GitHub issue to the Mopheus ticket via `mopheus repo issue sync`.
 2. **Existing-Ticket mode**:
@@ -41,7 +44,7 @@ This skill bridges user requests, bug reports, and feature specifications betwee
    - Link the ticket to the GitHub issue via `mopheus repo issue sync` and verify project binding.
 3. **Existing-Issue mode**:
    - Verify the supplied GitHub issue in the target repository and confirm it has no linked Mopheus ticket.
-   - Create the comprehensive Chinese Mopheus ticket first, bound to the matching repository project.
+   - Create the Chinese Mopheus ticket from confirmed requirements, bound to the matching repository project.
    - Update the existing GitHub issue body (or post a comment) with the newly created Mopheus ticket UUID link.
    - Link the ticket to the GitHub issue via `mopheus repo issue sync`.
 
@@ -129,13 +132,19 @@ Capture `<project-id>`. If found, associate tickets with this project.
 
 ### Step 1: Resolve Report Scope & Extract Evidence
 
-- Extract exact reproduction steps, expected vs actual behavior, error messages, logs, IDs, and root cause analysis.
+- First turn the request into a compact requirement statement:
+  - **Feature**: identify the target user, triggering scenario/task, current pain or behavior, requested capability/action, observable expected outcome, and any stated scope boundary. State user-visible behavior and constraints; do not replace these with a broad goal such as “improve efficiency” or “enhance experience.”
+  - **Bug**: identify the actor/context, exact steps, actual result, expected result, and evidence. Preserve relevant error text, logs, IDs, and environment details.
+- Separate confirmed facts from hypotheses. Verify code locations and root cause against the repository before stating them; when not established, omit the root-cause claim and describe the observed behavior instead.
+- Keep only details that clarify the need, scenario, implementation boundary, or acceptance check. Do not pad the ticket with generic product background, repeated summaries, investigation narration, or speculative impact.
+- If a feature's user, trigger, pain, or expected outcome is missing and cannot be inferred safely, ask only focused questions about missing product requirements that would change scope or acceptance. Bundle related questions concisely; do not turn clarification into a broad questionnaire. Do not ask the user to choose among technical approaches that can be resolved from repository evidence. Ask about a technical trade-off only when it materially changes the user-visible contract and repository evidence does not determine the choice. Do not create records while a requirement that changes scope or acceptance remains unknown.
+- Do not invent a root cause, code location, implementation detail, or test command to make the ticket look complete. Include verified engineering details when useful; otherwise describe the required behavior and leave implementation analysis to the assignee.
 - If relevant screenshots are present in the conversation, upload them using the S.EE uploader skill/script to obtain public Markdown image URLs.
 - Categorize as `bug` or `feature`.
 - **Pre-Creation Design Decision Closure (方案决策闭环与零模棱两可自检)**:
   - 梳理拟定的技术实现方案。
   - 自查方案是否存在任何二选一、分支备选或不确定性设计（例如“可通过配置项或环境变量控制”、“方案 A 或 方案 B”、“返回格式 A 或 B”）。
-  - **红线拦截门禁**: 若存在未决定的实现选项，**坚决不可假定或把选择题留进工单，必须立即停止创建流程，向用户明确提出追问**，待用户决策确认唯一方案后，方可继续推进。
+   - **红线拦截门禁**: 若存在会改变用户可见契约且无法从需求和仓库事实确定的未决选项，不得自行假定或把选择题留进工单；向用户澄清受影响的行为后再继续。内部实现细节按项目既有模式收敛，不因此中断需求澄清。
 
 ---
 
@@ -157,17 +166,20 @@ EOF
 > [!CAUTION]
 > **方案唯一性与零模棱两可红线 (Zero Ambiguity & Single Implementation Standard)**:
 > - **严禁二选一措辞**: 技术方案中严禁出现“或”、“或者”、“亦可”、“也可考虑”、“方案 A 或 方案 B”等模棱两可的二选一措辞。
-> - **必须提供唯一落地定义**: 所有的 CLI 命令名、参数名、返回值类型、HTTP Handler 路由、数据表字段名、类型定义、状态机转移逻辑，必须且只能给出**唯一确定的生产落地规范**。
+> - **必须提供唯一落地定义**: 工单涉及的 CLI 命令/参数、API 契约、数据模型和状态流转必须给出唯一确定的要求。内部实现细节遵循仓库既有模式；仅当其选择会改变用户可见契约且仓库事实无法确定时才向用户澄清。
 > - **严禁推诿与猜测**: 绝不允许写出“可通过参数 --foo 或 --bar 控制”、“采用方案1或方案2”这类让下游实现者猜测的不确定设计。
-> - 遇到任何未决设计，必须先追问用户决策闭环，严禁带入工单！
+> - 仅当未决选项会改变用户可见契约且无法从需求、代码和仓库约定确定时，先向用户澄清；内部实现选项由实现者依据既有模式收敛，严禁将未决选项带入工单。
 
 #### Chinese Ticket Structure:
 
-按如下结构组织，仅保留本次改动实际触及的模块（非 Bug 工单直接省略“复现步骤与环境”；未涉及 CLI、前端或 E2E 时直接省略对应子项，严禁保留空章节或免责说明）：
+按如下结构组织，仅保留有事实内容且本次改动实际需要的章节（非 Bug 工单省略“复现步骤与环境”；未涉及 CLI、前端或 E2E 时省略对应子项，严禁保留空章节或免责说明）。工单以需求和可观察行为为主，背景简短；不要求为了显得“详细”而补齐无关背景、未验证根因或猜测的文件位置。Feature 的根因分析通常不适用，除非请求明确针对现有行为缺陷且根因已经验证：
 
 ```markdown
 ## 背景
-[简明说明业务背景、问题现象或需求目标，1~2 段话讲清为什么要做]
+[仅写理解需求必需的上下文，最多 1 段或 3 个要点；若无需额外背景则省略本节]
+
+## 需求与场景
+[Feature：谁在什么触发场景下需要完成什么操作/能力，系统应产生什么可观察结果及必要约束。Bug：用户在什么场景做了什么，实际结果与预期结果分别是什么。不得用抽象愿景代替具体行为]
 
 ## 复现步骤与环境（针对 Bug，非 Bug 省略本节）
 1. [步骤 1]
@@ -176,7 +188,16 @@ EOF
 
 ## 验证证据与根因分析
 - **现象截图 / 日志**: [嵌入 S.EE 截图链接或关键报错日志，无截图/日志时省略]
-- **根因 / 问题位置**: [直接指明涉及的代码文件、行号、函数/结构体及具体原因]
+- **根因 / 问题位置**: [仅在已验证时指明代码文件、行号、函数/结构体及原因；未经验证时省略]
+
+## 方案设计与机理推导（适合人类理解的架构剖析）
+- **心智模型与机理图解**: [使用清晰直观的 ASCII 拓扑图、时序图或容器架构，可视化展示问题发生的传导路径与改造后防护边界]
+- **核心设计论证**: [清晰阐明“为什么这样设计能从底层根除缺陷”，解释核心参数、内核机制或门禁策略的物理意义与推导逻辑]
+- **改造前后对比**:
+  | 机制 / 维度 | 改造前状态 | 改造后状态 |
+  | --- | --- | --- |
+  | [维度 1] | [现状问题与缺陷表现] | [解决后的预期效果与边界] |
+  | [维度 2] | [现状问题与缺陷表现] | [解决后的预期效果与边界] |
 
 ## 修改方案
 [按实际涉及的模块列出唯一确定的改法（不涉及的模块直接省略）：]
@@ -185,10 +206,14 @@ EOF
 - **前端 UI**: [涉及的组件、状态与交互]
 
 ## 验收标准
-1. [具体功能或修复结果断言 1（确定性描述，无“或”选项）]
-2. [具体功能或修复结果断言 2]
-3. **测试验证**: [列出需要通过的具体单测包、E2E 用例或 `make check` 命令]
+1. [从需求场景推导的可观察结果断言，给出触发条件和期望行为]
+2. [必要的边界/失败行为；没有额外边界时删除此项]
+3. **测试验证**: [仅列出由涉及模块和仓库测试布局确定的验证命令；无法确定时写应覆盖的测试层，不编造命令]
 ```
+
+**质量门禁**: 阅读者应能仅凭“需求与场景”和“验收标准”判断本次要改变什么、如何证明完成。若只能看到背景/动机而无法说出触发场景和期望行为，先补充信息或向用户追问，不能直接创建。每个背景句都必须提供理解需求所需的信息；删除后不影响需求、范围或验收的句子一律删除。
+
+**场景完整性检查**: Feature 至少写清目标用户、触发场景/任务、当前痛点、期望行为和可观察结果；用户未提供且不能从证据确认的关键项要先追问。用户没有提出的非目标不要自行扩写；若范围边界已明确，则用一句话记录。Bug 至少写清复现条件、实际结果和预期结果。技术方案的唯一性约束只针对已确认的实现契约，不得用它替代需求澄清或迫使用户替实现者做技术选择。
 
 > **Note**: Capture the created `ticket.id` (UUID, e.g. `b2fa14d4-784b-46fa-b162-9c1517211317`) and `ticket.number` (e.g. `733`).
 
@@ -196,7 +221,7 @@ EOF
 
 ### Step 3: Create or Update the Concise English GitHub Issue
 
-Create the GitHub issue in `<target-github-repo>`. The GitHub issue must stay **concise** (avoid repeating lengthy line-by-line code dumps), focusing on the background, proposed change, and acceptance criteria, and **MUST contain the Mopheus Dev Ticket link with the Ticket UUID**.
+Create the GitHub issue in `<target-github-repo>`. The GitHub issue must stay **concise**, stating the concrete user need/scenario, the decided change, and observable acceptance criteria. Keep background to the minimum context needed; do not repeat investigation narration or copy the full ticket. It **MUST contain the Mopheus Dev Ticket link with the Ticket UUID**.
 
 > [!IMPORTANT]
 > The GitHub issue must strictly adhere to the **Zero Ambiguity & Single Concrete Design** rule: never specify alternative or undecided implementations (e.g. avoid "either X or Y", "option A or option B"). State only the single decided behavior and acceptance criteria.
@@ -216,16 +241,19 @@ EOF
 **Mopheus Dev Ticket**: [MOC-<number>](https://dev.mopheus.ai/<workspace-slug>/tickets/<ticket-uuid>) (`<ticket-uuid>`)
 
 ## Background
-[Concise description of the problem, reproduction steps, or motivation]
+[One or two sentences of necessary context; omit if the scenario already makes the need clear]
+
+## User Need / Scenario
+[Who needs what in which situation, and what observable behavior is expected. For a bug, state actual versus expected behavior.]
 
 ## Proposed Change
-- [Concrete change 1 with target file/module]
-- [Concrete change 2 with target file/module]
+- [Concrete behavior/change required by the ticket; name a file/module only when repository evidence confirms it]
+- [Additional required behavior, if any]
 
 ## Acceptance Criteria
-1. [Core requirement 1]
-2. [Core requirement 2]
-3. [Specific unit/integration/E2E verification commands that must pass]
+1. [Observable outcome tied to the stated scenario]
+2. [Relevant boundary behavior, if any]
+3. [Verification commands grounded in the affected code and repository test layout; if not yet known, state the test layer to cover without inventing a command]
 ```
 
 > [!CAUTION]

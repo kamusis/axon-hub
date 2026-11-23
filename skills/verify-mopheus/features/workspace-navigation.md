@@ -5,7 +5,8 @@ Workspace navigation and layout governance ensure unified information architectu
 ## Sub-features
 
 - `workspace-sidebar`: Render persistent collapsible sidebar containing Tickets, Topics, Projects, Agents, Teams, Channels, and Settings.
-- `workspace-switcher`: Switch active workspace via top sidebar dropdown without full-page flash.
+- `sidebar-brand-header`: Render `/brand/logo.png` + resolved `brandName` with inline collapse button in expanded mode (`w-64`), `/brand/logo-compact.png` (or initial-letter fallback on error) in compact mode (`w-12`), and full brand header in mobile drawer.
+- `workspace-switcher`: Switch active workspace via top sidebar dropdown without full-page flash; supports inline per-workspace mute toggle (`Bell`/`BellOff`) before unread pills, excluding muted workspaces from collapsed blue dot and cross-workspace counts.
 - `container-layout-standard`: Enforce outer padding (`p-4 sm:p-6`) and inner rounded card container (`flex flex-1 min-h-0 flex-col overflow-hidden rounded-lg border bg-background`).
 - `page-header-standard`: Enforce single-line PageHeader layout (`[Icon (h-4 w-4 text-muted-foreground)] [Title (text-sm font-medium)] [Count (font-mono text-xs)] [Inline Tagline]`).
 - `anti-flicker-url-sync`: Verify URL state updates via `window.history.replaceState` without triggering App Router Suspense skeleton flashes.
