@@ -44,7 +44,7 @@ This skill chains the full developer lifecycle from an incoming ticket or an in-
 [Phase 4: Autonomous Qoder Peer Review (relay)]
   - Auto-bootstrap Qoder session & link (`review-<workspace>`)
   - Send review request: `relay send <link> --to qoder -t review -m "..."`
-  - Pull review verdict: `relay send <link> --to agy`
+  - Pull review verdict: `relay send <link> --to agy` (Antigravity) or `relay pull <link> --from qoder` (Pi in Zed)
   - If blocking items: fix in worktree → re-verify → `relay send -t followup` until APPROVED
           │
           ▼
@@ -257,7 +257,9 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
 
 1. **Resolve Sessions and Links**:
    ```bash
-   # 1. Resolve source Antigravity session ID (current session)
+   # 1. Resolve source orchestrator session:
+   #    - Inside Pi (Zed pi-acp): use `pi:$PI_SESSION_ID`
+   #    - Inside Antigravity: use `agy:<current-session-id>`
    # 2. Check for existing Qoder session in the current workspace
    relay session list -w "$(pwd)"
 
@@ -267,7 +269,8 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
    # 3. Check or create communication link (format: review-<workspace-basename>)
    relay link list
    # If link missing:
-   relay link create <link-name> <agy-session-id> <qoder-session-id>
+   #   Antigravity: relay link create <link-name> agy:<agy-session-id> qoder:<qoder-session-id>
+   #   Pi (Zed):    relay link create <link-name> pi:$PI_SESSION_ID qoder:<qoder-session-id>
    ```
 
 2. **Dispatch Review Request to Qoder (Template Mode: `-t review`)**:
@@ -277,14 +280,19 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
    ```
    *Execution note: `relay send` will wait for Qoder's headless execution to finish (typically 1–3m, capped at 900s by `RELAY_DELIVERY_TIMEOUT`).*
 
-3. **Retrieve Review Verdict into Antigravity**:
-   ```bash
-   relay send <link-name> --to agy
-   ```
-   *If Qoder is still busy, wait 5–10s and re-run `relay send <link-name> --to agy`. NEVER bypass relay by reading private JSONL or SQLite files directly.*
+3. **Retrieve Review Verdict back to Orchestrator**:
+   - **Inside Antigravity**:
+     ```bash
+     relay send <link-name> --to agy
+     ```
+   - **Inside Pi in Zed (`pi-acp`)**:
+     ```bash
+     relay pull <link-name> --from qoder
+     ```
+   *If Qoder is still busy, wait 5–10s and re-run the same command. NEVER bypass relay by reading private JSONL or SQLite files directly.*
 
 4. **Multi-Round Convergence Loop**:
-   - Inspect the retrieved review verdict in Antigravity.
+   - Inspect the retrieved review verdict.
    - **Case A: `Verdict: APPROVED`**
      - Peer-review gate passed. Proceed to Phase 5.
    - **Case B: `Verdict: CHANGES REQUESTED (N blocking)`**
@@ -295,7 +303,7 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
        ```bash
        RELAY_DELIVERY_TIMEOUT=900s relay send <link-name> --to qoder -t followup -m "已针对上一轮意见整改：\n1. <修复点1>\n2. <修复点2>\n本地验证已通过，请复核终审裁决。"
        ```
-     - Retrieve updated verdict: `relay send <link-name> --to agy`.
+     - Retrieve updated verdict: `relay send <link-name> --to agy` (Antigravity) or `relay pull <link-name> --from qoder` (Pi in Zed).
      - Repeat until `Verdict: APPROVED`.
 
 ---

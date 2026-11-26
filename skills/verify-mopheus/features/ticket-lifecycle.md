@@ -4,7 +4,7 @@ Ticket lifecycle enables creating, viewing, assigning, and transitioning status 
 
 ## Sub-features
 
-- `ticket-list`: Display paginated ticket list with filters, sort order, and status tabs.
+- `ticket-list`: Display paginated ticket list and board views with filters, sort order, status tabs, flat sub-ticket parent context (`CornerLeftUp` breadcrumb/chip), cross-status parent progress pills (`completed/total`), and hover family highlighting.
 - `ticket-create`: Create a new ticket with title, description, priority, and optional assignee.
 - `ticket-detail`: Render full ticket details, Markdown description, metadata sidebar, and activity timeline.
 - `ticket-status-change`: Transition status across lifecycle stages (Backlog -> Todo -> In Progress -> In Review -> Done).
