@@ -44,7 +44,7 @@ This skill chains the full developer lifecycle from an incoming ticket or an in-
 [Phase 4: Autonomous Qoder Peer Review (relay)]
   - Auto-bootstrap Qoder session & link (`review-<workspace>`)
   - Send review request: `relay send <link> --to qoder -t review -m "..."`
-  - Pull review verdict: `relay send <link> --to agy` (Antigravity) or `relay pull <link> --from qoder` (Pi in Zed)
+  - Pull review verdict: `relay send <link> --to agy` (Antigravity) or `relay pull <link> --from qoder` (Zed native Agent / Pi in Zed)
   - If blocking items: fix in worktree → re-verify → `relay send -t followup` until APPROVED
           │
           ▼
@@ -259,9 +259,13 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
    ```bash
    # 1. Resolve source orchestrator session:
    #    - Inside Pi (Zed pi-acp): use `pi:$PI_SESSION_ID`
-   #    - Inside Antigravity: use `agy:<current-session-id>`
-   # 2. Check for existing Qoder session in the current workspace
-   relay session list -w "$(pwd)"
+   #    - Inside Zed native Agent: query with the MAIN worktree root (Zed opens the main repo, not `.worktrees/<branch>`):
+   #        main_worktree=$(git worktree list | head -n 1 | awk '{print $1}')
+   #        relay session list --agent zed -w "$main_worktree"
+   #      Pick the active/latest thread ID (disambiguate by summary if multiple threads are active) -> `zed:<zed-thread-id>`
+   #    - Inside Antigravity: query with the main worktree root -> `agy:<current-session-id>`
+   # 2. Check for existing Qoder session in the current worktree (or main repo)
+   relay session list --agent qoder -w "$(pwd)"
 
    # If no Qoder session exists, auto-bootstrap one:
    qodercli -w "$(pwd)" --dangerously-skip-permissions -p "你是本项目的资深架构与代码评审员，请保持待命进行审查。"
@@ -269,8 +273,9 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
    # 3. Check or create communication link (format: review-<workspace-basename>)
    relay link list
    # If link missing:
-   #   Antigravity: relay link create <link-name> agy:<agy-session-id> qoder:<qoder-session-id>
-   #   Pi (Zed):    relay link create <link-name> pi:$PI_SESSION_ID qoder:<qoder-session-id>
+   #   Antigravity:      relay link create <link-name> agy:<agy-session-id> qoder:<qoder-session-id>
+   #   Zed native Agent: relay link create <link-name> zed:<zed-thread-id> qoder:<qoder-session-id>
+   #   Pi (Zed):         relay link create <link-name> pi:$PI_SESSION_ID qoder:<qoder-session-id>
    ```
 
 2. **Dispatch Review Request to Qoder (Template Mode: `-t review`)**:
@@ -285,10 +290,11 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
      ```bash
      relay send <link-name> --to agy
      ```
-   - **Inside Pi in Zed (`pi-acp`)**:
+   - **Inside Zed native Agent (`zed`) or Pi in Zed (`pi-acp`)**:
      ```bash
      relay pull <link-name> --from qoder
      ```
+     *(Never use `relay send --to zed`: Zed native threads are read-only in Relay.)*
    *If Qoder is still busy, wait 5–10s and re-run the same command. NEVER bypass relay by reading private JSONL or SQLite files directly.*
 
 4. **Multi-Round Convergence Loop**:
@@ -303,7 +309,7 @@ Once local changes, diff-scoped checks, and the feature's targeted surface verif
        ```bash
        RELAY_DELIVERY_TIMEOUT=900s relay send <link-name> --to qoder -t followup -m "已针对上一轮意见整改：\n1. <修复点1>\n2. <修复点2>\n本地验证已通过，请复核终审裁决。"
        ```
-     - Retrieve updated verdict: `relay send <link-name> --to agy` (Antigravity) or `relay pull <link-name> --from qoder` (Pi in Zed).
+     - Retrieve updated verdict: `relay send <link-name> --to agy` (Antigravity) or `relay pull <link-name> --from qoder` (Zed native Agent / Pi in Zed).
      - Repeat until `Verdict: APPROVED`.
 
 ---
