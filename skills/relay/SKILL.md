@@ -25,6 +25,9 @@ export PATH=$PATH:$HOME/.local/bin
 | **Create Link** | `relay link create <link-name> <endpoint-a> <endpoint-b>` |
 | **Relay Output** | `relay send <link-name> --to <target-agent> "<prompt>"` |
 | **Pull Output (Zed/Pi)** | `relay pull <link-name> --from <source-agent>` |
+| **Peek Live Progress** | `relay peek <worktree\|agent:id\|link> [--diff] [-f <file>] [--json]` |
+| **Steer (Hook Agents)** | `relay steer <worktree\|agent:id> -m "<correction>" [--blocking]` |
+| **Steer Queue & Hook** | `relay steer list [--all]` / `relay steer hook-install --agent all\|claude\|qoder\|pi [--status\|--uninstall]` / `relay steer drain --format hook-json --read-hook-stdin` |
 | **View Audit Log** | `relay log <link-name> [-n <limit>]` |
 
 ---
@@ -166,7 +169,47 @@ If Qoder requested changes or found blocking bugs in Round 1:
 
 ---
 
-## 3. Failure Triage & Guardrails
+## 3. Live Progress Inspection & Mid-Turn Steering (`peek` + `steer`)
+
+For observing a worker agent while it is still executing (without waiting for its turn to finish) and injecting high-signal corrections into hook-capable agents (Claude Code, Qoder CLI, Pi):
+
+1. **Inspect Live Progress (`relay peek`)**:
+   ```bash
+   # Inspect a worktree directly (branch, commits, dirty files, sibling worktrees, active sessions, pending steers)
+   relay peek .worktrees/fix-moc-1385 --diff -f server/internal/util/platform_darwin.go
+
+   # Inspect by agent session or link name (works even while the agent turn is in progress)
+   relay peek zed:8878e5d3
+   relay peek qoder:e09937bb --diff --json
+   relay peek review-mopheus
+   ```
+2. **Inject Mid-Turn Correction (`relay steer`) — Hook-Capable Agents**:
+   - Queue a correction ONLY for high-confidence defects (hard bugs, broken security/path invariants, scope drift) — never interrupt workers for style nitpicks:
+   ```bash
+   # Target a feature worktree (automatically matches any hook running inside that worktree or its subdirectories)
+   relay steer .worktrees/fix-moc-1385 -m "Use /usr/sbin/ioreg instead of bare ioreg" --blocking
+
+   # Or target a specific hook-capable session
+   relay steer qoder:e09937bb -m "Add empty-PATH test assertion"
+   ```
+   - Inspect or cancel queued directives: `relay steer list [--all]` / `relay steer clear [target] [--id <prefix>]`.
+3. **Configure Worker Hook / Extension (One-Time Setup)**:
+   - Install idempotently for Claude Code (`~/.claude/settings.json`), Qoder CLI (`~/.qoder/settings.json`), and Pi (`~/.pi/agent/extensions/relay-steer.ts`) — preserves all existing settings/hooks; takes effect on the next session:
+     ```bash
+     relay steer hook-install --agent all          # or --agent claude / qoder / pi (--scope user|project)
+     relay steer hook-install --status             # inspect installation status
+     relay steer hook-install --agent all --uninstall
+     ```
+   - For manual setups (including `.claude/settings.local.json`), print a ready-to-paste config or TypeScript extension via `relay steer hook-snippet --agent claude|qoder|pi`.
+   - If `relay steer` is called while no hook/extension is installed for the target (checking user scope, project scope, and `.claude/settings.local.json`), it emits a warning on `stderr` so queued directives never sit silently unconsumed.
+   - Claude Code and Qoder CLI hooks run `relay steer drain --format hook-json --read-hook-stdin` (silent exit `0` when empty; emits `PostToolUse` `additionalContext` JSON when directives match). Pi's `relay-steer.ts` extension hooks `tool_result` and injects drained text via `pi.sendUserMessage(text, { deliverAs: "steer" })`.
+   - Set `RELAY_HOME=/path/to/dir` to isolate all Relay state (`links.json`, `history.jsonl`, `steer.jsonl`, `templates/`) from `~/.config/relay`.
+4. **Supervisor Prompt Template**:
+   - Built-in template `supervise` (`relay template show supervise`) encodes the high-signal supervision checklist.
+
+---
+
+## 4. Failure Triage & Guardrails
 
 - **ABSOLUTE RED LINE: Never Bypass Relay by Reading Private Session Files**:
   - **NEVER** use `tail ~/.qoder/projects/*.jsonl | jq`, `cat`, or direct SQLite queries to "peek" or "extract" counterpart outputs behind Relay's back.
@@ -181,9 +224,9 @@ If Qoder requested changes or found blocking bugs in Round 1:
 - **Exit code 1 (`Not logged in · Please run /login`)**:
   Run `qodercli login` to authorize the headless worker once.
 - **`signal: killed` / Execution Timed Out**:
-  If Qoder performs very deep multi-tool inspections exceeding the default 300s, override via:
+  If Qoder performs very deep multi-tool inspections exceeding the default 600s, override via:
   ```bash
-  RELAY_DELIVERY_TIMEOUT=600s relay send <link-name> --to qoder -m "<prompt>"
+  RELAY_DELIVERY_TIMEOUT=900s relay send <link-name> --to qoder -m "<prompt>"
   ```
 - **Permission Prompt Blocking**:
   `pkg/adapter/qoder` automatically passes `--dangerously-skip-permissions` so non-interactive tools (`go test`, `git diff`) run without stalling.
